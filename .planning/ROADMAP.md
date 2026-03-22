@@ -42,7 +42,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- FTS5: database table creation in init_db()
+- [x] 02-01-PLAN.md -- FTS5: database table creation in init_db()
 - [ ] 02-02-PLAN.md -- FTS5: sync in refresh_feed() + search_articles() function
 - [ ] 02-03-PLAN.md -- CLI: article search subcommand
 

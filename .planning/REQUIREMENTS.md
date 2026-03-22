@@ -32,7 +32,7 @@
 - [x] **STOR-01**: SQLite database with WAL mode enabled
 - [x] **STOR-02**: Feeds table with name, url, last_fetched, etag, modified
 - [x] **STOR-03**: Articles table with feed_id, title, link, guid, pubDate, content
-- [ ] **STOR-04**: FTS5 virtual table for full-text search
+- [x] **STOR-04**: FTS5 virtual table for full-text search
 
 ### CLI Interface
 
@@ -87,7 +87,7 @@
 | STOR-01 | Phase 1 | Complete |
 | STOR-02 | Phase 1 | Complete |
 | STOR-03 | Phase 1 | Complete |
-| STOR-04 | Phase 2 | Pending |
+| STOR-04 | Phase 2 | Complete |
 | CLI-01 | Phase 1 | Complete |
 | CLI-02 | Phase 1 | Complete |
 | CLI-03 | Phase 1 | Complete |
