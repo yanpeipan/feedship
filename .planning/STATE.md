@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 01-foundation-01-PLAN.md
-last_updated: "2026-03-22T16:30:05.908Z"
+stopped_at: Completed 01-foundation-02-PLAN.md
+last_updated: "2026-03-22T16:41:20.357Z"
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 ## Current Position
 
 Phase: 01 (foundation) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ Plan: 2 of 3
 
 *Updated after each plan completion*
 | Phase 01-foundation P01 | 1 min | 3 tasks | 3 files |
+| Phase 01-foundation P02 | 20 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -58,6 +59,9 @@ Recent decisions affecting current work:
 - Phase 1: Foundational feed subscription and storage (16 requirements)
 - Phase 2: Search and conditional fetching (4 requirements)
 - Phase 3: Web crawling (5 requirements)
+- [Phase 01-foundation]: GUID fallback chain: guid -> link -> SHA256(link:pubDate) ensures unique article IDs
+- [Phase 01-foundation]: Bozo detection via feed.bozo flag logs malformed XML but continues processing
+- [Phase 01-foundation]: INSERT OR IGNORE + UNIQUE(feed_id, guid) handles duplicate articles silently
 
 ### Pending Todos
 
@@ -73,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T16:30:05.904Z
-Stopped at: Completed 01-foundation-01-PLAN.md
+Last session: 2026-03-22T16:41:20.353Z
+Stopped at: Completed 01-foundation-02-PLAN.md
 Resume file: None

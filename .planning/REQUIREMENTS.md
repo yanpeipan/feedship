@@ -7,17 +7,17 @@
 
 ### Feed Management
 
-- [ ] **FEED-01**: User can add RSS/Atom feed by URL
-- [ ] **FEED-02**: User can list all subscribed feeds
-- [ ] **FEED-03**: User can remove a feed
-- [ ] **FEED-04**: User can refresh a feed to fetch new articles
+- [x] **FEED-01**: User can add RSS/Atom feed by URL
+- [x] **FEED-02**: User can list all subscribed feeds
+- [x] **FEED-03**: User can remove a feed
+- [x] **FEED-04**: User can refresh a feed to fetch new articles
 
 ### Content Fetching
 
-- [ ] **FETCH-01**: System can parse RSS 2.0 and Atom feeds
-- [ ] **FETCH-02**: System extracts title, link, guid, pubDate, description from articles
-- [ ] **FETCH-03**: System handles malformed XML gracefully (bozo detection)
-- [ ] **FETCH-04**: System stores articles in SQLite with UNIQUE(feed_id, guid) deduplication
+- [x] **FETCH-01**: System can parse RSS 2.0 and Atom feeds
+- [x] **FETCH-02**: System extracts title, link, guid, pubDate, description from articles
+- [x] **FETCH-03**: System handles malformed XML gracefully (bozo detection)
+- [x] **FETCH-04**: System stores articles in SQLite with UNIQUE(feed_id, guid) deduplication
 - [ ] **FETCH-05**: System supports conditional fetching (ETag/Last-Modified)
 
 ### Web Crawling
@@ -75,14 +75,14 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FEED-01 | Phase 1 | Pending |
-| FEED-02 | Phase 1 | Pending |
-| FEED-03 | Phase 1 | Pending |
-| FEED-04 | Phase 1 | Pending |
-| FETCH-01 | Phase 1 | Pending |
-| FETCH-02 | Phase 1 | Pending |
-| FETCH-03 | Phase 1 | Pending |
-| FETCH-04 | Phase 1 | Pending |
+| FEED-01 | Phase 1 | Complete |
+| FEED-02 | Phase 1 | Complete |
+| FEED-03 | Phase 1 | Complete |
+| FEED-04 | Phase 1 | Complete |
+| FETCH-01 | Phase 1 | Complete |
+| FETCH-02 | Phase 1 | Complete |
+| FETCH-03 | Phase 1 | Complete |
+| FETCH-04 | Phase 1 | Complete |
 | FETCH-05 | Phase 2 | Pending |
 | STOR-01 | Phase 1 | Complete |
 | STOR-02 | Phase 1 | Complete |
