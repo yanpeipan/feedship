@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: GitHub Monitoring
-status: Ready to plan
-stopped_at: Completed 05-02 plan (CLI changelog commands)
-last_updated: "2026-03-22T19:11:29.108Z"
+status: Ready to execute
+stopped_at: Completed 06-01 plan (unified display GitHub integration)
+last_updated: "2026-03-22T19:19:37.482Z"
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Phase 05 — changelog-detection-scraping
+**Current focus:** Phase 06 — unified-display-refresh-integration
 
 ## Current Position
 
-Phase: 6
-Plan: Not started
+Phase: 06 (unified-display-refresh-integration) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -44,6 +44,7 @@ Plan: Not started
 | Phase 04-github-api-client-releases-integration P04-02 | 1 min | 2 tasks | 2 files |
 | Phase 05-changelog-detection-scraping P05-01 | 48 | 2 tasks | 2 files |
 | Phase 05-changelog-detection-scraping P05-02 | 2 | 1 tasks | 1 files |
+| Phase 06-unified-display-refresh-integration P06-01 | 2 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Phase 4: GitHub API Client + Releases Integration (GH-01, GH-02, GH-03, GH-04)
 - Phase 5: Changelog Detection + Scraping (GH-05, GH-06)
 - Phase 6: Unified Display + Refresh Integration (GH-07, GH-08)
+- [Phase 06-unified-display-refresh-integration]: UNION ALL pattern for combining feed articles and GitHub releases in list_articles
+- [Phase 06-unified-display-refresh-integration]: LIKE search for GitHub releases (body not in FTS5) - avoids schema changes
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T19:09:52.312Z
-Stopped at: Completed 05-02 plan (CLI changelog commands)
+Last session: 2026-03-22T19:19:37.477Z
+Stopped at: Completed 06-01 plan (unified display GitHub integration)
 Resume file: None

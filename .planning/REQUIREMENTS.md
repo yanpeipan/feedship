@@ -13,7 +13,7 @@
 - [x] **GH-04**: System handles GitHub API rate limits gracefully (60 req/hour unauthenticated, 5000 req/hour with token)
 - [x] **GH-05**: System detects changelog files (CHANGELOG.md, HISTORY.md, etc.) via raw.githubusercontent.com
 - [x] **GH-06**: System scrapes changelog content and stores as article
-- [ ] **GH-07**: New releases and changelog changes are displayed in unified format
+- [x] **GH-07**: New releases and changelog changes are displayed in unified format
 - [ ] **GH-08**: System reuses existing refresh mechanism (fetch --all includes GitHub sources)
 
 ### Feed Management
@@ -65,7 +65,7 @@
 | GH-04 | Phase 4 | Complete |
 | GH-05 | Phase 5 | Complete |
 | GH-06 | Phase 5 | Complete |
-| GH-07 | Phase 6 | Pending |
+| GH-07 | Phase 6 | Complete |
 | GH-08 | Phase 6 | Pending |
 | FEED-01 | Phase 1 (v1.0) | Complete |
 | FEED-02 | Phase 1 (v1.0) | Complete |
