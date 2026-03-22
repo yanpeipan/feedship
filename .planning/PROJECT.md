@@ -15,7 +15,9 @@
 - SQLite 本地存储，FTS5 全文搜索
 - 7 个 Python 源文件，约 1,282 行代码
 
-**Current Milestone: v1.1**
+**Milestone: v1.1 (in progress)**
+- Phase 4 complete — GitHub API client + Releases integration (GH-01, GH-02, GH-03, GH-04)
+- Phase 5 pending — Changelog detection + scraping
 
 **Goal:** 用户可以监控 GitHub 仓库的 releases 和 changelog 变化
 
@@ -98,4 +100,4 @@
 
 ---
 
-*Last updated: 2026-03-23 after v1.1 milestone start*
+*Last updated: 2026-03-23 after Phase 4 complete*
