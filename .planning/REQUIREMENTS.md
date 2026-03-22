@@ -39,7 +39,7 @@
 - [x] **CLI-01**: `feed add <url>` - Add a new feed
 - [x] **CLI-02**: `feed list` - List all feeds
 - [x] **CLI-03**: `feed remove <id>` - Remove a feed
-- [ ] **CLI-04**: `crawl <url>` - Fetch and store content from URL
+- [x] **CLI-04**: `crawl <url>` - Fetch and store content from URL
 - [x] **CLI-05**: `article list` - List recent articles
 - [x] **CLI-06**: `article search <query>` - Search articles via FTS5
 - [x] **CLI-07**: `fetch --all` - Refresh all feeds
@@ -91,7 +91,7 @@
 | CLI-01 | Phase 1 | Complete |
 | CLI-02 | Phase 1 | Complete |
 | CLI-03 | Phase 1 | Complete |
-| CLI-04 | Phase 3 | Pending |
+| CLI-04 | Phase 3 | Complete |
 | CLI-05 | Phase 1 | Complete |
 | CLI-06 | Phase 2 | Complete |
 | CLI-07 | Phase 1 | Complete |
