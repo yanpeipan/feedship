@@ -350,6 +350,7 @@ def refresh_feed(feed_id: str) -> dict:
     entries, bozo_flag, bozo_exception = parse_feed(content, feed.url)
 
     new_articles = 0
+    new_article_ids = []  # Track new articles for FTS5 sync
     now = datetime.now(timezone.utc).isoformat()
 
     conn = get_connection()
@@ -389,8 +390,19 @@ def refresh_feed(feed_id: str) -> dict:
                 )
                 if cursor.rowcount > 0:
                     new_articles += 1
+                    new_article_ids.append(article_id)
             except Exception as e:
                 logger.warning("Failed to insert article %s: %s", article_id, e)
+
+        # Sync new articles to FTS5
+        for article_id in new_article_ids:
+            cursor.execute(
+                """
+                INSERT INTO articles_fts(rowid, title, description, content)
+                SELECT id, title, description, content FROM articles WHERE id = ?
+                """,
+                (article_id,),
+            )
 
         # Update feed metadata
         cursor.execute(
