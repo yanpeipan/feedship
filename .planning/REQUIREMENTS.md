@@ -18,7 +18,7 @@
 - [x] **FETCH-02**: System extracts title, link, guid, pubDate, description from articles
 - [x] **FETCH-03**: System handles malformed XML gracefully (bozo detection)
 - [x] **FETCH-04**: System stores articles in SQLite with UNIQUE(feed_id, guid) deduplication
-- [ ] **FETCH-05**: System supports conditional fetching (ETag/Last-Modified)
+- [x] **FETCH-05**: System supports conditional fetching (ETag/Last-Modified) — Implemented in Phase 1
 
 ### Web Crawling
 
@@ -83,7 +83,7 @@
 | FETCH-02 | Phase 1 | Complete |
 | FETCH-03 | Phase 1 | Complete |
 | FETCH-04 | Phase 1 | Complete |
-| FETCH-05 | Phase 2 | Pending |
+| FETCH-05 | Phase 1 | Complete |
 | STOR-01 | Phase 1 | Complete |
 | STOR-02 | Phase 1 | Complete |
 | STOR-03 | Phase 1 | Complete |
