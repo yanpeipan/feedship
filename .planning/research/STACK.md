@@ -1,7 +1,7 @@
 # Technology Stack: Personal Information System
 
 **Project Type:** CLI tool for RSS subscription and website crawling
-**Researched:** 2026-03-22
+**Researched:** 2026-03-22 (v1.0), 2026-03-23 (v1.1 additions)
 **Confidence:** HIGH
 
 ## Recommended Stack
@@ -143,6 +143,112 @@ if __name__ == '__main__':
 
 ---
 
+## v1.1 Addition: GitHub Monitoring
+
+### GitHub Releases API (httpx - already installed)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| httpx | 0.27.x | GitHub REST API calls | Already in use. Direct REST calls with Bearer token auth are straightforward. No new dependency needed. |
+
+**No new installation required** - use existing httpx.
+
+**Basic Usage:**
+```python
+import httpx
+
+headers = {
+    "Authorization": f"Bearer {github_token}",
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28"
+}
+
+# List releases
+response = httpx.get(
+    f"https://api.github.com/repos/{owner}/{repo}/releases",
+    headers=headers,
+    timeout=10.0
+)
+releases = response.json()
+
+# Get latest release
+response = httpx.get(
+    f"https://api.github.com/repos/{owner}/{repo}/releases/latest",
+    headers=headers
+)
+latest = response.json()
+# Fields: tag_name, name, body (markdown), published_at, html_url, author
+```
+
+**Rate Limits:** 60 req/hr unauthenticated, 5000 req/hr authenticated (with personal access token).
+
+**For unauthenticated (rate limited):**
+```python
+# Works without token, 60 req/hr limit
+response = httpx.get(
+    f"https://api.github.com/repos/{owner}/{repo}/releases/latest",
+    headers={"Accept": "application/vnd.github+json"}
+)
+```
+
+---
+
+### GitHub Changelog Scraping
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **scrapling** | 0.4.2 | Adaptive web scraping with JS support | Handles dynamic content, undetected scraping, flexible extraction. Already decided in PROJECT.md. Python >=3.10 required. |
+
+**Installation:**
+```bash
+pip install scrapling==0.4.2
+```
+
+**IMPORTANT:** scrapling 0.4.2 requires **Python >=3.10**. Verify your project minimum before adding.
+
+**Basic Usage:**
+```python
+from scrapling import PySpider
+
+# Initialize spider (auto-installs browser drivers if needed)
+spider = PySpider(auto_install_drivers=True)
+
+# Option 1: Raw content URL (no JS needed)
+url = f"https://raw.githubusercontent.com/{owner}/{repo}/main/CHANGELOG.md"
+page = spider.fetch(url)
+content = page.find("body").text if page.find("body") else page.text
+
+# Option 2: GitHub web view (JS rendering for rendered markdown)
+url = f"https://github.com/{owner}/{repo}/blob/main/CHANGELOG.md"
+page = spider.fetch(url)
+# Find rendered markdown body
+content = page.find(".markdown-body").text
+```
+
+**With fetchers extra (recommended for GitHub):**
+```bash
+pip install "scrapling[fetchers]"
+```
+
+```python
+from scrapling import PySpider
+
+spider = PySpider(auto_install_drivers=True)  # Uses Playwright under the hood
+
+# Fetch GitHub page with JS rendering
+page = spider.fetch(f"https://github.com/{owner}/{repo}/blob/main/CHANGELOG.md")
+content = page.find(".markdown-body").text
+```
+
+**Changelog file patterns to try:**
+- `CHANGELOG.md` (most common)
+- `CHANGELOG`
+- `HISTORY.md`
+- `CHANGES.md`
+- `RELEASES.md`
+
+---
+
 ## Project Structure Best Practices
 
 ```
@@ -154,7 +260,9 @@ my_rss_tool/
 │       ├── cli.py          # CLI commands (click)
 │       ├── db.py           # Database operations (sqlite3)
 │       ├── feeds.py        # Feed parsing (feedparser)
-│       └── scraper.py      # HTML scraping (httpx + bs4)
+│       ├── scraper.py      # HTML scraping (httpx + bs4)
+│       ├── github.py       # GitHub API + changelog (httpx + scrapling) [v1.1]
+│       └── monitors.py     # Monitor management [v1.1]
 ├── tests/
 │   └── ...
 ├── data/                   # SQLite database storage
@@ -162,7 +270,7 @@ my_rss_tool/
 └── README.md
 ```
 
-**pyproject.toml dependencies:**
+**pyproject.toml dependencies (v1.1):**
 ```toml
 [project]
 dependencies = [
@@ -171,7 +279,9 @@ dependencies = [
     "beautifulsoup4>=4.12.0",
     "lxml>=5.0.0",
     "click>=8.1.0",
+    "scrapling>=0.4.2",     # v1.1: Changelog scraping
 ]
+requires-python = ">=3.10"   # v1.1: Bumped from 3.6+ to 3.10+
 ```
 
 ---
@@ -187,6 +297,28 @@ dependencies = [
 | Database | sqlite3 | PostgreSQL, MySQL | Personal tool doesn't need server-based database. |
 | ORM | sqlite3 (built-in) | SQLAlchemy, Django ORM | Adds complexity. sqlite3 is sufficient for personal use cases. |
 | CLI Framework | click | typer | Both are good. click has larger ecosystem and more examples. typer is more Pythonic but adds dependency on fastapi utilities. |
+| GitHub API Client | httpx (direct) | PyGithub | httpx handles REST API fine with simple Bearer token auth. PyGithub adds unnecessary dependency. |
+| Changelog Scraping | scrapling | Playwright only | scrapling is adaptive wrapper around Playwright with easier API. Keep Playwright for complex cases. |
+
+---
+
+## What NOT to Use
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| PyGithub | Adds another dependency when httpx handles REST perfectly. Bearer token auth is 5 lines. | httpx directly |
+| Python <3.10 with scrapling | scrapling 0.4.2 requires 3.10+ | Upgrade Python or use Playwright for JS rendering instead |
+| Unauthenticated GitHub API in production | 60 req/hr limit is restrictive | Use personal access token for 5000 req/hr |
+
+---
+
+## Version Compatibility
+
+| Package | Compatible With | Notes |
+|---------|-----------------|-------|
+| scrapling 0.4.2 | Python >=3.10 | Hard requirement. Bumps project minimum from ~3.6 to 3.10. |
+| httpx 0.27.x | Python >=3.8 | Already in use. Compatible with scrapling. |
+| feedparser 6.0.x | Python >=3.6 | Existing. Works with Python 3.10+. |
 
 ---
 
@@ -201,4 +333,7 @@ dependencies = [
 - [Click Documentation](https://click.palletsprojects.com/en/8.1.x/) (HIGH confidence)
 - [Typer Documentation](https://typer.tiangolo.com/) (HIGH confidence)
 - [argparse Documentation](https://docs.python.org/3/library/argparse.html) (HIGH confidence)
-- [PyPI feedparser](https://pypi.org/project/feedparser/) (HIGH confidence)
+- [PyPI: scrapling](https://pypi.org/project/scrapling/) — Version 0.4.2, Python >=3.10 (HIGH confidence)
+- [PyPI: PyGithub](https://pypi.org/project/PyGithub/) — Version 2.8.1, Python >=3.8 (HIGH confidence)
+- [GitHub REST API: Releases](https://docs.github.com/en/rest/releases/releases) — Endpoint specs, auth headers (HIGH confidence)
+- [GitHub REST API: Contents](https://docs.github.com/en/rest/repos/contents) — File content endpoint (HIGH confidence)

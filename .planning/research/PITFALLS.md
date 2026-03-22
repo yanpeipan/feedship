@@ -495,3 +495,305 @@ Nuisance issues that reduce quality but are recoverable.
 | SQLite performance | HIGH | Based on official SQLite documentation |
 | CLI usability | MEDIUM-HIGH | Based on POSIX standards and clig.dev guidelines |
 | Deduplication | MEDIUM | Well-understood patterns; implementation nuances vary |
+
+---
+
+# Domain Pitfalls: GitHub API Monitoring and Scrapling (v1.1)
+
+**Project:** Adding GitHub Releases and Changelog monitoring to existing CLI app
+**Researched:** 2026-03-23
+**Confidence:** MEDIUM
+
+## Critical Pitfalls
+
+Mistakes that cause rewrites or major issues specific to adding GitHub monitoring features.
+
+### Pitfall 21: GitHub API Unauthenticated Rate Limit Exhaustion
+
+**What goes wrong:**
+Script monitors multiple GitHub repositories but hits the 60 requests/hour limit within minutes. After limit is hit, GitHub returns `403 Forbidden` with `rate limit exceeded` message. All subsequent monitoring fails silently or with errors.
+
+**Why it happens:**
+The project already has a 2s rate limit for general web scraping, but GitHub API is far more restrictive. Unauthenticated requests are limited to 60/hour per IP. Monitoring even 10 repositories with a single check per repository exhausts this instantly.
+
+**Consequences:**
+- GitHub monitoring completely stops working
+- User doesn't know monitoring failed
+- Confusing errors from 403 responses
+
+**Prevention:**
+1. **Use authentication** — Personal Access Token (PAT) raises limit to 5,000 requests/hour
+2. **Implement token rotation** if monitoring many repos
+3. **Cache aggressively** — Store last response, only fetch if >1 hour since last check
+4. **Check rate limit headers** before each request: `X-RateLimit-Remaining` and `X-RateLimit-Reset`
+
+**Detection:**
+- Check `X-RateLimit-Remaining` header before each request
+- Log warning when remaining < 10
+- Handle 403 responses with specific "rate limit exceeded" message
+
+**Phase to address:**
+**Phase 1 (GitHub API integration)** — Token authentication and rate limit handling must be built into initial implementation, not bolted on later.
+
+---
+
+### Pitfall 22: Scrapling Playwright Browser Installation Failure
+
+**What goes wrong:**
+`pip install "scrapling[fetchers]"` succeeds but `scrapling install` fails due to missing system dependencies. Playwright browsers (Chromium, Firefox, WebKit) do not install. The changelog scraping feature fails at runtime with `BrowserExecutionError` or similar.
+
+**Why it happens:**
+Scrapling with fetchers requires Playwright's browser binaries. `playwright install` downloads several hundred MB of browser executables and requires system-level dependencies (fonts, libraries, SSL certs on Linux). macOS may require additional Xcode components.
+
+**Consequences:**
+- Feature completely broken on fresh install
+- Users report "scraping doesn't work"
+- CI/CD pipelines fail
+
+**Prevention:**
+1. **Document browser installation** as a required setup step
+2. **Test installation** in CI/development environment
+3. **Provide fallback** — if Playwright fails, use simple HTTP + BeautifulSoup for changelog fetching
+4. **Verify installation works** before feature development continues
+
+**Detection:**
+- `scrapling install` command fails with dependency errors
+- Runtime `BrowserExecutionError` when trying to scrape
+
+**Phase to address:**
+**Phase 1 (Setup/dependencies)** — Browser installation must be verified before Phase 2 (feature development) begins.
+
+---
+
+### Pitfall 23: Changelog File Not Found / Different Filenames
+
+**What goes wrong:**
+System expects `CHANGELOG.md` but repository uses `CHANGES.md`, `HISTORY.md`, `CHANGELOG.markdown`, or has no changelog at all. Scraping returns empty or 404. User sees no updates for repos that do have changelogs under different names.
+
+**Why it happens:**
+There is no standard changelog filename or format. GitHub also auto-generates a "Recent releases" page for repositories that lack a changelog file. Different projects use different conventions.
+
+**Consequences:**
+- User thinks feature is broken for specific repos
+- Missed changelogs from popular projects
+- Confusion about which repos have changelogs
+
+**Prevention:**
+1. **Check multiple common filenames**: `CHANGELOG.md`, `CHANGELOG`, `CHANGES.md`, `HISTORY.md`, `CHANGELOG.markdown`
+2. **Check GitHub releases API** as fallback — release notes are often better structured
+3. **Detect absence gracefully** — if no changelog found, mark as "no changelog" not "error"
+
+**Detection:**
+- Successful API response but empty content
+- 404 on expected changelog path
+- User reports "GitHub repo X has updates but nothing shows"
+
+**Phase to address:**
+**Phase 1 (GitHub API integration)** — File detection logic belongs in initial implementation.
+
+---
+
+### Pitfall 24: Changelog Parsing Produces Garbage Output
+
+**What goes wrong:**
+CHANGELOG.md is fetched but content is unstructured markdown. Release entries are concatenated, dates missing, version numbers not parseable. User sees raw markdown instead of structured "v2.0.0 - 2026-01-15 - Added X, Fixed Y".
+
+**Why it happens:**
+Changelogs are written for humans, not machines. Formats vary wildly:
+- Semantic changelog (Keep a Changelog standard)
+- Auto-generated from git commits
+- Custom formats with arbitrary structures
+- Some are just "v1.0, v1.1, v1.2" bullet points
+
+**Consequences:**
+- Parsed output is unreadable
+- User can't understand what changed between versions
+- Feature appears broken despite data being fetched
+
+**Prevention:**
+1. **Parse for version headers** (`## [v1.2.3]` or `## Version 1.2.3`) as primary signal
+2. **Extract release date** from header line or ISO format near version
+3. **Limit parsing scope** — show latest 3-5 releases only
+4. **Graceful degradation** — if parsing fails, show raw content with warning
+
+**Detection:**
+- Parsed output has no clear version boundaries
+- Release dates all showing same date or missing
+- Content appears truncated or jumbled
+
+**Phase to address:**
+**Phase 1 (GitHub API integration)** — Parsing strategy must be designed upfront, not improvised.
+
+---
+
+### Pitfall 25: Scrapling Adaptive Parser Timeout on Large Changelogs
+
+**What goes wrong:**
+Repository has a massive CHANGELOG.md (10,000+ lines). Scrapling's adaptive parsing takes 30+ seconds or times out. User waits, then sees timeout error. Meanwhile the 2s rate limit on other sites has already kicked in.
+
+**Why it happens:**
+Scrapling's adaptive parsing runs JavaScript and analyzes page structure. Large markdown files served as HTML can trigger expensive parsing. Default timeout may be too short for large files.
+
+**Consequences:**
+- User experiences long wait times
+- Timeout errors for legitimate large changelogs
+- Resource exhaustion on repeated failures
+
+**Prevention:**
+1. **For raw markdown files** — use simple HTTP fetch, not Scrapling (no JS needed for .md files)
+2. **Set appropriate timeouts** — markdown files need less time than SPAs
+3. **Fetch only relevant sections** if possible
+4. **Cache parsed results** — avoid re-parsing same changelog
+
+**Detection:**
+- Single request takes >10 seconds
+- `TimeoutError` in logs
+- Memory usage spikes during parsing
+
+**Phase to address:**
+**Phase 2 (Scraping integration)** — Timeout and fetch strategy needs testing before release.
+
+---
+
+### Pitfall 26: Mixing GitHub API and HTML Scraping for Same Repo
+
+**What goes wrong:**
+System fetches releases via GitHub API (structured JSON) but changelog via scraping (HTML). These show different information. API shows formal releases, scraping shows in-development changelog. User confused why "v2.0" appears in API but "v1.9.9" is latest in scraper.
+
+**Why it happens:**
+GitHub releases (API) and CHANGELOG.md content are often out of sync. Releases are created manually when version ships. CHANGELOG.md is updated throughout development. These represent different timelines.
+
+**Consequences:**
+- Same version appears in both sources with different content
+- User reports "these numbers don't match"
+- Confusion about which source to trust
+
+**Prevention:**
+1. **Choose one source** — prefer GitHub Releases API for release tracking
+2. **Use changelog for change details** — releases for version numbers/dates
+3. **Clearly label** — "Release v2.0.0 (API)" vs "Changelog entry for v2.0.0 (scraped)"
+4. **Consider user's actual need** — if they want releases, use API only; if they want development progress, use changelog only
+
+**Detection:**
+- Same version appears in both sources with different content
+- User reports "these numbers don't match"
+
+**Phase to address:**
+**Phase 1 (Requirements validation)** — Source strategy must be decided before implementation.
+
+---
+
+## Technical Debt Patterns
+
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Use unauthenticated GitHub API | No token setup needed | 60 req/hour limit, easily exhausted | Never for production monitoring |
+| Skip changelog parsing, show raw | Fast to implement | Poor UX, hard to read | MVP only, must improve before release |
+| Single timeout for all requests | Simple code | Timeouts on fast endpoints, failures on slow | Never - configure per-request |
+| No caching of GitHub responses | Always fresh data | Rate limit exhaustion, slow response | Never - minimum 1 hour cache |
+
+---
+
+## Integration Gotchas
+
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| GitHub API | Ignoring `X-RateLimit-Remaining` header | Check header before each request, pause if < 10 |
+| GitHub API | Assuming 200 always means success | Handle `304 Not Modified` (conditional request success) |
+| GitHub API | Not handling `403` gracefully | Retry with exponential backoff after reset time |
+| Scrapling | Using Playwright for markdown files | Direct HTTP fetch is faster and sufficient |
+| Scrapling | Not running `playwright install` | Document as required setup step; check in CI |
+| Changelog | Expecting standard format | Try multiple parsers, fall back to raw display |
+
+---
+
+## Performance Traps
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| No GitHub response caching | Rapid rate limit exhaustion | Cache with 1-hour minimum TTL | At >5 monitored repos |
+| Scrapling for every check | 30+ second delays on large changelogs | Use direct HTTP for .md files | Changelog > 1000 lines |
+| Concurrent API requests | 100 concurrent limit exceeded | Sequential requests with delay | At >50 monitored repos |
+| Parsing full changelog history | Memory bloat | Limit to latest 5 releases | Repository with 100+ releases |
+
+---
+
+## Security Mistakes
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Hardcoding GitHub PAT in source | Token exposed in repo history | Use environment variable `GITHUB_TOKEN` |
+| No token validation | Invalid/missing token causes silent failures | Verify token works with `GET /user` on startup |
+| Storing GitHub token in plain text config | Token theft if config file compromised | Encrypt config or use OS keychain |
+
+---
+
+## UX Pitfalls
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Silent rate limit exhaustion | User doesn't know monitoring stopped | Show warning on CLI: "GitHub rate limit reached, retry at [time]" |
+| Generic error on changelog not found | User thinks feature broken | Friendly message: "No CHANGELOG.md found for [repo]" |
+| Mixing release sources without explanation | User confused by conflicting version numbers | Show source badge: "(API)" vs "(changelog)" |
+| Long wait with no progress indication | User thinks app frozen | Show "Checking [repo]..." messages |
+
+---
+
+## "Looks Done But Isn't" Checklist
+
+- [ ] **GitHub API:** Rate limit handling verified with 10+ repos checked - not just single repo test
+- [ ] **GitHub API:** Token authentication verified - unauthenticated path fully tested with error handling
+- [ ] **Scrapling:** Browser installation tested on clean system - not just existing Playwright installation
+- [ ] **Changelog parsing:** Tested with 5+ real-world changelogs of varying formats - not just one ideal case
+- [ ] **Changelog parsing:** Graceful degradation verified - raw output shown when parsing fails
+- [ ] **Error messages:** User-friendly messages for all failure modes - not stack traces
+- [ ] **Caching:** Verified that repeated checks don't exhaust rate limit - check after 1 hour
+
+---
+
+## Recovery Strategies
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Rate limit exhausted | LOW | Wait for reset (check `X-RateLimit-Reset` header for timestamp), implement caching |
+| Browser installation failure | MEDIUM | Run `playwright install --force`, install system dependencies |
+| Changelog not found | LOW | User adds correct filename, system detects automatically next run |
+| Parsing produces garbage | MEDIUM | Switch to raw display mode, improve parsing regex patterns |
+
+---
+
+## Pitfall-to-Phase Mapping (v1.1 GitHub Monitoring)
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| GitHub API rate limit exhaustion | Phase 1: GitHub API base | Test with 10 repos, verify < 60 requests made |
+| Playwright browser installation | Phase 1: Setup/dependencies | `scrapling install` succeeds on clean install |
+| Changelog file not found | Phase 1: GitHub API integration | Test with repos using non-standard filenames |
+| Changelog parsing garbage | Phase 1: Content parsing | Visual verification of parsed output |
+| Scrapling timeout on large files | Phase 2: Scraping integration | Test with largest expected changelog |
+| Mixed source confusion | Phase 1: Requirements | Document which source for which data |
+
+---
+
+## Sources
+
+- [GitHub REST API Rate Limits](https://docs.github.com/en/rest/overview/rate-limits-for-the-rest-api) (HIGH confidence - official docs)
+- [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) (HIGH confidence - industry standard)
+- [Scrapling PyPI](https://pypi.org/project/scrapling/) (HIGH confidence - official package page)
+- [Playwright PyPI](https://pypi.org/project/playwright/) (HIGH confidence - official package page)
+
+---
+
+## Confidence Assessment (v1.1)
+
+| Area | Level | Reason |
+|------|-------|--------|
+| GitHub API pitfalls | HIGH | Based on official GitHub documentation with specific rate limit numbers |
+| Scrapling/Playwright issues | MEDIUM | Based on official package docs, known installation complexity |
+| Changelog parsing | MEDIUM | Keep a Changelog standard is authoritative, but real-world formats vary widely |
+| Performance traps | MEDIUM | General patterns apply, project-specific tuning needed |
+
+---
+
+*Pitfalls research for: GitHub monitoring and changelog scraping in Python CLI app*
+*Researched: 2026-03-23*

@@ -1,569 +1,346 @@
-# Architecture Research: Personal Information System
+# Architecture Research: GitHub Monitoring Integration
 
-**Domain:** Feed aggregator with web crawling and SQLite storage
-**Researched:** 2026-03-22
-**Confidence:** MEDIUM (limited external verification due to search tool issues)
+**Domain:** CLI personal资讯系统 - GitHub releases and changelog monitoring
+**Researched:** 2026-03-23
+**Confidence:** HIGH
 
 ## Executive Summary
 
-A personal information system that subscribes to RSS feeds, crawls websites, and stores data in SQLite requires a modular architecture with clear component boundaries. The system needs a fetcher layer for HTTP operations, a parser layer for feed normalization, a storage layer for SQLite persistence, and a CLI layer for user interaction.
+GitHub releases and changelog monitoring integrates cleanly with the existing architecture by treating GitHub repos as a special feed type. The existing `feeds` and `articles` tables can be reused with a `feed_type` column to distinguish between RSS, crawled pages, and GitHub sources. GitHub API provides structured release data (tag_name, body, published_at) that maps directly to article fields. Scrapling handles changelog HTML fetching with its adaptive parsing capabilities.
 
-The recommended architecture follows a pipeline pattern: sources (feeds/URLs) -> fetcher -> parser -> storage -> CLI/API. Each component has a single responsibility and communicates through well-defined interfaces.
+## Integration with Existing Architecture
 
-## Component Architecture
-
-### High-Level Structure
+### System Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        CLI Layer                           │
-│  (add, remove, list, fetch, crawl, search, export, stats)  │
+│                        CLI Layer                             │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
+│  │ feed add │  │  crawl   │  │  fetch   │  │ article  │     │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘     │
+│       │             │             │             │            │
+├───────┴─────────────┴─────────────┴─────────────┴────────────┤
+│                    Service Layer                              │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
+│  │ feeds.py │  │ crawl.py │  │ github.py│  │changelog │     │
+│  │ (exist) │  │ (exist)  │  │  (NEW)   │  │  .py NEW │     │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘     │
+│       │             │             │             │            │
+├───────┴─────────────┴─────────────┴─────────────┴────────────┤
+│                    Data Layer                                 │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────┐  ┌─────────────────────────────┐  │
+│  │    feeds table      │  │      articles table          │  │
+│  │  (extend with type) │  │   (reusable for releases)     │  │
+│  └─────────────────────┘  └─────────────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │              FTS5 articles_fts                       │    │
+│  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Service Layer                          │
-│  (FeedService, CrawlService, ArticleService, SearchService) │
-└─────────────────────────────────────────────────────────────┘
-                              │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-┌──────────────────┐ ┌──────────────┐ ┌────────────────┐
-│    Fetcher       │ │   Parser     │ │    Storage     │
-│  (HTTP Client)   │ │ (Feed+HTML)  │ │   (SQLite)     │
-└──────────────────┘ └──────────────┘ └────────────────┘
 ```
 
 ### Component Responsibilities
 
-| Component | Responsibility | Public API |
-|-----------|---------------|------------|
-| **Fetcher** | HTTP requests, rate limiting, robots.txt compliance | `fetch(url): Promise<Response>` |
-| **FeedParser** | Normalize RSS/Atom/RDF to unified format | `parse(xml): Promise<NormalizedFeed>` |
-| **HtmlParser** | Extract content from HTML pages | `parse(html, url): Promise<ExtractedContent>` |
-| **Storage** | SQLite operations, migrations, queries | `save(type, data)`, `query(sql, params)` |
-| **FeedService** | Manage feed lifecycle, scheduling | `addFeed()`, `refreshFeed()`, `removeFeed()` |
-| **CrawlService** | Website crawling, link extraction | `crawl(url, depth)`, `discoverLinks()` |
-| **ArticleService** | Article CRUD, deduplication | `saveArticle()`, `getArticles()`, `markRead()` |
-| **SearchService** | FTS5 full-text search | `search(query)`, `indexArticle()` |
-| **CLI** | User interaction, argument parsing | Commands and flags |
-
-### Data Flow
-
-```
-RSS URL or Crawl Target
-         │
-         ▼
-┌─────────────────┐
-│     Fetcher     │ ──► Rate limiter, robots.txt
-└─────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│     Parser      │ ──► Feed (RSS/Atom) OR HtmlParser
-└─────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│    Storage     │ ──► SQLite with FTS5
-└─────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│   CLI/Output   │
-└─────────────────┘
-```
-
-## Recommended Architecture Patterns
-
-### 1. Repository Pattern for Storage
-
-Abstracts SQLite behind a repository interface, enabling future database changes.
-
-```typescript
-interface ArticleRepository {
-  save(article: Article): Promise<string>;
-  findById(id: string): Promise<Article | null>;
-  findByFeedId(feedId: string, limit?: number): Promise<Article[]>;
-  search(query: string): Promise<Article[]>;
-  markAsRead(id: string): Promise<void>;
-}
-
-class SQLiteArticleRepository implements ArticleRepository {
-  constructor(private db: Database) {}
-  // SQLite-specific implementation
-}
-```
-
-### 2. Service Layer Pattern
-
-Business logic encapsulated in services, keeping components loosely coupled.
-
-```typescript
-class FeedService {
-  constructor(
-    private fetcher: Fetcher,
-    private feedParser: FeedParser,
-    private articleRepo: ArticleRepository,
-    private feedRepo: FeedRepository
-  ) {}
-
-  async refreshFeed(feedId: string): Promise<RefreshResult> {
-    const feed = await this.feedRepo.findById(feedId);
-    const response = await this.fetcher.fetch(feed.url);
-    const parsed = await this.feedParser.parse(response.body);
-    // ... business logic
-  }
-}
-```
-
-### 3. Event-Driven Updates
-
-Components emit events that other components can subscribe to.
-
-```typescript
-// Emitter
-class FeedService {
-  private emitter = new EventEmitter();
-
-  onArticleSaved(handler: (article: Article) => void) {
-    this.emitter.on('article:saved', handler);
-  }
-
-  private async saveArticle(article: Article) {
-    await this.articleRepo.save(article);
-    this.emitter.emit('article:saved', article);
-  }
-}
-```
-
-### 4. Scheduler with node-cron
-
-```typescript
-import cron from 'node-cron';
-
-class Scheduler {
-  private tasks: Map<string, cron.ScheduledTask> = new Map();
-
-  scheduleFeedRefresh(feedId: string, expression: string, handler: () => Promise<void>) {
-    const task = cron.schedule(expression, handler, {
-      scheduled: true,
-      timezone: 'UTC'
-    });
-    this.tasks.set(feedId, task);
-  }
-
-  cancelFeedRefresh(feedId: string) {
-    this.tasks.get(feedId)?.stop();
-    this.tasks.delete(feedId);
-  }
-}
-```
-
-## Database Schema Design
-
-### Core Tables
-
-```sql
--- Feeds table: stores RSS/Atom feed subscriptions
-CREATE TABLE feeds (
-  id TEXT PRIMARY KEY,
-  url TEXT NOT NULL UNIQUE,
-  title TEXT,
-  description TEXT,
-  site_url TEXT,
-  feed_url TEXT,
-  etag TEXT,
-  last_modified TEXT,
-  last_fetched_at TEXT,
-  fetch_interval TEXT DEFAULT '1 hour',
-  is_active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
--- Articles table: stores parsed articles/items from feeds
-CREATE TABLE articles (
-  id TEXT PRIMARY KEY,
-  feed_id TEXT NOT NULL REFERENCES feeds(id) ON DELETE CASCADE,
-  guid TEXT NOT NULL,
-  url TEXT NOT NULL,
-  title TEXT,
-  description TEXT,
-  content TEXT,
-  author TEXT,
-  published_at TEXT,
-  is_read INTEGER DEFAULT 0,
-  is_bookmarked INTEGER DEFAULT 0,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(feed_id, guid)
-);
-
--- Authors table: normalize author information
-CREATE TABLE authors (
-  id TEXT PRIMARY KEY,
-  name TEXT,
-  email TEXT,
-  url TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
--- Article-Author junction table
-CREATE TABLE article_authors (
-  article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
-  author_id TEXT NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
-  PRIMARY KEY (article_id, author_id)
-);
-
--- Categories/tags for articles
-CREATE TABLE categories (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE
-);
-
--- Article-Category junction table
-CREATE TABLE article_categories (
-  article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
-  category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-  PRIMARY KEY (article_id, category_id)
-);
-
--- Crawl history for website crawling
-CREATE TABLE crawl_history (
-  id TEXT PRIMARY KEY,
-  url TEXT NOT NULL,
-  status TEXT NOT NULL,
-  status_code INTEGER,
-  error_message TEXT,
-  pages_visited INTEGER DEFAULT 0,
-  links_found INTEGER DEFAULT 0,
-  started_at TEXT NOT NULL,
-  completed_at TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
--- Discovered URLs from crawling
-CREATE TABLE discovered_urls (
-  id TEXT PRIMARY KEY,
-  crawl_id TEXT NOT NULL REFERENCES crawl_history(id) ON DELETE CASCADE,
-  url TEXT NOT NULL,
-  source_url TEXT,
-  is_processed INTEGER DEFAULT 0,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
--- Indexes for common queries
-CREATE INDEX idx_articles_feed_id ON articles(feed_id);
-CREATE INDEX idx_articles_published_at ON articles(published_at);
-CREATE INDEX idx_articles_is_read ON articles(is_read);
-CREATE INDEX idx_discovered_urls_crawl_id ON discovered_urls(crawl_id);
-CREATE INDEX idx_discovered_urls_is_processed ON discovered_urls(is_processed);
-```
-
-### Full-Text Search (FTS5)
-
-```sql
--- FTS5 virtual table for article search
-CREATE VIRTUAL TABLE articles_fts USING fts5(
-  title,
-  description,
-  content,
-  author,
-  content='articles',
-  content_rowid='rowid'
-);
-
--- Triggers to keep FTS in sync
-CREATE TRIGGER articles_fts_insert AFTER INSERT ON articles BEGIN
-  INSERT INTO articles_fts(rowid, title, description, content, author)
-  VALUES (NEW.rowid, NEW.title, NEW.description, NEW.content, NEW.author);
-END;
-
-CREATE TRIGGER articles_fts_delete AFTER DELETE ON articles BEGIN
-  INSERT INTO articles_fts(articles_fts, rowid, title, description, content, author)
-  VALUES('delete', OLD.rowid, OLD.title, OLD.description, OLD.content, OLD.author);
-END;
-
-CREATE TRIGGER articles_fts_update AFTER UPDATE ON articles BEGIN
-  INSERT INTO articles_fts(articles_fts, rowid, title, description, content, author)
-  VALUES('delete', OLD.rowid, OLD.title, OLD.description, OLD.content, OLD.author);
-  INSERT INTO articles_fts(rowid, title, description, content, author)
-  VALUES (NEW.rowid, NEW.title, NEW.description, NEW.content, NEW.author);
-END;
-```
-
-### SQLite Configuration Recommendations
-
-```sql
--- Enable WAL mode for better concurrency
-PRAGMA journal_mode = WAL;
-
--- Enable foreign keys
-PRAGMA foreign_keys = ON;
-
--- Synchronous mode (NORMAL is good balance of safety and speed)
-PRAGMA synchronous = NORMAL;
-
--- Cache size (negative = KB, here ~64MB)
-PRAGMA cache_size = -64000;
-
--- Memory-mapped I/O (256MB)
-PRAGMA mmap_size = 268435456;
-
--- Temp store in memory
-PRAGMA temp_store = MEMORY;
-```
-
-## CLI Command Design
-
-### Command Structure
-
-```
-info-system <command> [options]
-
-Commands:
-  feed add <url>           Add a new RSS/Atom feed
-  feed list                List all subscribed feeds
-  feed remove <id>         Remove a feed
-  feed refresh [id]        Refresh one or all feeds
-  feed status <id>         Show feed details and status
-
-  crawl <url> [options]    Crawl a website
-    --depth <n>            Crawl depth (default: 2)
-    --concurrency <n>      Parallel requests (default: 3)
-
-  article list             List recent articles
-    --feed <id>            Filter by feed
-    --unread               Show only unread
-    --limit <n>            Limit results (default: 20)
-  article read <id>        Mark article as read
-  article bookmark <id>     Bookmark an article
-  article search <query>   Search articles
-
-  export [format]          Export data (json, csv, html)
-    --feed <id>            Export specific feed
-    --from <date>          Start date
-    --to <date>            End date
-
-  stats                    Show system statistics
-
-Global options:
-  --format <fmt>           Output format (text, json, csv)
-  --verbose                Enable verbose logging
-  --quiet                  Suppress non-error output
-  --help                   Show help
-  --version                Show version
-```
-
-### Usage Examples
-
-```bash
-# Add a feed
-info-system feed add https://example.com/feed.xml
-info-system feed add https://news.ycombinator.com/rss
-
-# List and manage feeds
-info-system feed list
-info-system feed refresh
-info-system feed refresh abc123
-
-# Crawl a website
-info-system crawl https://example.com --depth 3 --concurrency 5
-
-# Read articles
-info-system article list --unread --limit 50
-info-system article list --feed abc123
-info-system article search "typescript"
-
-# Export data
-info-system export json --from 2026-01-01 > articles.json
-info-system export csv --feed abc123 > feed.csv
-
-# Stats
-info-system stats
-```
-
-## Error Handling Strategy
-
-### Error Categories
-
-| Category | Examples | Handling Strategy |
-|----------|----------|-------------------|
-| **Network** | Timeout, DNS failure, Connection reset | Retry with exponential backoff |
-| **HTTP** | 404, 500, 403, Rate limited | Log, skip, notify user |
-| **Parse** | Malformed XML, Invalid HTML | Log to failed_parses table, skip |
-| **Storage** | Constraint violation, Disk full | Rollback, alert user |
-| **Validation** | Invalid URL, Missing fields | Fail fast with clear message |
-
-### Retry Logic
-
-```typescript
-class RetryHandler {
-  async withRetry<T>(
-    operation: () => Promise<T>,
-    options: {
-      maxAttempts?: number;
-      baseDelay?: number;
-      maxDelay?: number;
-      shouldRetry?: (error: Error) => boolean;
-    } = {}
-  ): Promise<T> {
-    const {
-      maxAttempts = 3,
-      baseDelay = 1000,
-      maxDelay = 30000,
-      shouldRetry = this.defaultShouldRetry
-    } = options;
-
-    let lastError: Error;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        return await operation();
-      } catch (error) {
-        lastError = error as Error;
-        if (attempt === maxAttempts || !shouldRetry(lastError)) {
-          throw error;
-        }
-        const delay = Math.min(baseDelay * Math.pow(2, attempt - 1), maxDelay);
-        await this.sleep(delay);
-      }
-    }
-    throw lastError!;
-  }
-
-  private defaultShouldRetry(error: Error): boolean {
-    if (error instanceof NetworkError) return true;
-    if (error instanceof HTTPError && error.statusCode >= 500) return true;
-    return false;
-  }
-}
-```
-
-### Logging Architecture
-
-```typescript
-import pino from 'pino';
-
-// Structured logging with levels
-const logger = pino({
-  level: process.env.LOG_LEVEL || 'info',
-  transport: process.env.NODE_ENV === 'development'
-    ? { target: 'pino-pretty' }
-    : undefined,
-  base: { pid: process.pid },
-  timestamp: pino.stdTimeFunctions.isoTime
-});
-
-// Usage
-logger.info({ feedId: 'abc123' }, 'Refreshing feed');
-logger.warn({ url: 'https://...' }, 'Feed returned 404, skipping');
-logger.error({ error, feedId: 'abc123' }, 'Failed to refresh feed');
-```
-
-### Error Storage
-
-```sql
-CREATE TABLE errors (
-  id TEXT PRIMARY KEY,
-  operation TEXT NOT NULL,
-  entity_type TEXT,
-  entity_id TEXT,
-  error_code TEXT,
-  error_message TEXT,
-  stack_trace TEXT,
-  context TEXT,  -- JSON for additional context
-  occurred_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  resolved_at TEXT,
-  resolved_by TEXT
-);
-
-CREATE INDEX idx_errors_occurred_at ON errors(occurred_at);
-CREATE INDEX idx_errors_resolved ON errors(resolved_at) WHERE resolved_at IS NULL;
-```
-
-## Scalability Considerations
-
-| Scale | Feeds | Articles | Approach |
-|-------|-------|----------|----------|
-| **Personal** | < 100 | < 100K | Single SQLite file, no special optimization |
-| **Power user** | < 500 | < 1M | FTS5 indexes, WAL mode, connection pooling |
-| **Multi-user** | N/A | N/A | Consider separate database per user, or PostgreSQL migration |
-
-### Performance Optimizations
-
-1. **Batch inserts** for article imports
-2. **Partial indexes** for common queries (unread articles per feed)
-3. **Async writes** with write-ahead logging
-4. **Connection pooling** for concurrent requests
-
-## Technology Recommendations
-
-| Layer | Library | Rationale |
-|-------|---------|-----------|
-| **HTTP Fetcher** | `undici` | Built-in, fast, modern HTTP client with connection pooling |
-| **Feed Parser** | `feedparser` | Handles RSS/Atom/RDF, namespace extensions |
-| **HTML Parser** | `cheerio` | Fast jQuery-like DOM parsing |
-| **SQLite** | `better-sqlite3` | Synchronous, fast, WAL support |
-| **CLI** | `meow` | Lightweight, zero dependencies |
-| **Logging** | `pino` | Structured JSON logging, fast |
-| **Scheduling** | `node-cron` | Familiar cron syntax |
-| **ID Generation** | `nanoid` | Compact, URL-safe IDs |
-
-## Project Structure
+| Component | Responsibility | Implementation |
+|-----------|----------------|----------------|
+| `feeds.py` (existing) | Generic feed CRUD | Extend with feed_type detection |
+| `crawl.py` (existing) | URL content extraction | Unchanged for GitHub integration |
+| `github.py` (NEW) | GitHub API releases | httpx client with Bearer auth |
+| `changelog.py` (NEW) | CHANGELOG.md fetching | Scrapling adaptive parser |
+| `db.py` (existing) | SQLite with WAL | Add feed_type column migration |
+
+## Recommended Project Structure
 
 ```
 src/
-├── index.ts              # CLI entry point
-├── commands/             # CLI command handlers
-│   ├── feed.ts
-│   ├── article.ts
-│   ├── crawl.ts
-│   ├── export.ts
-│   └── stats.ts
-├── services/             # Business logic
-│   ├── FeedService.ts
-│   ├── CrawlService.ts
-│   ├── ArticleService.ts
-│   └── SearchService.ts
-├── fetcher/              # HTTP operations
-│   ├── Fetcher.ts
-│   ├── robotsTxt.ts
-│   └── rateLimiter.ts
-├── parser/               # Parsing logic
-│   ├── FeedParser.ts
-│   ├── HtmlParser.ts
-│   └── ContentExtractor.ts
-├── storage/              # Data persistence
-│   ├── database.ts
-│   ├── migrations/
-│   └── repositories/
-│       ├── FeedRepository.ts
-│       ├── ArticleRepository.ts
-│       └── CrawlRepository.ts
-├── models/               # Type definitions
-│   ├── Feed.ts
-│   ├── Article.ts
-│   └── Crawl.ts
-├── utils/                # Utilities
-│   ├── logger.ts
-│   ├── retry.ts
-│   └── scheduler.ts
-└── types/                # TypeScript types
-    └── index.ts
-
-test/
-├── unit/
-└── integration/
-
-package.json
-tsconfig.json
+├── __init__.py           # Package marker
+├── cli.py                # CLI commands (extend with github subcommands)
+├── db.py                 # Database schema (add feed_type)
+├── feeds.py              # Feed operations (add github_refresh)
+├── articles.py           # Article operations (unchanged)
+├── crawl.py              # URL crawling (unchanged)
+├── github.py             # GitHub API client (NEW)
+└── changelog.py           # Changelog fetcher (NEW)
 ```
+
+### Structure Rationale
+
+- **`github.py`:** Separates GitHub API logic from generic feed logic. Handles auth, rate limiting, release parsing.
+- **`changelog.py`:** Separates Scrapling-based changelog fetching from generic crawling. Handles raw markdown file fetching and change detection.
+- **`feeds.py` changes minimal:** Add `refresh_github_release()` that calls github.py, keep existing patterns.
+
+## Architectural Patterns
+
+### Pattern 1: Feed Type Discrimination
+
+**What:** Extend feeds table with a `feed_type` column to handle different source types uniformly in UI but differently in refresh logic.
+
+**When to use:** When multiple data sources share storage but need different fetch strategies.
+
+**Trade-offs:**
+- Pros: Single table, simple queries, unified article listing
+- Cons: Type checking scattered in refresh logic
+
+**Example:**
+```python
+# feeds table extension
+cursor.execute("ALTER TABLE feeds ADD COLUMN feed_type TEXT DEFAULT 'rss'")
+
+# In refresh logic
+def refresh_feed(feed_id: str) -> dict:
+    feed = get_feed(feed_id)
+    if feed.feed_type == 'github_release':
+        return refresh_github_release(feed)
+    elif feed.feed_type == 'github_changelog':
+        return refresh_github_changelog(feed)
+    else:
+        return refresh_rss_feed(feed)  # existing logic
+```
+
+### Pattern 2: GitHub API as Feed Fetcher
+
+**What:** Treat GitHub releases endpoint as a structured feed with known fields mapping to article schema.
+
+**When to use:** When API provides machine-readable feed-like data.
+
+**Trade-offs:**
+- Pros: Direct mapping, no HTML parsing needed, structured data
+- Cons: API rate limits (5000/hour authenticated), requires auth token
+
+**Example:**
+```python
+# GitHub release -> article mapping
+article_id = f"github:{owner}/{repo}:{release['tag_name']}"
+cursor.execute("""
+    INSERT OR IGNORE INTO articles
+    (id, feed_id, title, link, guid, pub_date, description, content)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+""", (
+    article_id,
+    feed_id,
+    release['name'] or release['tag_name'],
+    release['html_url'],
+    release['tag_name'],
+    release['published_at'],
+    release['body'],  # description = release notes summary
+    release['body'],  # content = full release notes
+))
+```
+
+### Pattern 3: Changelog as Single Article
+
+**What:** Store each CHANGELOG.md fetch as a single article, with content hash for change detection.
+
+**When to use:** When monitoring file changes rather than discrete entries.
+
+**Trade-offs:**
+- Pros: Simple storage, easy change detection via content hash
+- Cons: No per-version granularity, need content comparison for diff
+
+**Example:**
+```python
+def fetch_changelog(repo_url: str) -> Optional[dict]:
+    changelog_url = f"{repo_url.rstrip('/')}/blob/main/CHANGELOG.md"
+    page = StealthyFetcher.fetch(changelog_url)
+    content = page.css('pre[data-testid="code"]::text', first=True) or page.text()
+
+    return {
+        'content': content,
+        'hash': hashlib.sha256(content.encode()).hexdigest(),
+    }
+```
+
+## Data Flow
+
+### GitHub Releases Flow
+
+```
+[User adds GitHub repo]
+    ↓
+[Parse owner/repo from URL] → [Store in feeds table with feed_type='github_release']
+    ↓
+[fetch --all calls refresh_github_release]
+    ↓
+[github.py: fetch_releases(owner, repo, token)]
+    ↓
+[GitHub API: GET /repos/{owner}/{repo}/releases]
+    ↓
+[Parse releases, map to articles] → [INSERT OR IGNORE into articles]
+    ↓
+[Sync to FTS5] → [Update feed.last_fetched]
+```
+
+### Changelog Monitoring Flow
+
+```
+[User adds GitHub repo for changelog]
+    ↓
+[Store in feeds table with feed_type='github_changelog']
+    ↓
+[fetch calls refresh_github_changelog]
+    ↓
+[changelog.py: fetch_raw_changelog(owner, repo)]
+    ↓
+[Scrapling fetches raw CHANGELOG.md content]
+    ↓
+[Compute content hash, compare with previous]
+    ↓
+[If changed: INSERT OR REPLACE article with new content]
+    ↓
+[Update feed.last_fetched]
+```
+
+## Scaling Considerations
+
+| Scale | Architecture Adjustments |
+|-------|-------------------------|
+| 0-100 feeds | Current architecture sufficient |
+| 100-1000 feeds | Add batch rate limiting, consider async fetching |
+| 1000+ feeds | Consider job queue, parallel refresh with backoff |
+
+### Scaling Priorities
+
+1. **First bottleneck:** GitHub API rate limits (5000/hour). Mitigation: Implement per-repo backoff, track rate limit headers.
+2. **Second bottleneck:** Sequential fetching on `fetch --all`. Mitigation: asyncio parallelization for independent feeds.
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Ignoring GitHub Rate Limits
+
+**What people do:** Blindly fetch GitHub API on every refresh without checking rate limit headers.
+
+**Why it's wrong:** Exhausts rate limit quickly, causes 429 responses, potential IP ban.
+
+**Do this instead:**
+```python
+def fetch_with_rate_limit_handling(url: str, headers: dict) -> httpx.Response:
+    response = httpx.get(url, headers=headers)
+    remaining = int(response.headers.get('X-RateLimit-Remaining', 0))
+    if remaining < 10:
+        reset_time = int(response.headers.get('X-RateLimit-Reset', 0))
+        sleep_duration = max(reset_time - time.time(), 0) + 5
+        time.sleep(sleep_duration)
+    return response
+```
+
+### Anti-Pattern 2: Storing Raw HTML Instead of Content
+
+**What people do:** Store raw HTML from GitHub pages instead of extracting actual content.
+
+**Why it's wrong:** Wastes storage, FTS5 indexes HTML noise, article listing shows garbled content.
+
+**Do this instead:** Use Scrapling's text extraction or raw markdown fetching for CHANGELOG.md.
+
+### Anti-Pattern 3: No Auth Token for GitHub API
+
+**What people do:** Using unauthenticated GitHub API requests.
+
+**Why it's wrong:** 60 requests/hour limit vs 5000/hour authenticated. Will hit rate limits immediately with multiple repos.
+
+**Do this instead:** Require GH_TOKEN environment variable, show clear error if missing.
+
+## Integration Points
+
+### External Services
+
+| Service | Integration Pattern | Notes |
+|---------|---------------------|-------|
+| GitHub API | REST over HTTPS with Bearer token | Rate limit: 5000/hour authenticated, 60/hour anonymous |
+| GitHub raw content | Raw file URLs for CHANGELOG.md | URL: `https://raw.githubusercontent.com/{owner}/{repo}/main/CHANGELOG.md` |
+
+### Internal Boundaries
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| cli.py -> github.py | Function call | `add_github_feed(url)` -> `github.py:validate_repo()` |
+| feeds.py -> github.py | Function call | `refresh_feed()` dispatches to `refresh_github_release()` |
+| changelog.py -> cli.py | Function call | `refresh_github_changelog()` calls `changelog.py:fetch_raw_changelog()` |
+
+## Database Schema Changes
+
+### Migration: Add feed_type
+
+```sql
+ALTER TABLE feeds ADD COLUMN feed_type TEXT DEFAULT 'rss';
+
+-- Optional: add index for type queries
+CREATE INDEX IF NOT EXISTS idx_feeds_feed_type ON feeds(feed_type);
+```
+
+### New Columns for GitHub-specific Metadata (Optional Enhancement)
+
+```sql
+-- Only needed if storing per-repo GitHub metadata separately from articles
+ALTER TABLE feeds ADD COLUMN gh_owner TEXT;
+ALTER TABLE feeds ADD COLUMN gh_repo TEXT;
+ALTER TABLE feeds ADD COLUMN gh_last_tag TEXT;
+```
+
+### Article Storage for GitHub Releases
+
+Releases map directly to existing article schema:
+
+| Article Field | GitHub Release Field | Notes |
+|---------------|---------------------|-------|
+| id | `github:{owner}/{repo}:{tag_name}` | Unique per release |
+| feed_id | feeds.id | Foreign key |
+| title | release.name or release.tag_name | Display name |
+| link | release.html_url | Release page URL |
+| guid | release.tag_name | Version identifier |
+| pub_date | release.published_at | ISO timestamp |
+| description | release.body (first 500 chars) | Release notes preview |
+| content | release.body | Full release notes (Markdown) |
+
+### Article Storage for Changelog
+
+| Article Field | Changelog Value | Notes |
+|---------------|-----------------|-------|
+| id | `changelog:{owner}/{repo}:{hash}` | Hash of content |
+| feed_id | feeds.id | Foreign key |
+| title | `{repo} Changelog` | Static |
+| link | `https://github.com/{owner}/{repo}/blob/main/CHANGELOG.md` | Raw URL |
+| guid | `changelog:{hash}` | Hash as identifier |
+| pub_date | last_fetched timestamp | Update time |
+| description | First 500 chars of changelog | Content preview |
+| content | Full changelog content | Full Markdown |
+
+## Suggested Build Order
+
+### Phase 1: GitHub API Client (`src/github.py`)
+- Implement `fetch_releases(owner, repo, token)` function
+- Handle pagination (per_page=100, iterate pages)
+- Rate limit handling with header inspection
+- Return structured release data
+
+### Phase 2: Release Refresh Integration
+- Add `feed_type='github_release'` to feeds table
+- Implement `refresh_github_release(feed_id)` in feeds.py
+- Store releases as articles using existing schema
+- Test with single repo
+
+### Phase 3: Changelog Fetcher (`src/changelog.py`)
+- Implement `fetch_raw_changelog(owner, repo)` using raw GitHub URL
+- Use httpx (not Scrapling) for raw file fetching - simpler for raw markdown
+- Content hash computation for change detection
+- Return content and hash
+
+### Phase 4: Changelog Refresh Integration
+- Add `feed_type='github_changelog'` handling
+- Implement `refresh_github_changelog(feed_id)`
+- Store as single article per changelog
+- Detect changes via content hash
+
+### Phase 5: CLI Integration
+- Add `github` subcommand group
+- `github add <repo-url>` - adds repo for release monitoring
+- `github add-changelog <repo-url>` - adds repo for changelog monitoring
+- Integrate with `fetch --all` for unified refresh
 
 ## Sources
 
-- node-feedparser GitHub: https://github.com/danmactough/node-feedparser
-- node-cron GitHub: https://github.com/ncb000gt/node-cron
-- Meow CLI GitHub: https://github.com/sindresorhus/meow
-- SQLite Documentation: https://sqlite.org/docs.html
-- Datasette: https://github.com/simonw/datasette
-- better-sqlite3: Synchronous SQLite for Node.js with WAL support
+- [GitHub REST API - Releases](https://docs.github.com/en/rest/releases/releases) (HIGH confidence)
+- [GitHub REST API - Rate Limits](https://docs.github.com/en/rest/rate-limit/rate-limit) (HIGH confidence)
+- [Scrapling Documentation](https://scrapling.readthedocs.io/) (HIGH confidence)
+- [Existing codebase: src/feeds.py, src/crawl.py, src/db.py] (HIGH confidence - internal)

@@ -1,298 +1,197 @@
-# Feature Landscape: Personal RSS Reader and Website Crawler
+# Feature Research: GitHub Monitoring (v1.1)
 
-**Domain:** CLI tool for RSS subscription and website crawling
-**Researched:** 2026-03-22
-**Confidence:** MEDIUM (limited verification due to search tool issues; supplemented with known project documentation)
+**Domain:** CLI tool for monitoring GitHub repositories (releases and changelogs)
+**Researched:** 2026-03-23
+**Confidence:** MEDIUM (based on GitHub API documentation and existing tool patterns)
 
-## Table of Contents
+## Feature Landscape
 
-1. [Core Features (Table Stakes)](#table-stakes)
-2. [Differentiating Features](#differentiators)
-3. [Anti-Features](#anti-features)
-4. [Feature Dependencies](#feature-dependencies)
-5. [MVP Recommendation](#mvp-recommendation)
+### Table Stakes (Users Expect These)
 
----
-
-## Table Stakes
-
-Features users expect. Missing these makes the product feel incomplete.
-
-### Feed Management
+Features users assume exist. Missing these = product feels incomplete.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Add feed by URL | Basic subscription workflow | Low | Must handle RSS, Atom, RDF auto-detection |
-| List subscribed feeds | View all subscriptions | Low | Should show feed title, article count, last updated |
-| Remove feed | Unsubscribe workflow | Low | Cascade delete articles or keep them |
-| OPML import/export | Migration from other readers | Low | Standard format for feed subscriptions |
-| Refresh single/all feeds | Manual update trigger | Low | Show fetch status, article count |
+| Add GitHub repo URL | Users want to add repos they care about | LOW | Parse owner/repo from GitHub URL formats |
+| Fetch latest release via GitHub API | Primary use case for repo monitoring | LOW | `GET /repos/{owner}/{repo}/releases/latest` |
+| Display release version + notes | Core information users want | LOW | `tag_name`, `body` (markdown) from API |
+| Periodic refresh with last-known state | Detect new releases since last check | MEDIUM | Store last seen version/tag, compare on refresh |
+| Changelog file scraping | Many repos document changes in CHANGELOG.md | MEDIUM | No GitHub API for changelogs - must scrape raw content |
+| Unified article-like display | Consistent UX with existing feed articles | LOW | Reuse existing display patterns |
 
-### Content Fetching
+### Differentiators (Competitive Advantage)
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Parse RSS 2.0 | Most common feed format | Low | Universally supported |
-| Parse Atom | Standard alternative | Low | Often used by newer sites |
-| Extract article title | Core reading information | Low | Handle missing titles gracefully |
-| Extract article URL | Primary link to source | Low | Required for opening articles |
-| Extract article content | Main reading body | Medium | Handle HTML, plain text, CDATA |
-| Store publication date | Chronological sorting | Low | Handle missing/invalid dates |
-| Handle feed errors | Real-world robustness | Medium | 404, timeout, malformed XML |
-
-### Data Storage
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| SQLite persistence | Keep data between sessions | Low | Single-file database |
-| Store feed metadata | Title, description, site URL | Low | Avoid re-fetching on every run |
-| Store articles | Enable offline reading | Low | Full content or description only |
-| Mark articles read/unread | Track reading state | Low | Persist state across sessions |
-| Bookmark articles | Save for later | Low | "Read it later" functionality |
-
-### CLI Interface
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Help command | Discoverability | Low | List all commands |
-| List command | View feeds/articles | Low | Paginated output |
-| Add command | Subscribe to feed | Low | Single URL argument |
-| Remove command | Unsubscribe | Low | By feed ID or URL |
-| Fetch/refresh command | Update feeds | Low | Manual trigger |
-| Output formats | Different use cases | Medium | Text (default), JSON, CSV |
-
-### Search
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Full-text search | Find articles by keyword | Medium | SQLite FTS5 |
-| Filter by feed | Narrow results | Low | Feed ID or name |
-| Filter by date range | Time-based queries | Low | From/to dates |
-| Filter by read status | Unread-only view | Low | Read/unread/all |
-
----
-
-## Differentiators
-
-Features that set products apart. Not expected, but valued when present.
-
-### Advanced Feed Management
+Features that set the product apart. Not required, but valued.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Query feeds (meta-feeds) | Aggregate across feeds with filters | Medium | "All articles from past week" |
-| Feed categories/folders | Organize large subscriptions | Low | Group related feeds |
-| Keyboard-driven UI | Power-user efficiency | Low | vi-like bindings common |
-| Custom refresh intervals | Per-feed fetch timing | Medium | Some feeds hourly, others daily |
-| Feed validation | Detect broken feeds | Medium | Check before adding |
+| Release-only vs full repo monitoring | Filter signal from noise (releases vs commits) | MEDIUM | Distinguishes "published a release" vs "pushed 50 commits" |
+| Changelog diff detection | See WHAT changed in new version beyond release notes | HIGH | Requires parsing changelog format, diffing sections |
+| Adaptive parsing for varied changelog formats | Handle CHANGELOG.md, HISTORY.md, Keep a Changelog, auto-generated | HIGH | Scrapling can help but format detection is complex |
+| GitHub token auth for higher rate limits | Avoid 60 req/hour cap (unauthenticated) | LOW | Use `GITHUB_TOKEN` env var, increases to 5000 req/hour |
 
-### Web Scraping / Crawling
+### Anti-Features (Commonly Requested, Often Problematic)
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Website crawling | Discover content without RSS | High | Extract articles from sites without feeds |
-| XPath-based scraping | Custom content extraction | High | For sites without proper feeds |
-| JavaScript rendering | SPA support | High | Playwright for rendered content |
-| robots.txt compliance | Ethical crawling | Medium | Respect site rules |
-| Depth-limited crawling | Scope control | Medium | Prevent runaway crawls |
-| Discovered URL storage | Build feed from site | Medium | Find RSS feeds on crawled sites |
+Features that seem good but create problems.
 
-### Automation
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Scheduled fetching | Hands-free updates | Medium | Cron-like scheduling |
-| Auto-refresh on interval | Keep data fresh | Medium | Background process |
-| Deduplication | Avoid repeated articles | Medium | By GUID or URL hash |
-| Automatic read marking | Based on rules | Medium | Mark old articles read |
-| ETag/Last-Modified support | Conditional requests | Medium | Avoid re-fetching unchanged |
-| WebSub/PubSubHubbub | Real-time push | High | Instant feed updates |
-
-### Content Enhancement
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Content extraction | Strip ads/boilerplate | High | Readability algorithms |
-| Readability mode | Clean article view | High | Focus on content |
-| Media extraction | Pull images/audio | Medium | Enrich article presentation |
-| Author extraction | Normalize author data | Medium | Handle multiple formats |
-| Tag/category extraction | Organize by topic | Medium | Map to structured data |
-
-### Advanced Search & Organization
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Saved searches | Re-run queries | Low | Store search queries |
-| Search within feed | Feed-specific search | Low | Filter results |
-| Bulk operations | Batch mark/read/delete | Medium | Efficiency for power users |
-| Article filtering rules | Auto-categorize | Medium | By keyword, author, feed |
-| Killfiles | Hide matching articles | Medium | Block unwanted content |
-
-### Data Portability
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Export to JSON | Machine-readable backup | Low | Full data export |
-| Export to CSV | Spreadsheet analysis | Low | Tabular format |
-| Export to HTML | Static archive | Medium | Browseable offline |
-| Article-per-file | Granular storage | Medium | One file per article |
-| Import from other readers | Migration path | Medium | Fever, Google Reader API |
-
-### Monitoring & Notifications
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Feed change detection | Alert on updates | Medium | Track website changes |
-| Article count notifications | Know when new content | Medium | CLI output or desktop notif |
-| Health monitoring | Feed uptime tracking | Medium | Detect dead feeds |
-| Statistics dashboard | Usage insights | Low | Article counts, feed health |
-
-### API & Extensibility
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| REST API | External integrations | High | Programmatic access |
-| Google Reader API compatibility | Mobile app support | High | Use existing apps |
-| Webhooks | Event-driven integrations | High | Trigger on new articles |
-| Plugin/extension system | Custom behavior | High | User-extensible |
-| Custom scripts | Transform feeds | Low | External program filters |
-
-### User Experience
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Multiple output formats | Different consumers | Medium | Text, JSON, CSV, HTML |
-| Color-coded output | Visual hierarchy | Low | Read vs unread, feed colors |
-| Pagination | Handle large result sets | Low | Limit and offset |
-| Progress indicators | Feedback during long ops | Low | Fetch status |
-| Interactive mode | TUI for browsing | High | Ncurses-style interface |
-| Vim-like navigation | Keyboard-centric | Low | j/k for up/down |
-
----
-
-## Anti-Features
-
-Features to explicitly NOT build (at least initially).
-
-| Anti-Feature | Why Avoid | What to Do Instead |
-|--------------|-----------|-------------------|
-| Multi-user support | Adds auth, isolation complexity | Single-user, local SQLite |
-| User authentication | Not needed for personal tool | File system permissions |
-| Social/sharing features | Outside scope | Export and share manually |
-| Built-in sync (Dropbox, etc.) | Scope creep | Use file-based sync |
-| Cloud hosting | Opposite of self-hosted | Local-only by default |
-| Recommendation engine | AI overreach | Manual subscription |
-| Commenting/discussion | Not an RSS reader | Use source site |
-| Podcast support | Separate use case | Focus on articles |
-| Email newsletter parsing | Different problem | Separate tool later |
-
----
+| Feature | Why Requested | Why Problematic | Alternative |
+|---------|---------------|-----------------|-------------|
+| Monitor all repo commits | Want complete activity stream | Too noisy, GitHub API rate limits hit immediately | Releases only, or explicit "watch commits" opt-in |
+| Real-time webhook delivery | Want instant notifications | Requires server/public URL, defeats "local CLI" purpose | Periodic polling is sufficient for personal use |
+| Native GitHub notifications integration | Want to see in GitHub's UI | Outside scope, adds OAuth complexity | Keep as local-only tool |
+| Auto-discovery of changelog location | "Just find the changelog" | Many repos use different paths/names | User specifies explicit path or accept common defaults |
 
 ## Feature Dependencies
 
 ```
-Feed Management
-  Add feed URL
-    Validate URL format → Low
-    Check feed is valid RSS/Atom → Medium
-    Save to database → Low
-  Remove feed
-    Delete articles (or mark deleted) → Low
-    Remove from database → Low
+[Add Repo URL]
+    └──requires──> [Parse owner/repo from URL]
+                       └──requires──> [GitHub API: Fetch Release]
+                                          └──requires──> [Store Release State]
+                       └──requires──> [Changelog: Scrape File]
+                                          └──requires──> [Parse Changelog Format]
 
-Content Fetching
-  Fetch feed
-    HTTP GET with timeout → Low
-    Parse XML → Low
-    Handle parse errors → Medium
-    Store articles → Low
-    Detect duplicates (by guid) → Medium
+[Display Unified Output] ──enhances──> [Article Display]
+[Refresh All] ──enhances──> [Per-Release Refresh]
 
-Search
-  Full-text search (FTS5)
-    Create FTS virtual table → Low
-    Index on insert/update → Low
-    Query with ranking → Medium
-
-Crawling (if implemented)
-  Fetch page
-    Respect robots.txt → Medium
-    Rate limiting → Medium
-    Extract links → Medium
-    Follow linked pages (depth-limited) → High
-    Detect RSS feeds on crawled pages → High
-
-Automation
-  Scheduled refresh
-    Cron-like scheduler → Medium
-    Background process management → Medium
-    Per-feed intervals → Medium
+[GitHub Token Auth] ──conflicts──> [Unauthenticated Rate Limits]
 ```
 
----
+### Dependency Notes
 
-## MVP Recommendation
+- **Add Repo URL requires Parse owner/repo:** GitHub URLs have multiple formats (`github.com/owner/repo`, `.git`, releases page)
+- **GitHub API requires token for scale:** 60 req/hour unauthenticated limits usability to ~5-10 repos
+- **Changelog scraping requires format detection:** Different projects use different conventions
 
-For a personal RSS reader and website crawler CLI tool, prioritize in this order:
+## MVP Definition
 
-### Phase 1: Core (Table Stakes)
+### Launch With (v1.1)
 
-1. **Feed subscription** - Add feed by URL, list feeds, remove feed
-2. **Feed refresh** - Fetch and parse RSS/Atom, extract articles
-3. **Article listing** - View articles with pagination, show title/date/link
-4. **Read state** - Mark articles as read/unread, filter by status
-5. **Basic search** - Full-text search across articles
-6. **SQLite storage** - Persist feeds, articles, read state between sessions
-7. **OPML export** - Backup subscriptions
+Minimum viable product - what's needed to validate the concept.
 
-### Phase 2: Enhancement (Commonly Valued)
+- [ ] **Add GitHub repo by URL** - Parse `github.com/{owner}/{repo}` format, store repo reference
+- [ ] **GitHub API release fetch** - `tag_name`, `name`, `body` (markdown), `published_at`, `html_url`
+- [ ] **Display releases like articles** - Unified format reusing existing display patterns
+- [ ] **Refresh to detect new releases** - Compare stored version vs API, surface new ones
+- [ ] **Basic changelog scraping** - Fetch `CHANGELOG.md` from default branch, display with release
 
-1. **OPML import** - Restore from backup or migrate from other readers
-2. **Bookmarking** - Save articles for later, bookmark-only view
-3. **Multiple output formats** - JSON, CSV export
-4. **Better search** - Filter by feed, date range, read status
-5. **Error handling** - Graceful handling of broken feeds, retry logic
-6. **Feed metadata** - Store and display feed title, description, site URL
+### Add After Validation (v1.x)
 
-### Phase 3: Differentiation (If Time Permits)
+Features to add once core is working.
 
-1. **Website crawling** - Scrape sites without RSS, discover feeds
-2. **XPath scraping** - Custom extraction rules for problematic sites
-3. **Scheduled fetching** - Automatic refresh on interval
-4. **Deduplication** - Detect and skip duplicate articles
-5. **Content extraction** - Strip boilerplate, extract main content
-6. **ETag/Last-Modified** - Conditional requests to reduce bandwidth
+- [ ] **GitHub token auth** - Set `GITHUB_TOKEN` env var, increase rate limit from 60 to 5000 req/hour
+- [ ] **Changelog diff per release** - Parse and show what changed between version N and N-1
+- [ ] **Configurable changelog path** - Support `HISTORY.md`, `CHANGELOG.rst`, user-specified paths
+- [ ] **Multiple changelog format detection** - Handle Keep a Changelog, conventional commits style
 
-### Defer Indefinitely
+### Future Consideration (v2+)
 
-- Multi-user support
-- User authentication
-- Social features
-- Cloud sync
-- Podcast support
-- Built-in AI/recommendations
-- Plugin system
+Features to defer until product-market fit is established.
 
----
+- [ ] **Release asset downloads** - Provide download links for `.whl`, `.tar.gz` binaries
+- [ ] **Watch specific tags** - Not just "latest", monitor particular major/minor versions
+- [ ] **Commit activity summary** - Optional: fetch commit history between releases
+- [ ] **Notification integration** - Native OS notifications when new release detected
+
+## Feature Prioritization Matrix
+
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| Add repo by URL | HIGH | LOW | P1 |
+| GitHub API release fetch | HIGH | LOW | P1 |
+| Display releases | HIGH | LOW | P1 |
+| Refresh detection | HIGH | MEDIUM | P1 |
+| Changelog scraping (basic) | MEDIUM | MEDIUM | P2 |
+| GitHub token auth | MEDIUM | LOW | P2 |
+| Changelog diff | MEDIUM | HIGH | P3 |
+| Configurable changelog path | LOW | MEDIUM | P3 |
+
+**Priority key:**
+- P1: Must have for launch
+- P2: Should have, add when possible
+- P3: Nice to have, future consideration
+
+## Existing System Integration Points
+
+Based on reading the existing codebase:
+
+| Existing Component | How GitHub Monitoring Extends It |
+|--------------------|----------------------------------|
+| `src/models.py` Feed/Article | Create `GitHubRepo` model with owner/repo, last_version; reuse Article display |
+| `src/cli.py` feed commands | Add `repo` command group: `repo add`, `repo list`, `repo refresh` |
+| `src/db.py` | Add tables for `repos` and `releases`, new columns for version tracking |
+| `src/feeds.py` refresh logic | Reuse conditional fetch pattern (ETag/Last-Modified) for GitHub API with `If-None-Match` |
+| `src/articles.py` list/search | Display releases alongside articles, unified format |
+
+**Key existing patterns to reuse:**
+- Feed storage with `etag`/`last_modified` for conditional fetching
+- Article storage with `guid` for dedup (use `tag_name` as guid for releases)
+- CLI display format for list/verbose output
+- Error isolation per-repo during batch refresh
+
+## Technical Considerations
+
+### GitHub API Behavior
+
+**Endpoints:**
+- Latest release: `GET https://api.github.com/repos/{owner}/{repo}/releases/latest`
+- All releases: `GET https://api.github.com/repos/{owner}/{repo}/releases?per_page=30`
+- Release by tag: `GET https://api.github.com/repos/{owner}/{repo}/releases/tags/{tag}`
+
+**Response fields used:**
+- `tag_name`: Version string (e.g., "v1.2.3", "1.2.3")
+- `name`: Release title (often same as tag, can be empty)
+- `body`: Markdown release notes
+- `published_at`: ISO timestamp
+- `html_url`: Link to release page
+- `assets`: Download links (for future use)
+
+**Rate limits:**
+- Unauthenticated: 60 requests/hour per IP
+- Authenticated (token): 5,000 requests/hour
+- Implement `GITHUB_TOKEN` environment variable support
+
+**Conditional requests:**
+- Use `Accept: application/vnd.github+json` header
+- Respect `ETag` and `Last-Modified` headers
+- Send `If-None-Match` or `If-Modified-Since` for efficient polling
+
+### Changelog Scraping
+
+**Common file locations (in priority order):**
+1. `CHANGELOG.md` (most common)
+2. `CHANGELOG` (without extension)
+3. `HISTORY.md`
+4. `CHANGELOG.rst`
+5. `docs/changelog.md`
+
+**Raw file URLs:**
+- `https://raw.githubusercontent.com/{owner}/{repo}/main/CHANGELOG.md`
+- `https://raw.githubusercontent.com/{owner}/{repo}/master/CHANGELOG.md`
+
+**Format variations:**
+- Keep a Changelog (semantic headings: Added, Changed, Deprecated, etc.)
+- Auto-generated from conventional commits (git-cliff style)
+- Custom per-project formats (harder to parse)
+
+### Scrapling Integration
+
+The project plan mentions using Scrapling for changelog files. This is appropriate for:
+- Pages with JavaScript rendering
+- Adaptive parsing when HTML structure varies
+- Fallback when simple requests fail
+
+However, for static changelog files, `httpx` with raw GitHub content is sufficient and faster.
 
 ## Sources
 
-- FreshRSS documentation and GitHub (HIGH confidence)
-- CommaFeed features (MEDIUM confidence)
-- Inoreader feature list (MEDIUM confidence)
-- Newsboat/Newsbeuter documentation (HIGH confidence)
-- GitHub Topics - RSS (MEDIUM confidence)
-- GitHub Topics - Web Crawler (MEDIUM confidence)
-- Common RSS reader feature patterns (MEDIUM confidence)
+- [GitHub REST API - Releases](https://docs.github.com/en/rest/repos/releases) (HIGH confidence)
+- [GitHub API Rate Limiting](https://docs.github.com/en/rest/rate-limit) (HIGH confidence)
+- [Keep a Changelog standard](https://keepachangelog.com/en/1.0.0/) (HIGH confidence)
+- [Scrapling GitHub repo](https://github.com/D4Vinci/Scrapling) (MEDIUM confidence - 31k stars, active)
+- Existing codebase: `src/models.py`, `src/cli.py`, `src/feeds.py`
 
 ---
 
-## Confidence Assessment
-
-| Category | Confidence | Notes |
-|----------|------------|-------|
-| Table stakes features | HIGH | Core features well-documented across all major RSS readers |
-| Differentiating features | MEDIUM | Varies by reader; some features are niche |
-| Anti-features | MEDIUM | Based on scope analysis, not external validation |
-| Dependencies | MEDIUM | General patterns, not implementation-verified |
-| MVP recommendation | MEDIUM | Based on research synthesis, not user testing |
+*Feature research for: GitHub monitoring v1.1*
+*Researched: 2026-03-23*
