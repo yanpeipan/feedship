@@ -55,7 +55,11 @@ Plans:
   2. System extracts article-like content from HTML pages
   3. System respects robots.txt directives and does not crawl disallowed paths
   4. System rate-limits requests (1-2s delay between requests to same host)
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md -- Crawl module: crawl_url() function with Readability, robots.txt, rate limiting
+- [ ] 03-02-PLAN.md -- CLI: crawl command with --ignore-robots option
 
 ## Progress
 
@@ -66,4 +70,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete   | 2026-03-22 |
 | 2. Search & Refresh | 0/3 | Not started | - |
-| 3. Web Crawling | 0/TBD | Not started | - |
+| 3. Web Crawling | 0/2 | Not started | - |
