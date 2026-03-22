@@ -168,17 +168,22 @@ def article_list(ctx: click.Context, limit: int, feed_id: Optional[str]) -> None
             click.echo("No articles found. Add some feeds and fetch them first.")
             return
 
-        click.echo("Title | Feed | Date")
+        click.echo("Title | Source | Date")
         click.echo("-" * 80)
 
         for article in articles:
             title = article.title or "No title"
-            feed_name = article.feed_name or "Unknown"
             pub_date = article.pub_date or "No date"
+
+            # Show GitHub source or feed source
+            if article.source_type == "github":
+                source = f"{article.repo_name}@{article.release_tag}" if article.release_tag else article.repo_name
+            else:
+                source = article.feed_name or "Unknown"
 
             if verbose:
                 click.echo(f"\nTitle: {title}")
-                click.echo(f"Feed: {feed_name}")
+                click.echo(f"Source: {source}")
                 click.echo(f"Date: {pub_date}")
                 if article.link:
                     click.echo(f"Link: {article.link}")
@@ -186,7 +191,7 @@ def article_list(ctx: click.Context, limit: int, feed_id: Optional[str]) -> None
                     desc_preview = article.description[:100] + "..." if len(article.description) > 100 else article.description
                     click.echo(f"Description: {desc_preview}")
             else:
-                click.echo(f"{title[:50]} | {feed_name[:20]} | {pub_date[:10]}")
+                click.echo(f"{title[:50]} | {source[:25]} | {pub_date[:10]}")
     except Exception as e:
         click.echo(f"Error: Failed to list articles: {e}", err=True, fg="red")
         logger.exception("Failed to list articles")
@@ -213,17 +218,22 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional
             click.echo("No articles found matching your search.")
             return
 
-        click.echo("Title | Feed | Date")
+        click.echo("Title | Source | Date")
         click.echo("-" * 80)
 
         for article in articles:
             title = article.title or "No title"
-            feed_name = article.feed_name or "Unknown"
             pub_date = article.pub_date or "No date"
+
+            # Show GitHub source or feed source
+            if article.source_type == "github":
+                source = f"{article.repo_name}@{article.release_tag}" if article.release_tag else article.repo_name
+            else:
+                source = article.feed_name or "Unknown"
 
             if verbose:
                 click.echo(f"\nTitle: {title}")
-                click.echo(f"Feed: {feed_name}")
+                click.echo(f"Source: {source}")
                 click.echo(f"Date: {pub_date}")
                 if article.link:
                     click.echo(f"Link: {article.link}")
@@ -231,7 +241,7 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional
                     desc_preview = article.description[:100] + "..." if len(article.description) > 100 else article.description
                     click.echo(f"Description: {desc_preview}")
             else:
-                click.echo(f"{title[:50]} | {feed_name[:20]} | {pub_date[:10]}")
+                click.echo(f"{title[:50]} | {source[:25]} | {pub_date[:10]}")
     except Exception as e:
         click.echo(f"Error: Failed to search articles: {e}", err=True, fg="red")
         logger.exception("Failed to search articles")
@@ -275,15 +285,32 @@ def fetch(ctx: click.Context, fetch_all: bool) -> None:
                 # Per-feed error isolation: continue with next feed
                 click.echo(f"Warning: Failed to fetch {feed_obj.name}: {e}", fg="yellow")
 
+        # Refresh GitHub repos
+        github_repos = list_github_repos()
+        github_new_releases = 0
+        for r in github_repos:
+            try:
+                result = refresh_github_repo(r.id)
+                if result.get("new_release"):
+                    github_new_releases += 1
+                    if verbose:
+                        click.echo(f"New release for {r.name}: {result['release'].tag_name}")
+            except Exception as e:
+                error_count += 1
+                errors.append(f"{r.name} (GitHub): {e}")
+                click.echo(f"Warning: Failed to refresh {r.name}: {e}", fg="yellow")
+
         # Summary
         if error_count == 0:
             click.echo(
-                f"Fetched {total_new} articles from {success_count} feeds",
+                f"Fetched {total_new} articles from {success_count} feeds, "
+                f"{github_new_releases} new releases from {len(github_repos)} repos",
                 fg="green",
             )
         else:
             click.echo(
-                f"Fetched {total_new} articles from {success_count} feeds, {error_count} errors",
+                f"Fetched {total_new} articles from {success_count} feeds, "
+                f"{github_new_releases} new releases. {error_count} errors",
                 fg="yellow",
             )
             if verbose and errors:
