@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 02-search-refresh-01 plan (FTS5 virtual table)
-last_updated: "2026-03-22T17:09:05.419Z"
+stopped_at: Completed 02-search-refresh plan 02-02
+last_updated: "2026-03-22T17:09:33.365Z"
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 ## Current Position
 
 Phase: 02 (search-refresh) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Plan: 2 of 3
 | Phase 01-foundation P02 | 20 | 1 tasks | 1 files |
 | Phase 01-foundation P03 | 2 | 2 tasks | 2 files |
 | Phase 02-search-refresh P02-01 | 64 | 1 tasks | 1 files |
+| Phase 02-search-refresh P02-02 | 60 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: Bozo detection via feed.bozo flag logs malformed XML but continues processing
 - [Phase 01-foundation]: INSERT OR IGNORE + UNIQUE(feed_id, guid) handles duplicate articles silently
 - [Phase 02-search-refresh]: Shadow FTS5 approach: articles_fts virtual table indexes title, description, content with porter tokenizer
+- [Phase 02-search-refresh]: D-03: FTS5 query syntax exposed directly (space-separated = AND)
+- [Phase 02-search-refresh]: D-04: Multiple keywords default to AND behavior
+- [Phase 02-search-refresh]: D-06: Results sorted by bm25 ranking (relevance)
 
 ### Pending Todos
 
@@ -80,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T17:09:05.414Z
-Stopped at: Completed 02-search-refresh-01 plan (FTS5 virtual table)
+Last session: 2026-03-22T17:09:33.361Z
+Stopped at: Completed 02-search-refresh plan 02-02
 Resume file: None
