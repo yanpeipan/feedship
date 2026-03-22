@@ -1,0 +1,24 @@
+[project]
+name = "rss-reader"
+version = "1.0.0"
+description = "A personal information system for collecting, subscribing to, and organizing information sources from the internet"
+requires-python = ">=3.10"
+dependencies = [
+    "feedparser>=6.0.0",
+    "httpx>=0.28.0",
+    "click>=8.1.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=6.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+rss-reader = "src.cli:cli"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
