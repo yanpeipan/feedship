@@ -17,13 +17,17 @@ class ArticleListItem:
 
     Attributes:
         id: Unique identifier for the article.
-        feed_id: ID of the feed this article belongs to.
-        feed_name: Name of the feed (from join).
+        feed_id: ID of the feed this article belongs to (empty string for GitHub).
+        feed_name: Name of the feed (from join) or GitHub repo name.
         title: Title of the article.
         link: URL link to the full article.
         guid: Global unique identifier from the feed.
         pub_date: Publication date from the feed.
         description: Short description or summary.
+        source_type: Source type - "feed" or "github".
+        repo_id: GitHub repo ID (only for github source_type).
+        repo_name: GitHub repo name as "owner/repo" (only for github source_type).
+        release_tag: Release tag version (only for github source_type).
     """
 
     id: str
@@ -34,6 +38,10 @@ class ArticleListItem:
     guid: str
     pub_date: Optional[str]
     description: Optional[str]
+    source_type: str = "feed"
+    repo_id: Optional[str] = None
+    repo_name: Optional[str] = None
+    release_tag: Optional[str] = None
 
 
 def list_articles(limit: int = 20, feed_id: Optional[str] = None) -> list[ArticleListItem]:
