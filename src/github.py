@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -272,3 +273,257 @@ def get_repo_releases(repo_id: str) -> list[GitHubRelease]:
         ]
     finally:
         conn.close()
+
+
+class RepoNotFoundError(Exception):
+    """Raised when a GitHub repo is not found in the database."""
+    pass
+
+
+def generate_repo_id() -> str:
+    """Generate a unique ID for a new GitHub repo."""
+    return str(uuid.uuid4())
+
+
+def add_github_repo(url: str) -> GitHubRepo:
+    """Add a GitHub repository to monitor.
+
+    Parses the URL to extract owner/repo, validates by fetching from GitHub API.
+
+    Args:
+        url: GitHub repository URL.
+
+    Returns:
+        Created GitHubRepo object.
+
+    Raises:
+        ValueError: If URL is invalid or repo cannot be accessed.
+    """
+    owner, repo = parse_github_url(url)
+
+    # Verify repo exists by trying to fetch releases
+    try:
+        release_data = fetch_latest_release(owner, repo)
+    except RateLimitError as e:
+        # Still add the repo, but note the rate limit issue
+        logger.warning(f"Rate limit when verifying repo: {e}")
+    except GitHubAPIError as e:
+        raise ValueError(f"Cannot access GitHub repository: {e}") from e
+
+    # Check if repo already exists
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id FROM github_repos WHERE owner = ? AND repo = ?",
+            (owner, repo),
+        )
+        existing = cursor.fetchone()
+        if existing:
+            raise ValueError(f"GitHub repository already added: {owner}/{repo}")
+    finally:
+        conn.close()
+
+    repo_id = generate_repo_id()
+    name = f"{owner}/{repo}"
+    now = datetime.now(timezone.utc).isoformat()
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO github_repos (id, name, owner, repo, last_fetched, last_tag, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (repo_id, name, owner, repo, now, None, now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = GitHubRepo(
+        id=repo_id,
+        name=name,
+        owner=owner,
+        repo=repo,
+        last_fetched=now,
+        last_tag=None,
+        created_at=now,
+    )
+
+    # If we got a release, store it
+    if release_data:
+        store_release(repo_id, release_data)
+        # Update last_tag
+        conn = get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE github_repos SET last_tag = ? WHERE id = ?",
+                (release_data.get("tag_name"), repo_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        result.last_tag = release_data.get("tag_name")
+
+    return result
+
+
+def list_github_repos() -> list[GitHubRepo]:
+    """List all monitored GitHub repositories.
+
+    Returns:
+        List of GitHubRepo objects.
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM github_repos ORDER BY created_at DESC"
+        )
+        rows = cursor.fetchall()
+        return [
+            GitHubRepo(
+                id=row["id"],
+                name=row["name"],
+                owner=row["owner"],
+                repo=row["repo"],
+                last_fetched=row["last_fetched"],
+                last_tag=row["last_tag"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+    finally:
+        conn.close()
+
+
+def get_github_repo(repo_id: str) -> Optional[GitHubRepo]:
+    """Get a single GitHub repo by ID.
+
+    Args:
+        repo_id: The ID of the repo.
+
+    Returns:
+        GitHubRepo object or None if not found.
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM github_repos WHERE id = ?", (repo_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return GitHubRepo(
+            id=row["id"],
+            name=row["name"],
+            owner=row["owner"],
+            repo=row["repo"],
+            last_fetched=row["last_fetched"],
+            last_tag=row["last_tag"],
+            created_at=row["created_at"],
+        )
+    finally:
+        conn.close()
+
+
+def remove_github_repo(repo_id: str) -> bool:
+    """Remove a GitHub repo and its releases.
+
+    Args:
+        repo_id: The ID of the repo to remove.
+
+    Returns:
+        True if deleted, False if not found.
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM github_repos WHERE id = ?", (repo_id,))
+        deleted = cursor.rowcount > 0
+        conn.commit()
+        return deleted
+    finally:
+        conn.close()
+
+
+def refresh_github_repo(repo_id: str) -> dict:
+    """Refresh a GitHub repo to fetch latest release.
+
+    Args:
+        repo_id: The ID of the repo to refresh.
+
+    Returns:
+        Dict with new_release flag, release info, and any error.
+
+    Raises:
+        RepoNotFoundError: If repo does not exist.
+    """
+    repo = get_github_repo(repo_id)
+    if not repo:
+        raise RepoNotFoundError(f"GitHub repo not found: {repo_id}")
+
+    # Check cache freshness first
+    if is_cache_fresh(repo.last_fetched):
+        logger.info(f"Skipping refresh for {repo.name} (cache fresh)")
+        return {
+            "new_release": False,
+            "message": "Cache fresh, skipped API request",
+            "release": None,
+        }
+
+    try:
+        release_data = fetch_latest_release(repo.owner, repo.repo)
+    except RateLimitError as e:
+        return {
+            "new_release": False,
+            "error": str(e),
+            "message": "Rate limit exceeded. Set GITHUB_TOKEN environment variable for higher limit (5000 req/hour)",
+        }
+    except GitHubAPIError as e:
+        return {
+            "new_release": False,
+            "error": str(e),
+        }
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    if release_data is None:
+        # No releases
+        conn = get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE github_repos SET last_fetched = ? WHERE id = ?",
+                (now, repo_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        return {
+            "new_release": False,
+            "message": "No releases found",
+            "release": None,
+        }
+
+    # Store the release
+    release = store_release(repo_id, release_data)
+
+    # Update repo metadata
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE github_repos SET last_fetched = ?, last_tag = ? WHERE id = ?",
+            (now, release_data.get("tag_name"), repo_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "new_release": True,
+        "release": release,
+    }
