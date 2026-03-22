@@ -39,7 +39,12 @@ Plans:
   2. System uses FTS5 for fast full-text search
   3. System sends ETag/Last-Modified headers when refreshing feeds
   4. System skips downloading unchanged feeds (304 response handling)
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md -- FTS5: database table creation in init_db()
+- [ ] 02-02-PLAN.md -- FTS5: sync in refresh_feed() + search_articles() function
+- [ ] 02-03-PLAN.md -- CLI: article search subcommand
 
 ### Phase 3: Web Crawling
 **Goal**: User can crawl websites and store extracted content as articles
@@ -60,5 +65,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete   | 2026-03-22 |
-| 2. Search & Refresh | 0/TBD | Not started | - |
+| 2. Search & Refresh | 0/3 | Not started | - |
 | 3. Web Crawling | 0/TBD | Not started | - |
