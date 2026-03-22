@@ -21,6 +21,14 @@ from src.feeds import (
     refresh_feed,
     remove_feed,
 )
+from src.github import (
+    add_github_repo,
+    list_github_repos,
+    remove_github_repo,
+    refresh_github_repo,
+    RepoNotFoundError,
+    RateLimitError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -318,6 +326,151 @@ def crawl(ctx: click.Context, url: str, ignore_robots: bool) -> None:
     except Exception as e:
         click.echo(f"Error: Failed to crawl {url}: {e}", err=True, fg="red")
         logger.exception("Failed to crawl")
+        sys.exit(1)
+
+
+@cli.group()
+@click.pass_context
+def repo(ctx: click.Context) -> None:
+    """Manage GitHub repositories."""
+    pass
+
+
+@repo.command("add")
+@click.argument("url")
+@click.pass_context
+def repo_add(ctx: click.Context, url: str) -> None:
+    """Add a GitHub repository to monitor.
+
+    Examples:
+
+        rss-reader repo add https://github.com/owner/repo
+
+        rss-reader repo add git@github.com:owner/repo.git
+    """
+    verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
+    try:
+        repo_obj = add_github_repo(url)
+        click.echo(f"Added GitHub repo: {repo_obj.name}", fg="green")
+        if verbose:
+            click.echo(f"Repo ID: {repo_obj.id}")
+            if repo_obj.last_tag:
+                click.echo(f"Latest release: {repo_obj.last_tag}")
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True, fg="red")
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: Failed to add repo: {e}", err=True, fg="red")
+        logger.exception("Failed to add repo")
+        sys.exit(1)
+
+
+@repo.command("list")
+@click.pass_context
+def repo_list(ctx: click.Context) -> None:
+    """List all monitored GitHub repositories."""
+    verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
+    try:
+        repos = list_github_repos()
+        if not repos:
+            click.echo("No GitHub repos monitored yet. Use 'repo add <url>' to add one.")
+            return
+
+        click.echo("ID | Name | Latest Tag")
+        click.echo("-" * 60)
+
+        for r in repos:
+            tag = r.last_tag or "None"
+            if verbose:
+                click.echo(f"\n{r.id}")
+                click.echo(f"  Name: {r.name}")
+                click.echo(f"  Owner: {r.owner}")
+                click.echo(f"  Repo: {r.repo}")
+                click.echo(f"  Latest Tag: {tag}")
+                click.echo(f"  Last Fetched: {r.last_fetched or 'Never'}")
+            else:
+                click.echo(f"{r.id[:8]}... | {r.name[:40]} | {tag}")
+    except Exception as e:
+        click.echo(f"Error: Failed to list repos: {e}", err=True, fg="red")
+        logger.exception("Failed to list repos")
+        sys.exit(1)
+
+
+@repo.command("remove")
+@click.argument("repo_id")
+@click.pass_context
+def repo_remove(ctx: click.Context, repo_id: str) -> None:
+    """Remove a GitHub repository by ID."""
+    verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
+    try:
+        removed = remove_github_repo(repo_id)
+        if removed:
+            click.echo(f"Removed repo: {repo_id}", fg="green")
+        else:
+            click.echo(f"Repo not found: {repo_id}", fg="yellow")
+            sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: Failed to remove repo: {e}", err=True, fg="red")
+        logger.exception("Failed to remove repo")
+        sys.exit(1)
+
+
+@repo.command("refresh")
+@click.argument("repo_id", required=False)
+@click.pass_context
+def repo_refresh(ctx: click.Context, repo_id: Optional[str]) -> None:
+    """Refresh GitHub repo(s) to fetch latest releases.
+
+    If repo_id is provided, refreshes that specific repo.
+    Otherwise, refreshes all monitored GitHub repos.
+    """
+    verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
+    try:
+        if repo_id:
+            # Refresh single repo
+            result = refresh_github_repo(repo_id)
+            if result.get("new_release"):
+                release = result["release"]
+                click.echo(f"New release: {release.tag_name}", fg="green")
+                if verbose and release.name:
+                    click.echo(f"Title: {release.name}")
+            elif result.get("error"):
+                click.echo(f"Error: {result['error']}", fg="red")
+                if "rate limit" in result["error"].lower():
+                    click.echo("Hint: Set GITHUB_TOKEN environment variable for 5000 req/hour", fg="yellow")
+                sys.exit(1)
+            else:
+                click.echo(result.get("message", "No new release"), fg="yellow")
+        else:
+            # Refresh all repos
+            repos = list_github_repos()
+            if not repos:
+                click.echo("No GitHub repos monitored. Use 'repo add <url>' first.")
+                return
+
+            new_release_count = 0
+            for r in repos:
+                try:
+                    result = refresh_github_repo(r.id)
+                    if result.get("new_release"):
+                        new_release_count += 1
+                        click.echo(f"New release for {r.name}: {result['release'].tag_name}", fg="green")
+                    elif result.get("error"):
+                        click.echo(f"Error refreshing {r.name}: {result['error']}", fg="yellow")
+                except Exception as e:
+                    click.echo(f"Error refreshing {r.name}: {e}", fg="yellow")
+
+            if new_release_count > 0:
+                click.echo(f"\nFetched {new_release_count} new release(s)", fg="green")
+            else:
+                click.echo("No new releases found")
+
+    except RepoNotFoundError:
+        click.echo(f"Repo not found: {repo_id}", fg="red")
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: Failed to refresh repos: {e}", err=True, fg="red")
+        logger.exception("Failed to refresh repos")
         sys.exit(1)
 
 
