@@ -144,6 +144,13 @@ def init_db() -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_github_releases_repo_id ON github_releases(repo_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_github_releases_published ON github_releases(published_at)")
 
+        # Add repo_id column for GitHub changelog association (Phase 5)
+        # This is a migration-safe check - only add if column doesn't exist
+        cursor.execute("PRAGMA table_info(articles)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if 'repo_id' not in columns:
+            cursor.execute("ALTER TABLE articles ADD COLUMN repo_id TEXT REFERENCES github_repos(id) ON DELETE SET NULL")
+
         conn.commit()
     finally:
         conn.close()
