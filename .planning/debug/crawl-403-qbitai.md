@@ -38,5 +38,17 @@ started: "2026-03-23"
 ## Resolution
 root_cause: "httpx.get() in src/crawl.py uses default User-Agent 'python-httpx/<version>' which qbitai.com blocks with 403"
 fix: "Add browser-like User-Agent header to httpx requests in src/crawl.py"
-verification: ""
+verification: "crawl command fixed. But feed add still failed - separate issue in src/feeds.py"
 files_changed: []
+
+## Additional Findings (2026-03-23 later)
+
+### feed add 403 error
+- **Trigger:** `python -m src.cli feed add https://www.qbitai.com/feed`
+- **Root cause:** src/feeds.py line 67 also uses httpx.get() without User-Agent header
+- **Fix:** Added BROWSER_HEADERS to src/feeds.py, merged with conditional headers
+- **Verification:** `python -m src.cli feed add https://www.qbitai.com/feed` → SUCCESS
+
+**Summary:** Two separate httpx usage sites needed fixing:
+1. src/crawl.py (crawl command) ✅
+2. src/feeds.py (feed add/fetch command) ✅
