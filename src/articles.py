@@ -276,3 +276,91 @@ def search_articles(
         return articles
     finally:
         conn.close()
+
+
+def list_articles_with_tags(
+    limit: int = 20,
+    feed_id: Optional[str] = None,
+    tag: Optional[str] = None,
+    tags: Optional[str] = None
+) -> list[ArticleListItem]:
+    """List articles with optional tag filtering (D-14, D-15).
+
+    Args:
+        limit: Maximum number of articles.
+        feed_id: Filter by feed ID.
+        tag: Single tag name filter (must have).
+        tags: Comma-separated tag names (OR logic - has a OR has b).
+              If both tag and tags provided, tag takes precedence.
+    """
+    # Parse multiple tags
+    tag_list: Optional[list[str]] = None
+    if tags:
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+    elif tag:
+        tag_list = [tag]
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+
+        if not tag_list:
+            # No tag filter - use existing list_articles logic
+            return list_articles(limit=limit, feed_id=feed_id)
+
+        # Build query with tag filter
+        # For OR logic with multiple tags, use EXISTS subquery
+        placeholders = ",".join("?" * len(tag_list))
+        sql = f"""
+            SELECT DISTINCT a.id, a.feed_id,
+                   COALESCE(f.name, g.owner || '/' || g.repo) as feed_name,
+                   a.title, a.link, a.guid, a.pub_date, a.description,
+                   CASE WHEN a.repo_id IS NOT NULL THEN 'github' ELSE 'feed' END as source_type,
+                   a.repo_id,
+                   COALESCE(a.repo_id, '') as repo_id_check,
+                   g.name as repo_name,
+                   r.tag_name as release_tag
+            FROM articles a
+            LEFT JOIN feeds f ON a.feed_id = f.id
+            LEFT JOIN github_repos g ON a.repo_id = g.id
+            LEFT JOIN github_releases r ON a.repo_id = r.repo_id AND r.tag_name = a.guid
+            WHERE a.id IN (
+                SELECT DISTINCT at.article_id
+                FROM article_tags at
+                JOIN tags t ON at.tag_id = t.id
+                WHERE t.name IN ({placeholders})
+            )
+            """
+        params = list(tag_list)
+
+        if feed_id:
+            sql += " AND a.feed_id = ?"
+            params.append(feed_id)
+
+        sql += " ORDER BY a.pub_date DESC, a.created_at DESC LIMIT ?"
+        params.append(limit)
+
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+
+        articles = []
+        for row in rows:
+            articles.append(
+                ArticleListItem(
+                    id=row["id"],
+                    feed_id=row["feed_id"],
+                    feed_name=row["feed_name"],
+                    title=row["title"],
+                    link=row["link"],
+                    guid=row["guid"],
+                    pub_date=row["pub_date"],
+                    description=row["description"],
+                    source_type=row["source_type"],
+                    repo_id=row["repo_id"] if row["repo_id"] else None,
+                    repo_name=row["repo_name"] if row["repo_id"] else None,
+                    release_tag=row["release_tag"],
+                )
+            )
+        return articles
+    finally:
+        conn.close()
