@@ -15,6 +15,10 @@ if TYPE_CHECKING:
     from typing import Iterator
 
 
+# Import Tag here since it's used at runtime in CRUD functions
+from src.models import Tag
+
+
 # Cross-platform database path using platformdirs
 _DB_DIR = platformdirs.user_data_dir(appname="rss-reader", appauthor=False)
 _DB_PATH = Path(_DB_DIR) / "rss-reader.db"
@@ -176,5 +180,71 @@ def init_db() -> None:
             cursor.execute("ALTER TABLE articles ADD COLUMN repo_id TEXT REFERENCES github_repos(id) ON DELETE SET NULL")
 
         conn.commit()
+    finally:
+        conn.close()
+
+
+def add_tag(name: str) -> Tag:
+    """Create a new tag. Returns Tag object."""
+    import uuid
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        tag_id = str(uuid.uuid4())
+        cursor.execute(
+            "INSERT INTO tags (id, name) VALUES (?, ?)",
+            (tag_id, name)
+        )
+        conn.commit()
+        cursor.execute("SELECT created_at FROM tags WHERE id = ?", (tag_id,))
+        created_at = cursor.fetchone()["created_at"]
+        return Tag(id=tag_id, name=name, created_at=created_at)
+    finally:
+        conn.close()
+
+
+def list_tags() -> list[Tag]:
+    """List all tags ordered by name."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, created_at FROM tags ORDER BY name")
+        return [Tag(id=row["id"], name=row["name"], created_at=row["created_at"]) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
+def remove_tag(tag_name: str) -> bool:
+    """Remove a tag by name. Unlinks from all articles via CASCADE. Returns True if removed."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        # First get tag_id
+        cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
+        row = cursor.fetchone()
+        if not row:
+            return False
+        tag_id = row["id"]
+        # Delete tag (article_tags cascade handled by FK)
+        cursor.execute("DELETE FROM tags WHERE id = ?", (tag_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def get_tag_article_counts() -> dict[str, int]:
+    """Returns {tag_name: article_count} for all tags."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT t.name, COUNT(at.article_id) as count
+            FROM tags t
+            LEFT JOIN article_tags at ON t.id = at.tag_id
+            GROUP BY t.id, t.name
+            ORDER BY t.name
+        """)
+        return {row["name"]: row["count"] for row in cursor.fetchall()}
     finally:
         conn.close()
