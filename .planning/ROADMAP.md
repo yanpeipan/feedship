@@ -30,7 +30,7 @@
   1. `feed add https://github.com/{owner}/{repo}/blob/{branch}/CHANGELOG.md` 成功添加
   2. `feed add https://github.com/{owner}/{repo}/blob/{branch}/README.md` 成功添加
   3. `fetch --all` 对 GitHub URL feed 不报错
-**Plans:** 1/1 plans complete
+**Plans:** 2/2 plans complete ✅ (2026-03-23)
 **UI hint:** no
 
 ### Phase 9: Enhanced Article List
@@ -88,10 +88,10 @@
 | 6. Unified Display | Complete | ✅ | 2026-03-23 |
 | 7. Tagging System | Complete | ✅ | 2026-03-23 |
 | 8. GitHub URL Metadata | Complete | ✅ | 2026-03-23 |
-| 8.1 Unified Feed Add | 1/1 | Complete   | 2026-03-23 |
-| 9. Enhanced Article List | 1/1 | Complete   | 2026-03-23 |
-| 10. Article Detail View | 1/1 | Complete    | 2026-03-23 |
-| 11. GitHub Release Tagging | 1/1 | Complete    | 2026-03-23 |
+| 8.1 Unified Feed Add | 2/2 | ✅ Complete | 2026-03-23 |
+| 9. Enhanced Article List | 1/1 | ✅ Complete | 2026-03-23 |
+| 10. Article Detail View | 1/1 | ✅ Complete | 2026-03-23 |
+| 11. GitHub Release Tagging | 1/1 | ✅ Complete | 2026-03-23 |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_

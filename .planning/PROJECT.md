@@ -10,14 +10,17 @@
 
 ## Current State
 
-**Shipped: v1.1 GitHub Monitoring** (2026-03-23)
+**Shipped: v1.2 Article List Enhancements** (2026-03-23)
 - CLI 工具，支持 feed 订阅、网页抓取、GitHub 仓库监控
 - GitHub Releases 和 Changelog 统一展示
+- Rich table formatting for article list with ID and tags columns
+- Article detail view and open-in-browser commands
+- GitHub release tagging with unified tagging commands
 - SQLite 本地存储，FTS5 全文搜索
-- 7 个 Python 源文件，约 1,700 行代码
+- ~10 个 Python 源文件，约 2,800 行代码
 
-**Milestone: v1.2 (next)**
-- 待定 — 使用 `/gsd:new-milestone` 开始新里程碑
+**Next Milestone: v1.3 (TBD)**
+- Requires requirements definition via `/gsd:new-milestone`
 
 ## Requirements
 
@@ -41,7 +44,8 @@
 
 ### Active (v1.2)
 
-_待定义 — 使用 `/gsd:new-milestone` 开始新里程碑_
+- [ ] 用户可以在 article list 中看到 id 和 tags 列 — v1.2
+- [ ] 用户可以查看文章详情（detail 子命令）— v1.2
 
 ### Backlog
 - [ ] OPML 导入/导出
@@ -95,4 +99,4 @@ _待定义 — 使用 `/gsd:new-milestone` 开始新里程碑_
 
 ---
 
-*Last updated: 2026-03-23 after v1.1 GitHub Monitoring shipped*
+*Last updated: 2026-03-23 after v1.1 GitHub Monitoring shipped; v1.2 started*

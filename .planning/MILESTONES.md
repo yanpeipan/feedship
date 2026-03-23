@@ -29,3 +29,15 @@
 - `tag rule edit` command to modify existing tag rules
 
 ---
+
+## v1.2 Article List Enhancements (Shipped: 2026-03-23)
+
+**Phases completed:** 5 phases, 5 plans, 14 tasks
+
+**Key accomplishments:**
+
+- GitHub blob URL support in `feed add` - routes to changelog storage automatically
+- Unified `store_article()` function replacing 70+ lines of inline SQL
+- Rich table formatting for article list with ID and tags columns
+- `article view` and `article open` commands for article details
+- GitHub release tagging with auto-detection (release vs article IDs)
