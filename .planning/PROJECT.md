@@ -15,7 +15,10 @@
   - ContentProvider & TagParser Protocols with @runtime_checkable
   - ProviderRegistry with dynamic provider loading
   - feeds.metadata column migration + github_repos data migration
-- Phase 13 next: Provider implementations + Tag parsers
+- Phase 13 complete: RSS/GitHub providers + Tag parser chaining
+  - RSSProvider (priority=50) and GitHubProvider (priority=100) wrapping feeds/github.py
+  - TagParser registry with chain_tag_parsers() and DefaultTagParser
+- Phase 14 next: CLI Integration (wire CLI to ProviderRegistry)
 
 **Shipped: v1.2 Article List Enhancements** (2026-03-23)
 - CLI 工具，支持 feed 订阅、网页抓取、GitHub 仓库监控
@@ -114,4 +117,4 @@
 
 ---
 
-*Last updated: 2026-03-23 after phase 12 complete*
+*Last updated: 2026-03-23 after phase 13 complete*
