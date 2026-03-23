@@ -10,7 +10,11 @@ import logging
 import platform
 import subprocess
 import sys
+import warnings
 from typing import Optional
+
+# Suppress requests version mismatch warning (urllib3 2.6.3 is functionally compatible)
+warnings.filterwarnings("ignore", message="urllib3.*doesn't match a supported version")
 
 import click
 from rich.console import Console
@@ -133,7 +137,8 @@ def _create_feed_with_provider(url: str, name: str, provider_name: str):
     """
     from src.db import get_connection
     from src.feeds import generate_feed_id
-    from datetime import datetime, timezone
+    from datetime import datetime
+    from src.config import get_timezone
     import json
 
     conn = get_connection()
@@ -152,7 +157,7 @@ def _create_feed_with_provider(url: str, name: str, provider_name: str):
         raise ValueError(f"Feed already exists: {url}")
 
     feed_id = generate_feed_id()
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(get_timezone()).isoformat()
 
     # Store provider type in metadata JSON
     metadata = json.dumps({"provider_type": provider_name})
@@ -734,7 +739,8 @@ def _store_article_from_provider(feed_id: str, article: dict, provider_name: str
     """
     from src.db import get_connection
     from src.feeds import generate_article_id
-    from datetime import datetime, timezone
+    from datetime import datetime
+    from src.config import get_timezone
 
     try:
         conn = get_connection()
@@ -743,7 +749,7 @@ def _store_article_from_provider(feed_id: str, article: dict, provider_name: str
         # Generate article ID if not provided
         article_id = article.get("guid") or generate_article_id(article)
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(get_timezone()).isoformat()
 
         cursor.execute(
             """

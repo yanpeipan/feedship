@@ -485,9 +485,10 @@ def store_article(
         Article ID (existing if updated, new if inserted).
     """
     import uuid
-    from datetime import datetime, timezone
+    from datetime import datetime
+    from src.config import get_timezone
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(get_timezone()).isoformat()
 
     conn = get_connection()
     try:

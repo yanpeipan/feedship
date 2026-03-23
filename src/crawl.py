@@ -12,12 +12,13 @@ import logging
 import os
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 from urllib.parse import urlparse
 
 import httpx
 from github import Github, RateLimitExceededException, GithubException
+from src.config import get_timezone
 from bs4 import BeautifulSoup
 from readability import Document
 from robotexclusionrulesparser import RobotExclusionRulesParser
@@ -197,7 +198,7 @@ def ensure_crawled_feed() -> None:
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM feeds WHERE id = 'crawled'")
         if cursor.fetchone() is None:
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(get_timezone()).isoformat()
             cursor.execute(
                 """INSERT INTO feeds (id, name, url, created_at)
                    VALUES ('crawled', 'Crawled Pages', '', ?)""",
@@ -312,7 +313,7 @@ def crawl_url(url: str, ignore_robots: bool = False) -> Optional[dict]:
 
     # Use URL as guid for deduplication
     guid = url
-    pub_date = github_pub_date if github_pub_date else datetime.now(timezone.utc).isoformat()
+    pub_date = github_pub_date if github_pub_date else datetime.now(get_timezone()).isoformat()
 
     # Use unified store_article function (handles INSERT or UPDATE by guid, FTS5 sync)
     from src.db import store_article

@@ -1,17 +1,81 @@
 """AI-powered tagging using embeddings and clustering.
 
-Uses sentence-transformers for embeddings and sklearn DBSCAN for clustering.
+Uses sentence-transformers for embeddings (with TF-IDF fallback)
+and sklearn DBSCAN for clustering.
 """
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from typing import Any, Optional
 
 import numpy as np
 from sklearn.cluster import DBSCAN
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 from src.db import get_connection, add_tag, tag_article
+
+logger = logging.getLogger(__name__)
+
+# Global embedder state: ("sentencetransformers" or "tfidf")
+_EMBEDDER: str | None = None
+_TFIDF_VECTORIZER: TfidfVectorizer | None = None
+_EMBEDDING_DIM: int = 384
+_MODEL: Any = None  # Shared sentence-transformers model instance
+
+
+def _get_embedder() -> str:
+    """Return the available embedder type: 'sentencetransformers' or 'tfidf'."""
+    global _EMBEDDER
+    if _EMBEDDER is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            _ = SentenceTransformer("all-MiniLM-L6-v2")
+            _EMBEDDER = "sentencetransformers"
+        except ImportError:
+            _EMBEDDER = "tfidf"
+    return _EMBEDDER
+
+
+def _get_model() -> Any:
+    """Get or create the shared sentence-transformers model."""
+    global _MODEL
+    if _MODEL is None:
+        from sentence_transformers import SentenceTransformer
+        _MODEL = SentenceTransformer("all-MiniLM-L6-v2")
+    return _MODEL
+
+
+def generate_embedding(text: str) -> np.ndarray:
+    """Generate embedding for text using sentence-transformers or TF-IDF fallback.
+
+    Args:
+        text: Text to encode (title + description).
+
+    Returns:
+        384-dimensional numpy array.
+    """
+    if _get_embedder() == "sentencetransformers":
+        model = _get_model()
+        if not text or not text.strip():
+            return np.zeros(384)
+        return model.encode(text, normalize_embeddings=True)
+
+    # TF-IDF fallback
+    if not text or not text.strip():
+        return np.zeros(_EMBEDDING_DIM)
+
+    global _TFIDF_VECTORIZER
+    if _TFIDF_VECTORIZER is None:
+        # Vectorizer must be fitted first via generate_embeddings_for_articles
+        return np.zeros(_EMBEDDING_DIM)
+
+    vec = _TFIDF_VECTORIZER.transform([text]).toarray()[0]
+    norm = np.linalg.norm(vec)
+    if norm > 0:
+        vec = vec / norm
+    return vec.astype(np.float32)
 
 
 def _load_vec_extension(conn: sqlite3.Connection) -> None:
@@ -39,29 +103,6 @@ def _ensure_embeddings_table() -> None:
         conn.commit()
     finally:
         conn.close()
-
-
-def generate_embedding(text: str, model: Optional[Any] = None) -> np.ndarray:
-    """Generate embedding for text using sentence-transformers (D-10).
-
-    Args:
-        text: Text to encode (title + description).
-        model: Pre-loaded model instance (optional, for reuse).
-
-    Returns:
-        384-dimensional numpy array (all-MiniLM-L6-v2).
-    """
-    if model is None:
-        from sentence_transformers import SentenceTransformer
-        model = SentenceTransformer('all-MiniLM-L6-v2')
-
-    if not text or not text.strip():
-        # Return zero vector for empty text
-        return np.zeros(384)
-
-    embedding = model.encode(text, normalize_embeddings=True)
-    return embedding
-
 
 def store_embedding(article_id: str, embedding: np.ndarray) -> None:
     """Store article embedding in sqlite-vec (D-11)."""
@@ -106,8 +147,14 @@ def generate_embeddings_for_articles(article_ids: list[str], show_progress: bool
 
     Returns dict of {article_id: embedding}.
     """
-    from sentence_transformers import SentenceTransformer
-    model = SentenceTransformer('all-MiniLM-L6-v2')
+    # Fit TF-IDF vectorizer on corpus first if using fallback
+    if _get_embedder() == "tfidf":
+        global _TFIDF_VECTORIZER
+        articles = [_get_article_by_id(aid) for aid in article_ids]
+        texts = [f"{a.title or ''} {a.description or ''}" for a in articles if a]
+        if texts:
+            _TFIDF_VECTORIZER = TfidfVectorizer(max_features=_EMBEDDING_DIM)
+            _TFIDF_VECTORIZER.fit(texts)
 
     results = {}
     for i, article_id in enumerate(article_ids):
@@ -115,7 +162,7 @@ def generate_embeddings_for_articles(article_ids: list[str], show_progress: bool
         if not article:
             continue
         text = f"{article.title or ''} {article.description or ''}"
-        embedding = generate_embedding(text, model)
+        embedding = generate_embedding(text)
         store_embedding(article_id, embedding)
         results[article_id] = embedding
         if show_progress and (i + 1) % 10 == 0:
@@ -241,10 +288,10 @@ def run_auto_tagging(eps: float = 0.3, min_samples: int = 3, create_tags: bool =
             if label == -1:  # Skip noise
                 continue
             tag_name = suggest_tag_name_from_articles(cluster_article_ids)
-            # Create unique tag name if exists
+            # Create unique tag name to avoid collisions
             import uuid
             unique_suffix = str(uuid.uuid4())[:4]
-            final_tag_name = f"{tag_name}-{unique_suffix}" if tag_name == "Cluster" else tag_name
+            final_tag_name = f"{tag_name}-{unique_suffix}"
 
             # Create tag and link articles
             tag = add_tag(final_tag_name)

@@ -8,13 +8,14 @@ from __future__ import annotations
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 import httpx
 
 from src.db import get_connection
 from src.models import GitHubRepo, GitHubRelease
+from src.config import get_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def store_release(repo_id: str, release_data: dict) -> GitHubRelease:
         Created GitHubRelease object.
     """
     release_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(get_timezone()).isoformat()
 
     conn = get_connection()
     try:
@@ -155,7 +156,7 @@ def get_or_create_github_repo(owner: str, repo: str) -> GitHubRepo:
     # Create new entry
     repo_id = generate_repo_id()
     name = f"{owner}/{repo}"
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(get_timezone()).isoformat()
 
     conn = get_connection()
     try:

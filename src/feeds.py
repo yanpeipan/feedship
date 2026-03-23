@@ -9,7 +9,8 @@ from __future__ import annotations
 import hashlib
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from src.config import get_timezone
 from typing import Optional
 
 import feedparser
@@ -87,7 +88,7 @@ def add_github_blob_feed(url: str, github_blob: tuple[str, str, str, str]) -> Fe
 
     # D-04, D-05: Create feed entry with GitHub URL as url
     feed_id = generate_feed_id()
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(get_timezone()).isoformat()
     feed_title = f"{owner}/{repo} / {filename}"
 
     conn = get_connection()
@@ -280,7 +281,7 @@ def add_feed(url: str) -> Feed:
 
     # Create new feed
     feed_id = generate_feed_id()
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(get_timezone()).isoformat()
 
     conn = get_connection()
     try:
@@ -462,7 +463,7 @@ def refresh_feed(feed_id: str) -> dict:
     new_articles = 0
     new_article_ids = []  # Track new articles for FTS5 sync
     articles_needing_tags = []  # Collect (article_id, title, description) tuples for tagging after commit
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(get_timezone()).isoformat()
 
     conn = get_connection()
     try:
