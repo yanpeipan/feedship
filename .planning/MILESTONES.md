@@ -1,5 +1,22 @@
 # Milestones
 
+## v1.3 Provider Architecture (Shipped: 2026-03-23)
+
+**Phases completed:** 4 phases, 9 plans, 19 tasks
+
+**Key accomplishments:**
+
+- ContentProvider Protocol with @runtime_checkable, ProviderRegistry with discover/discover_or_default, and DefaultRSSProvider fallback
+- RSS and GitHub content providers with self-registration, wrapping existing feeds.py and github.py logic
+- Tag parser plugin system with dynamic loading, DefaultTagParser wrapping tag_rules, and chain_tag_parsers() wired into RSSProvider/GitHubProvider
+- fetch --all refactored to use discover_or_default() provider pattern
+- feed add/list wired to provider discovery with Type column display
+- CLI repo command group removed, GitHub management unified under feed command via ProviderRegistry
+- New src/github_utils.py and src/github_ops.py modules with PyGithub dependency added
+- GitHubProvider and crawl.py migrated from httpx-based src.github to PyGithub library
+
+---
+
 ## v1.2 Article List Enhancements (Shipped: 2026-03-23)
 
 **Phases completed:** 4 phases, 5 plans, 11 tasks
