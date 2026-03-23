@@ -248,3 +248,69 @@ def get_tag_article_counts() -> dict[str, int]:
         return {row["name"]: row["count"] for row in cursor.fetchall()}
     finally:
         conn.close()
+
+
+def tag_article(article_id: str, tag_name: str) -> bool:
+    """Link an article to a tag. Creates tag if it doesn't exist. Returns True if linked."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        # Get or create tag
+        cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
+        row = cursor.fetchone()
+        if row:
+            tag_id = row["id"]
+        else:
+            import uuid
+            tag_id = str(uuid.uuid4())
+            cursor.execute("INSERT INTO tags (id, name) VALUES (?, ?)", (tag_id, tag_name))
+            conn.commit()
+        # Link article to tag
+        try:
+            cursor.execute(
+                "INSERT INTO article_tags (article_id, tag_id) VALUES (?, ?)",
+                (article_id, tag_id)
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            # Already linked, not an error
+            pass
+        return True
+    finally:
+        conn.close()
+
+
+def untag_article(article_id: str, tag_name: str) -> bool:
+    """Remove link between article and tag. Returns True if unlinked."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
+        row = cursor.fetchone()
+        if not row:
+            return False
+        tag_id = row["id"]
+        cursor.execute(
+            "DELETE FROM article_tags WHERE article_id = ? AND tag_id = ?",
+            (article_id, tag_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def get_article_tags(article_id: str) -> list[str]:
+    """Returns list of tag names for an article."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT t.name FROM tags t
+            JOIN article_tags at ON t.id = at.tag_id
+            WHERE at.article_id = ?
+            ORDER BY t.name
+        """, (article_id,))
+        return [row["name"] for row in cursor.fetchall()]
+    finally:
+        conn.close()
