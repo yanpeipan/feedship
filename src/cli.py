@@ -22,7 +22,7 @@ from src.db import (
     remove_tag,
     tag_article,
 )
-from src.tag_rules import add_rule, remove_rule, list_rules
+from src.tag_rules import add_rule, remove_rule, list_rules, edit_rule
 from src.tags import run_auto_tagging
 from src.tag_rules import apply_rules_to_article
 from src.feeds import (
@@ -858,6 +858,42 @@ def tag_rule_list(ctx: click.Context) -> None:
                 click.secho(f"  [keyword] {kw}")
             for pattern in rule.get("regex", []):
                 click.secho(f"  [regex] {pattern}")
+    except Exception as e:
+        click.secho(f"Error: {e}", err=True, fg="red")
+        sys.exit(1)
+
+
+@rule.command("edit")
+@click.argument("tag_name")
+@click.option("--add-keyword", "-k", multiple=True, help="Keyword to add (can specify multiple)")
+@click.option("--remove-keyword", "-K", multiple=True, help="Keyword to remove (can specify multiple)")
+@click.option("--add-regex", "-r", multiple=True, help="Regex pattern to add (can specify multiple)")
+@click.option("--remove-regex", "-R", multiple=True, help="Regex pattern to remove (can specify multiple)")
+@click.pass_context
+def tag_rule_edit(ctx: click.Context, tag_name: str, add_keyword: tuple, remove_keyword: tuple, add_regex: tuple, remove_regex: tuple) -> None:
+    """Edit a tag rule by adding/removing keywords or regex patterns (D-07).
+
+    Examples:
+        tag rule edit AI --add-keyword "neural network"
+        tag rule edit Security --remove-keyword "vulnerability" --add-regex "CVE-\\\\d+"
+    """
+    if not add_keyword and not remove_keyword and not add_regex and not remove_regex:
+        click.secho("Error: Must specify at least one of --add-keyword, --remove-keyword, --add-regex, or --remove-regex", fg="red")
+        sys.exit(1)
+
+    try:
+        success = edit_rule(
+            tag_name,
+            add_keywords=list(add_keyword) if add_keyword else None,
+            remove_keywords=list(remove_keyword) if remove_keyword else None,
+            add_regex=list(add_regex) if add_regex else None,
+            remove_regex=list(remove_regex) if remove_regex else None
+        )
+        if success:
+            click.secho(f"Updated rule for tag '{tag_name}'", fg="green")
+        else:
+            click.secho(f"Rule not found for tag '{tag_name}'", fg="yellow")
+            sys.exit(1)
     except Exception as e:
         click.secho(f"Error: {e}", err=True, fg="red")
         sys.exit(1)

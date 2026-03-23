@@ -83,6 +83,59 @@ def remove_rule(tag_name: str, keyword: Optional[str] = None, regex_pattern: Opt
     return True
 
 
+def edit_rule(
+    tag_name: str,
+    add_keywords: Optional[list[str]] = None,
+    remove_keywords: Optional[list[str]] = None,
+    add_regex: Optional[list[str]] = None,
+    remove_regex: Optional[list[str]] = None
+) -> bool:
+    """Edit an existing tag rule by adding/removing keywords or regex patterns.
+
+    Args:
+        tag_name: Name of the tag rule to edit.
+        add_keywords: Keywords to add to the rule.
+        remove_keywords: Keywords to remove from the rule.
+        add_regex: Regex patterns to add to the rule.
+        remove_regex: Regex patterns to remove from the rule.
+
+    Returns:
+        True if the rule was edited, False if tag rule not found.
+    """
+    rules = load_rules()
+    if tag_name not in rules.get("tags", {}):
+        return False
+
+    tag_rule = rules["tags"][tag_name]
+
+    # Remove keywords
+    if remove_keywords:
+        for kw in remove_keywords:
+            if kw in tag_rule.get("keywords", []):
+                tag_rule["keywords"].remove(kw)
+
+    # Remove regex patterns
+    if remove_regex:
+        for pattern in remove_regex:
+            if pattern in tag_rule.get("regex", []):
+                tag_rule["regex"].remove(pattern)
+
+    # Add keywords
+    if add_keywords:
+        tag_rule.setdefault("keywords", []).extend(add_keywords)
+
+    # Add regex patterns
+    if add_regex:
+        tag_rule.setdefault("regex", []).extend(add_regex)
+
+    # Clean up empty rules
+    if not tag_rule.get("keywords") and not tag_rule.get("regex"):
+        del rules["tags"][tag_name]
+
+    save_rules(rules)
+    return True
+
+
 def list_rules() -> dict:
     """Return all rules as dict."""
     return load_rules()
