@@ -13,7 +13,15 @@ import click
 
 from src.articles import list_articles, search_articles
 from src.crawl import crawl_url
-from src.db import add_tag, get_tag_article_counts, init_db, list_tags, remove_tag
+from src.db import (
+    add_tag,
+    get_article_tags,
+    get_tag_article_counts,
+    init_db,
+    list_tags,
+    remove_tag,
+    tag_article,
+)
 from src.feeds import (
     FeedNotFoundError,
     add_feed,
@@ -155,15 +163,29 @@ def feed_refresh(ctx: click.Context, feed_id: str) -> None:
         sys.exit(1)
 
 
-@cli.command("article")
+@cli.group()
+@click.pass_context
+def article(ctx: click.Context) -> None:
+    """Manage articles."""
+    pass
+
+
+@article.command("list")
 @click.option("--limit", default=20, help="Maximum number of articles to show")
 @click.option("--feed-id", default=None, help="Filter by feed ID")
+@click.option("--tag", default=None, help="Filter by tag name")
+@click.option("--tags", default=None, help="Filter by multiple tags (comma-separated, OR logic)")
 @click.pass_context
-def article_list(ctx: click.Context, limit: int, feed_id: Optional[str]) -> None:
-    """List recent articles from all feeds or a specific feed."""
+def article_list(ctx: click.Context, limit: int, feed_id: Optional[str], tag: Optional[str], tags: Optional[str]) -> None:
+    """List recent articles from all feeds or a specific feed.
+
+    Use --tag to filter by a single tag.
+    Use --tags a,b for multiple tags (OR logic - shows articles with ANY of the tags).
+    """
     verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
     try:
-        articles = list_articles(limit=limit, feed_id=feed_id)
+        from src.articles import list_articles_with_tags
+        articles = list_articles_with_tags(limit=limit, feed_id=feed_id, tag=tag, tags=tags)
         if not articles:
             click.secho("No articles found. Add some feeds and fetch them first.")
             return
@@ -181,8 +203,13 @@ def article_list(ctx: click.Context, limit: int, feed_id: Optional[str]) -> None
             else:
                 source = article.feed_name or "Unknown"
 
+            # Get tags for this article
+            article_tags = get_article_tags(article.id) if hasattr(article, 'id') else []
+            tag_str = "".join(f"[{t}]" for t in article_tags)
+
             if verbose:
                 click.secho(f"\nTitle: {title}")
+                click.secho(f"Tags: {', '.join(article_tags) if article_tags else 'None'}")
                 click.secho(f"Source: {source}")
                 click.secho(f"Date: {pub_date}")
                 if article.link:
@@ -191,10 +218,29 @@ def article_list(ctx: click.Context, limit: int, feed_id: Optional[str]) -> None
                     desc_preview = article.description[:100] + "..." if len(article.description) > 100 else article.description
                     click.secho(f"Description: {desc_preview}")
             else:
-                click.secho(f"{title[:50]} | {source[:25]} | {pub_date[:10]}")
+                click.secho(f"{tag_str}{title[:50-len(tag_str)]} | {source[:25]} | {pub_date[:10]}")
     except Exception as e:
         click.secho(f"Error: Failed to list articles: {e}", err=True, fg="red")
         logger.exception("Failed to list articles")
+        sys.exit(1)
+
+
+@article.command("tag")
+@click.argument("article_id")
+@click.argument("tag_name")
+@click.pass_context
+def article_tag(ctx: click.Context, article_id: str, tag_name: str) -> None:
+    """Tag an article with a tag (D-04)."""
+    verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
+    try:
+        tagged = tag_article(article_id, tag_name)
+        if tagged:
+            click.secho(f"Tagged article {article_id} with '{tag_name}'", fg="green")
+        else:
+            click.secho(f"Failed to tag article", fg="red")
+            sys.exit(1)
+    except Exception as e:
+        click.secho(f"Error: {e}", err=True, fg="red")
         sys.exit(1)
 
 
