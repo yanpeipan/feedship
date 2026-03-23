@@ -21,6 +21,7 @@ class Feed:
         last_modified: Last-Modified header value for conditional fetching.
         last_fetched: ISO timestamp of last successful fetch.
         created_at: ISO timestamp when feed was added.
+        metadata: JSON string with provider-specific data (e.g., github_token).
     """
 
     id: str
@@ -30,6 +31,7 @@ class Feed:
     etag: Optional[str] = None
     last_modified: Optional[str] = None
     last_fetched: Optional[str] = None
+    metadata: Optional[str] = None  # JSON string with provider-specific data
 
 
 @dataclass
