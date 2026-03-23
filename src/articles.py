@@ -374,37 +374,63 @@ def list_articles_with_tags(
             # No tag filter - use existing list_articles logic
             return list_articles(limit=limit, feed_id=feed_id)
 
-        # Build query with tag filter
-        # For OR logic with multiple tags, use EXISTS subquery
+        # Build query with tag filter - includes BOTH feed articles AND GitHub releases
         placeholders = ",".join("?" * len(tag_list))
-        sql = f"""
-            SELECT DISTINCT a.id, a.feed_id,
-                   COALESCE(f.name, g.owner || '/' || g.repo) as feed_name,
-                   a.title, a.link, a.guid, a.pub_date, a.description,
-                   CASE WHEN a.repo_id IS NOT NULL THEN 'github' ELSE 'feed' END as source_type,
-                   a.repo_id,
-                   COALESCE(a.repo_id, '') as repo_id_check,
-                   g.name as repo_name,
-                   r.tag_name as release_tag
-            FROM articles a
-            LEFT JOIN feeds f ON a.feed_id = f.id
-            LEFT JOIN github_repos g ON a.repo_id = g.id
-            LEFT JOIN github_releases r ON a.repo_id = r.repo_id AND r.tag_name = a.guid
-            WHERE a.id IN (
-                SELECT DISTINCT at.article_id
-                FROM article_tags at
-                JOIN tags t ON at.tag_id = t.id
-                WHERE t.name IN ({placeholders})
-            )
-            """
-        params = list(tag_list)
 
         if feed_id:
-            sql += " AND a.feed_id = ?"
-            params.append(feed_id)
-
-        sql += " ORDER BY a.pub_date DESC, a.created_at DESC LIMIT ?"
-        params.append(limit)
+            # When filtering by feed_id, only return feed articles (no releases)
+            sql = f"""
+                SELECT DISTINCT a.id, a.feed_id,
+                       f.name as feed_name,
+                       a.title, a.link, a.guid, a.pub_date, a.description,
+                       'feed' as source_type,
+                       CAST(NULL AS TEXT) as repo_id, CAST(NULL AS TEXT) as repo_name, CAST(NULL AS TEXT) as release_tag
+                FROM articles a
+                JOIN feeds f ON a.feed_id = f.id
+                WHERE a.feed_id = ?
+                  AND a.id IN (
+                      SELECT DISTINCT at.article_id
+                      FROM article_tags at
+                      JOIN tags t ON at.tag_id = t.id
+                      WHERE t.name IN ({placeholders})
+                  )
+                ORDER BY a.pub_date DESC, a.created_at DESC
+                LIMIT ?
+            """
+            params = [feed_id] + list(tag_list) + [limit]
+        else:
+            # Return both feed articles AND GitHub releases with matching tags
+            sql = f"""
+                SELECT 'feed' as source_type, a.id, a.feed_id,
+                       COALESCE(f.name, '') as feed_name,
+                       a.title, a.link, a.guid, a.pub_date, a.description,
+                       CAST(NULL AS TEXT) as repo_id, CAST(NULL AS TEXT) as repo_name, CAST(NULL AS TEXT) as release_tag
+                FROM articles a
+                LEFT JOIN feeds f ON a.feed_id = f.id
+                WHERE a.id IN (
+                    SELECT DISTINCT at.article_id
+                    FROM article_tags at
+                    JOIN tags t ON at.tag_id = t.id
+                    WHERE t.name IN ({placeholders})
+                )
+                UNION ALL
+                SELECT 'github' as source_type, r.id, '' as feed_id,
+                       g.owner || '/' || g.repo as feed_name,
+                       COALESCE(r.name, r.tag_name) as title, r.html_url as link,
+                       r.tag_name as guid, r.published_at as pub_date, r.body as description,
+                       r.repo_id, g.name as repo_name, r.tag_name as release_tag
+                FROM github_releases r
+                JOIN github_repos g ON r.repo_id = g.id
+                WHERE r.id IN (
+                    SELECT DISTINCT grt.release_id
+                    FROM github_release_tags grt
+                    JOIN tags t ON grt.tag_id = t.id
+                    WHERE t.name IN ({placeholders})
+                )
+                ORDER BY pub_date DESC
+                LIMIT ?
+            """
+            params = list(tag_list) + list(tag_list) + [limit]
 
         cursor.execute(sql, params)
         rows = cursor.fetchall()
@@ -423,7 +449,7 @@ def list_articles_with_tags(
                     description=row["description"],
                     source_type=row["source_type"],
                     repo_id=row["repo_id"] if row["repo_id"] else None,
-                    repo_name=row["repo_name"] if row["repo_id"] else None,
+                    repo_name=row["repo_name"] if row["repo_name"] else None,
                     release_tag=row["release_tag"],
                 )
             )
@@ -432,33 +458,55 @@ def list_articles_with_tags(
         conn.close()
 
 
-def get_articles_with_tags(article_ids: list[str]) -> dict[str, list[str]]:
-    """Batch fetch tags for multiple articles.
+def get_articles_with_tags(article_ids: list[str], release_ids: Optional[list[str]] = None) -> dict[str, list[str]]:
+    """Batch fetch tags for multiple articles and optionally releases.
 
     Args:
         article_ids: List of article IDs to fetch tags for.
+        release_ids: List of release IDs to fetch tags for.
 
     Returns:
-        Dict mapping article_id -> list of tag names.
+        Dict mapping article_id -> list of tag names, and release_id -> list of tag names.
     """
-    if not article_ids:
-        return {}
+    result: dict[str, list[str]] = {aid: [] for aid in article_ids}
+    if release_ids:
+        result.update({rid: [] for rid in release_ids})
+
+    if not article_ids and not release_ids:
+        return result
 
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        placeholders = ",".join("?" * len(article_ids))
-        cursor.execute(f"""
-            SELECT at.article_id, t.name
-            FROM article_tags at
-            JOIN tags t ON at.tag_id = t.id
-            WHERE at.article_id IN ({placeholders})
-            ORDER BY at.article_id, t.name
-        """, article_ids)
 
-        result: dict[str, list[str]] = {aid: [] for aid in article_ids}
-        for row in cursor.fetchall():
-            result[row["article_id"]].append(row["name"])
+        # Fetch article tags
+        if article_ids:
+            placeholders = ",".join("?" * len(article_ids))
+            cursor.execute(f"""
+                SELECT at.article_id, t.name
+                FROM article_tags at
+                JOIN tags t ON at.tag_id = t.id
+                WHERE at.article_id IN ({placeholders})
+                ORDER BY at.article_id, t.name
+            """, article_ids)
+
+            for row in cursor.fetchall():
+                result[row["article_id"]].append(row["name"])
+
+        # Fetch release tags
+        if release_ids:
+            placeholders = ",".join("?" * len(release_ids))
+            cursor.execute(f"""
+                SELECT grt.release_id, t.name
+                FROM github_release_tags grt
+                JOIN tags t ON grt.tag_id = t.id
+                WHERE grt.release_id IN ({placeholders})
+                ORDER BY grt.release_id, t.name
+            """, release_ids)
+
+            for row in cursor.fetchall():
+                result[row["release_id"]].append(row["name"])
+
         return result
     finally:
         conn.close()

@@ -203,9 +203,12 @@ def article_list(ctx: click.Context, limit: int, feed_id: Optional[str], tag: Op
             click.secho("No articles found. Add some feeds and fetch them first.")
             return
 
-        # Batch fetch tags for all articles (fixes N+1 query problem)
-        article_ids = [a.id for a in articles if hasattr(a, 'id')]
-        tags_map = get_articles_with_tags(article_ids)
+        # Separate article IDs and release IDs
+        article_ids = [a.id for a in articles if a.source_type == "feed"]
+        release_ids = [a.id for a in articles if a.source_type == "github"]
+
+        # Batch fetch tags for all items (articles and releases)
+        tags_map = get_articles_with_tags(article_ids, release_ids if release_ids else None)
 
         # Create rich table
         console = Console()
