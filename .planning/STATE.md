@@ -104,3 +104,4 @@ Next action: `/gsd:plan-phase 12` to start Phase 12 planning
 | Phase 14 P03 | 2 | 1 tasks | 1 files |
 | Phase 14-cli-integration P02 | 1774288413 | 2 tasks | 1 files |
 | Phase 15-pygithub-refactor P01 | 3 | 4 tasks | 4 files |
+| 2026-03-24 | fast | Added OpenAI RSS feed | ✅ |
