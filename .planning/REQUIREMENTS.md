@@ -18,10 +18,61 @@ All v1.0 and v1.1 requirements have been completed and archived in milestones.
 
 See `.planning/milestones/` for archived requirement sets.
 
-## Active Development
+## v1.2 Requirements
 
-No active requirements — milestone complete. Use `/gsd:new-milestone` to start a new milestone.
+**Milestone:** Article List Enhancements
+**Goal:** Show id/tags in article list, add detail view, enable GitHub release tagging
+
+### Article List Display
+
+- [ ] **ARTICLE-01**: User can see article ID (truncated to 8 chars) in `article list` output
+- [ ] **ARTICLE-02**: User can see tags in a separate column in `article list` output
+- [ ] **ARTICLE-03**: Fix N+1 query performance when loading tags (batch query or JOIN)
+- [ ] **ARTICLE-04**: `article list --verbose` shows full article IDs for command usage
+
+### Article Detail View
+
+- [ ] **ARTICLE-05**: User can view full article detail with `article view <id>` command
+- [ ] **ARTICLE-06**: Detail shows title, source/feed, date, tags, link, and full content
+
+### GitHub Release Tagging
+
+- [ ] **GITHUB-01**: User can tag GitHub releases using `article tag <id>`
+- [ ] **GITHUB-02**: Tags work for both feed articles and GitHub releases (unified tagging)
+
+### Open in Browser
+
+- [ ] **ARTICLE-07**: User can open article link in browser with `article open <id>`
+
+## Future (Backlog)
+
+- [ ] JSON/CSV export format for article list
+- [ ] OPML import/export
+- [ ] Read/unread status
+- [ ] Article bookmarks
+- [ ] Scheduled auto-crawl (cron)
+
+## Out of Scope
+
+- Complex classification/categorization beyond tags
+- Multi-user support
+- Cloud sync
+- Share functionality
+- Mobile app
+
+## Traceability
+
+| REQ-ID | Phase | Description |
+|--------|-------|-------------|
+| ARTICLE-01 | 09-01 | Article list ID column |
+| ARTICLE-02 | 09-01 | Article list tags column |
+| ARTICLE-03 | 09-01 | N+1 query fix |
+| ARTICLE-04 | 09-01 | Verbose flag for full IDs |
+| ARTICLE-05 | 09-02 | Article detail view command |
+| ARTICLE-06 | 09-02 | Full content in detail |
+| GITHUB-01 | 09-03 | GitHub release tagging |
+| GITHUB-02 | 09-03 | Unified tag operations |
+| ARTICLE-07 | 09-04 | Open in browser |
 
 ---
-
-*Requirements reset: 2026-03-23 after v1.1 milestone shipped*
+*Requirements created: 2026-03-23 for v1.2 milestone*
