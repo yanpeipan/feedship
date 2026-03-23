@@ -63,7 +63,11 @@
 4. Unknown URL types fall back to default RSS provider (priority=0) without errors
 5. `feeds` table has `metadata` TEXT column storing JSON, `github_repos` data migrated, `github_repos` table deleted
 
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — Provider Protocol and Registry (PROVIDER-01, PROVIDER-02, PROVIDER-03, PROVIDER-04)
+- [ ] 12-02-PLAN.md — Database migrations for feeds.metadata and github_repos (DB-01, DB-02, DB-03)
 
 ---
 
@@ -119,7 +123,7 @@
 | 9. Enhanced Article List | 1/1 | ✅ Complete | 2026-03-23 |
 | 10. Article Detail View | 1/1 | ✅ Complete | 2026-03-23 |
 | 11. GitHub Release Tagging | 1/1 | ✅ Complete | 2026-03-23 |
-| 12. Provider Core Infrastructure | 0/? | Not started | - |
+| 12. Provider Core Infrastructure | 0/2 | Not started | - |
 | 13. Provider Implementations | 0/? | Not started | - |
 | 14. CLI Integration | 0/? | Not started | - |
 
