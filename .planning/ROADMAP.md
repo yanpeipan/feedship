@@ -120,12 +120,18 @@ Plans:
 
 **Goal:** Replace custom GitHub API implementation (src/github.py) with PyGithub library
 
-**Depends on:** Phase 14 (or Phase 13 if CLI work overlaps)
+**Depends on:** Phase 14
 
 **Success Criteria** (what must be TRUE):
 1. All GitHub API calls use PyGithub library
 2. src/github.py is deleted
 3. GitHub Provider still works via Provider interface
+
+**Plans:** 2/2 plans
+
+Plans:
+- [ ] 15-01-PLAN.md — Foundation: Add PyGithub dependency, create github_utils.py and github_ops.py, update feeds.py
+- [ ] 15-02-PLAN.md — Provider + Crawl: Update GitHubProvider and crawl.py to use PyGithub, delete src/github.py
 
 ---
 
@@ -148,7 +154,7 @@ Plans:
 | 12. Provider Core Infrastructure | 2/2 | Complete    | 2026-03-23 |
 | 13. Provider Implementations | 2/2 | Complete    | 2026-03-23 |
 | 14. CLI Integration | 3/3 | Complete    | 2026-03-23 |
-| 15. PyGithub Refactor | 0/0 | Not started|  |
+| 15. PyGithub Refactor | 0/2 | Not started| |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_
