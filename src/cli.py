@@ -97,13 +97,13 @@ def feed_add(ctx: click.Context, url: str) -> None:
         if not raw_items:
             raise ValueError(f"Failed to fetch content from {url}")
 
-        # Parse first item to get feed metadata
-        article = provider.parse(raw_items[0])
+        # Get feed name from provider's feed title (not article title)
+        feed_name = getattr(provider, "feed_title", None) or url
 
         # Create feed entry using provider name as type hint
         feed_obj = _create_feed_with_provider(
             url=url,
-            name=article.get("title") or url,
+            name=feed_name,
             provider_name=provider_name,
         )
 

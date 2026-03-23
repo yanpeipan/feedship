@@ -22,6 +22,14 @@ class RSSProvider:
     then fetches and parses the full feed content.
     """
 
+    def __init__(self) -> None:
+        self._feed_title: str | None = None
+
+    @property
+    def feed_title(self) -> str | None:
+        """Return the feed title from the last crawl() call, or None."""
+        return self._feed_title
+
     def match(self, url: str) -> bool:
         """Check if URL points to RSS/Atom feed via Content-Type header.
 
@@ -67,13 +75,21 @@ class RSSProvider:
         Returns:
             List of feedparser entry dicts, or empty list on error.
         """
+        import feedparser
+
         from src.feeds import fetch_feed_content, parse_feed
 
+        self._feed_title = None
         try:
             content, etag, last_modified, status_code = fetch_feed_content(url)
             if content is None:
                 logger.warning("RSS feed %s returned 304 Not Modified", url)
                 return []
+
+            # Parse full feed to get feed-level metadata (title)
+            parsed = feedparser.parse(content)
+            if parsed.feed:
+                self._feed_title = parsed.feed.get("title")
 
             entries, bozo_flag, bozo_exception = parse_feed(content, url)
             if bozo_flag and bozo_exception:
