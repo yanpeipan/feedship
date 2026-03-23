@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Provider Architecture
-status: Ready to plan
-stopped_at: Phase 15 context gathered (assumptions mode)
-last_updated: "2026-03-23T18:01:49.197Z"
+status: Executing Phase 15
+stopped_at: Completed 15-01-PLAN.md
+last_updated: "2026-03-23T18:12:07.183Z"
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 9
+  completed_plans: 8
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Phase 14 — cli-integration
+**Current focus:** Phase 15 — pygithub-refactor
 
 ## Current Position
 
-Phase: 15
-Plan: Not started
+Phase: 15 (pygithub-refactor) — EXECUTING
+Plan: 1 of 2
 
 ## Performance Metrics
 
@@ -66,6 +66,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 13]: Circular import resolved via TYPE_CHECKING and lazy tag parser loading
 - [Phase 14]: discover_or_default() is a module-level function in src.providers, not a class method
 - [Phase 14-cli-integration]: Used discover_or_default() function directly rather than ProviderRegistry class
+- [Phase 15]: Extracted parse_github_url to github_utils.py (pure URL parsing, no external deps)
+- [Phase 15]: Extracted DB ops and changelog functions to github_ops.py using httpx/raw.githubusercontent.com
 
 ### Technical Notes
 
@@ -87,8 +89,8 @@ None identified.
 
 ## Session Continuity
 
-Last session: 2026-03-23T18:00:09.711Z
-Stopped at: Phase 15 context gathered (assumptions mode)
+Last session: 2026-03-23T18:12:07.178Z
+Stopped at: Completed 15-01-PLAN.md
 Next action: `/gsd:plan-phase 12` to start Phase 12 planning
 
 ## Quick Tasks Completed
@@ -102,3 +104,4 @@ Next action: `/gsd:plan-phase 12` to start Phase 12 planning
 | Phase 14 P01 | 2 | 1 tasks | 1 files |
 | Phase 14 P03 | 2 | 1 tasks | 1 files |
 | Phase 14-cli-integration P02 | 1774288413 | 2 tasks | 1 files |
+| Phase 15-pygithub-refactor P01 | 3 | 4 tasks | 4 files |
