@@ -155,7 +155,7 @@ def add_feed(url: str) -> Feed:
     # Fetch and parse the feed first to validate
     try:
         content, etag, last_modified, status_code = fetch_feed_content(url)
-    except (httpx.RequestError, httpx.HTTPError, httpx.TimeoutException) as e:
+    except (httpx.RequestError, httpx.HTTPError, httpx.TimeoutException, OSError) as e:
         raise ValueError(f"Failed to fetch feed: {e}") from e
 
     if content is None:
@@ -329,7 +329,7 @@ def refresh_feed(feed_id: str) -> dict:
             etag=feed.etag,
             last_modified=feed.last_modified,
         )
-    except (httpx.RequestError, httpx.HTTPError, httpx.TimeoutException) as e:
+    except (httpx.RequestError, httpx.HTTPError, httpx.TimeoutException, OSError) as e:
         logger.error("Failed to refresh feed %s: %s", feed_id, e)
         return {
             "new_articles": 0,
@@ -391,6 +391,15 @@ def refresh_feed(feed_id: str) -> dict:
                 if cursor.rowcount > 0:
                     new_articles += 1
                     new_article_ids.append(article_id)
+
+                    # Apply keyword/regex rules to auto-tag the new article
+                    try:
+                        from src.tag_rules import apply_rules_to_article
+                        matched_tags = apply_rules_to_article(article_id, title, description)
+                        if matched_tags:
+                            logger.info(f"Auto-tagged article {article_id} with: {matched_tags}")
+                    except Exception as e:
+                        logger.warning(f"Failed to apply tag rules to article {article_id}: {e}")
             except Exception as e:
                 logger.warning("Failed to insert article %s: %s", article_id, e)
 
