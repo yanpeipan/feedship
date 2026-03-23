@@ -7,8 +7,10 @@ and article storage in the existing articles table.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import logging
+import re
 import time
 from datetime import datetime, timezone
 from typing import Optional
@@ -26,6 +28,155 @@ logger = logging.getLogger(__name__)
 
 # Rate limiting state: {host: last_request_timestamp}
 _rate_limit_state: dict[str, float] = {}
+
+# GitHub URL pattern for blob pages: github.com/{owner}/{repo}/blob/{branch}/{path}
+GITHUB_BLOB_PATTERN = re.compile(r'^https://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)$')
+
+# GitHub URL pattern for commits pages: github.com/{owner}/{repo}/commits/{branch}[/{path}]
+GITHUB_COMMITS_PATTERN = re.compile(r'^https://github\.com/([^/]+)/([^/]+)/commits/([^/]+)(?:/(.+))?$')
+
+
+def is_github_blob_url(url: str) -> Optional[tuple[str, str, str, str]]:
+    """Detect if URL is a GitHub blob URL.
+
+    Args:
+        url: URL to check
+
+    Returns:
+        Tuple of (owner, repo, branch, path) if match, None otherwise.
+        Per D-GH01: Detect GitHub URL type BEFORE fetching.
+    """
+    match = GITHUB_BLOB_PATTERN.match(url)
+    if match:
+        return match.group(1), match.group(2), match.group(3), match.group(4)
+    return None
+
+
+def is_github_commits_url(url: str) -> Optional[tuple[str, str, str, Optional[str]]]:
+    """Detect if URL is a GitHub commits URL.
+
+    Args:
+        url: URL to check
+
+    Returns:
+        Tuple of (owner, repo, branch, path_or_none) if match, None otherwise.
+        Per D-GH01: Detect GitHub URL type BEFORE fetching.
+        Note: path is Optional because /commits can be just /commits/{branch} without a file path.
+    """
+    match = GITHUB_COMMITS_PATTERN.match(url)
+    if match:
+        return match.group(1), match.group(2), match.group(3), match.group(4)
+    return None
+
+
+def fetch_github_file_metadata(owner: str, repo: str, path: str) -> tuple[Optional[str], Optional[str]]:
+    """Fetch file metadata via GitHub Contents API.
+
+    Args:
+        owner: GitHub owner (user or org)
+        repo: Repository name
+        path: File path within the repository
+
+    Returns:
+        Tuple of (title, error_message).
+        title is formatted as "{owner}/{repo} / {H1}" or "{owner}/{repo} / {filename}".
+        error_message is None on success.
+        Per D-GH02: Use GitHub Contents API for blob URLs.
+        Per D-GH03: Title format with H1 extraction.
+    """
+    from src.github import get_headers, is_rate_limited
+
+    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+    try:
+        response = httpx.get(url, headers=get_headers(), timeout=10.0)
+        if is_rate_limited(response):
+            logger.warning("GitHub Contents API rate limited for %s/%s", owner, repo)
+            return None, "Rate limited"
+        response.raise_for_status()
+        data = response.json()
+
+        # Extract filename from path for fallback title
+        filename = path.split('/')[-1] if '/' in path else path
+
+        # Decode base64 content and extract H1
+        if 'content' in data:
+            content_bytes = base64.b64decode(data['content'])
+            content = content_bytes.decode('utf-8')
+
+            # Extract first H1 from markdown: lines starting with "# " (not "## " etc)
+            h1_match = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
+            if h1_match:
+                h1_text = h1_match.group(1).strip()
+                title = f"{owner}/{repo} / {h1_text}"
+            else:
+                # No H1 found, use filename
+                title = f"{owner}/{repo} / {filename}"
+            return title, None
+        return None, "No content field in API response"
+    except (httpx.RequestError, httpx.HTTPStatusError, httpx.TimeoutException, OSError) as e:
+        logger.warning("Failed to fetch GitHub metadata for %s/%s: %s", owner, repo, e)
+        return None, str(e)
+
+
+def fetch_github_commit_time(owner: str, repo: str, path: Optional[str] = None) -> tuple[Optional[str], Optional[str]]:
+    """Fetch latest commit time via GitHub Commits API.
+
+    Args:
+        owner: GitHub owner (user or org)
+        repo: Repository name
+        path: Optional file path to get commit time for specific file.
+              If None, returns latest commit for the branch.
+
+    Returns:
+        Tuple of (iso_timestamp, error_message).
+        iso_timestamp is in ISO 8601 format from GitHub API.
+        error_message is None on success.
+        Per D-GH04: Use GitHub Commits API for pub_date on commits URLs.
+    """
+    from src.github import get_headers, is_rate_limited
+
+    url = f"https://api.github.com/repos/{owner}/{repo}/commits"
+    params = {"per_page": 1}
+    if path:
+        params["path"] = path
+
+    try:
+        response = httpx.get(url, headers=get_headers(), params=params, timeout=10.0)
+        if is_rate_limited(response):
+            logger.warning("GitHub Commits API rate limited for %s/%s", owner, repo)
+            return None, "Rate limited"
+        response.raise_for_status()
+        commits = response.json()
+        if commits and len(commits) > 0:
+            # GitHub API returns ISO 8601 timestamp in commit.author.date
+            timestamp = commits[0]['commit']['author']['date']
+            return timestamp, None
+        return None, "No commits found"
+    except (httpx.RequestError, httpx.HTTPStatusError, httpx.TimeoutException, OSError) as e:
+        logger.warning("Failed to fetch commit time for %s/%s: %s", owner, repo, e)
+        return None, str(e)
+
+
+def _convert_github_blob_to_raw(url: str) -> str:
+    """Convert GitHub blob URLs to raw content URLs.
+
+    GitHub blob pages (github.com/user/repo/blob/branch/path) are JavaScript-rendered
+    and return minimal HTML when fetched statically. Raw URLs (raw.githubusercontent.com)
+    return the actual file content directly.
+
+    Args:
+        url: URL to convert
+
+    Returns:
+        Raw URL if input was a GitHub blob URL, otherwise unchanged URL
+    """
+    # Pattern: https://github.com/{user}/{repo}/blob/{branch}/{path}
+    pattern = r'^https://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)$'
+    match = re.match(pattern, url)
+    if match:
+        user, repo, branch, path = match.groups()
+        return f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/{path}"
+    return url
 
 
 def ensure_crawled_feed() -> None:
@@ -74,32 +225,67 @@ def crawl_url(url: str, ignore_robots: bool = False) -> Optional[dict]:
             time.sleep(2.0 - elapsed)
     _rate_limit_state[host] = time.time()
 
+    # D-GH01: Detect GitHub URL type BEFORE fetching
+    github_blob = is_github_blob_url(url)
+    github_commits = is_github_commits_url(url) if not github_blob else None
+
+    # Track GitHub-specific pub_date and title if available
+    github_pub_date = None
+    github_title = None
+
     # D-02: robots.txt check (unless ignore_robots flag set)
-    if not ignore_robots:
-        robots_url = f"{parsed.scheme}://{host}/robots.txt"
+    # For GitHub blob URLs, check robots.txt for raw.githubusercontent.com
+    robots_check_url = _convert_github_blob_to_raw(url)
+    robots_parsed = urlparse(robots_check_url)
+
+    # Skip robots.txt check for raw.githubusercontent.com - it's a static file CDN
+    # where robots.txt is not critical for legitimate crawling
+    skip_robots_check = robots_parsed.netloc == "raw.githubusercontent.com"
+
+    if not ignore_robots and not skip_robots_check:
+        robots_url = f"{robots_parsed.scheme}://{robots_parsed.netloc}/robots.txt"
         try:
             parser = RobotExclusionRulesParser()
             response = httpx.get(robots_url, timeout=10.0)
             parser.parse(response.text)
-            if not parser.can_fetch(url, "*"):
-                logger.warning("Blocked by robots.txt: %s", url)
+            if not parser.is_allowed(robots_check_url, "*"):
+                logger.warning("Blocked by robots.txt: %s", robots_check_url)
                 return None
         except Exception as e:
             # D-05: Lazy mode - log warning but continue on robots.txt errors
-            logger.warning("Failed to fetch robots.txt for %s: %s", host, e)
+            logger.warning("Failed to fetch robots.txt for %s: %s", robots_parsed.netloc, e)
+
+    # D-GH01, D-GH02, D-GH03: GitHub blob URL - fetch metadata first
+    if github_blob:
+        owner, repo, branch, path = github_blob
+        github_title, gh_error = fetch_github_file_metadata(owner, repo, path)
+        if gh_error:
+            logger.warning("GitHub metadata fetch failed for %s: %s", url, gh_error)
+            # Fall back to raw fetch - will use Readability title
+
+        # Also get commit time for pub_date
+        github_pub_date, _ = fetch_github_commit_time(owner, repo, path)
+
+    # D-GH01, D-GH04: GitHub commits URL - get commit time for pub_date
+    if github_commits and not github_blob:
+        owner, repo, branch, path = github_commits
+        github_pub_date, _ = fetch_github_commit_time(owner, repo, path)
+        if github_pub_date:
+            logger.info("Using commit time as pub_date for %s: %s", url, github_pub_date)
 
     # Fetch page content with httpx
+    # For GitHub blob URLs, use the raw URL to get actual content
     try:
-        response = httpx.get(url, timeout=30.0)
+        response = httpx.get(robots_check_url, timeout=30.0, follow_redirects=True)
         response.raise_for_status()
-    except (httpx.RequestError, httpx.HTTPStatusError, httpx.TimeoutException) as e:
+    except (httpx.RequestError, httpx.HTTPStatusError, httpx.TimeoutException, OSError) as e:
         logger.error("Failed to fetch %s: %s", url, e)
         return None
 
     # D-01 + D-04: Extract content with Readability
     try:
         doc = Document(response.text)
-        title = doc.title()
+        title = github_title if github_title else doc.title()
         # summary() returns HTML; strip tags for plain text content
         soup = BeautifulSoup(doc.summary(), 'html.parser')
         content = soup.get_text(separator='\n', strip=True)
@@ -119,7 +305,7 @@ def crawl_url(url: str, ignore_robots: bool = False) -> Optional[dict]:
 
     # Generate article ID: use URL as guid (with crawl: prefix)
     article_id = f"crawl:{hashlib.sha256(url.encode()).hexdigest()[:16]}"
-    now = datetime.now(timezone.utc).isoformat()
+    pub_date = github_pub_date if github_pub_date else datetime.now(timezone.utc).isoformat()
 
     conn = get_connection()
     try:
@@ -130,15 +316,16 @@ def crawl_url(url: str, ignore_robots: bool = False) -> Optional[dict]:
             """INSERT OR IGNORE INTO articles
                (id, feed_id, title, link, guid, pub_date, description, content, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (article_id, 'crawled', title, url, article_id, now, None, content, now)
+            (article_id, 'crawled', title, url, article_id, pub_date, None, content, pub_date)
         )
 
-        # Sync to FTS5 (same pattern as refresh_feed)
-        cursor.execute(
-            """INSERT INTO articles_fts(rowid, title, description, content)
-               SELECT id, title, description, content FROM articles WHERE id = ?""",
-            (article_id,)
-        )
+        # Sync to FTS5 only if article was actually inserted (not ignored)
+        if cursor.rowcount > 0:
+            cursor.execute(
+                """INSERT INTO articles_fts(rowid, title, description, content)
+                   SELECT rowid, title, description, content FROM articles WHERE id = ?""",
+                (article_id,)
+            )
 
         conn.commit()
     finally:
@@ -148,4 +335,5 @@ def crawl_url(url: str, ignore_robots: bool = False) -> Optional[dict]:
         'title': title,
         'link': url,
         'content': content,
+        'pub_date': pub_date,
     }
