@@ -13,7 +13,7 @@ import click
 
 from src.articles import list_articles, search_articles
 from src.crawl import crawl_url
-from src.db import init_db
+from src.db import add_tag, get_tag_article_counts, init_db, list_tags, remove_tag
 from src.feeds import (
     FeedNotFoundError,
     add_feed,
@@ -615,6 +615,63 @@ def _display_changelog(repo, changelog: dict, verbose: bool) -> None:
             click.secho(f"\n... (truncated, use --verbose for full content)")
         else:
             click.secho(content)
+
+
+@cli.group()
+@click.pass_context
+def tag(ctx: click.Context) -> None:
+    """Manage article tags."""
+    pass
+
+
+@tag.command("add")
+@click.argument("name")
+@click.pass_context
+def tag_add(ctx: click.Context, name: str) -> None:
+    """Create a new tag."""
+    try:
+        t = add_tag(name)
+        click.secho(f"Created tag: {t.name}", fg="green")
+    except Exception as e:
+        click.secho(f"Error: {e}", err=True, fg="red")
+        sys.exit(1)
+
+
+@tag.command("list")
+@click.pass_context
+def tag_list(ctx: click.Context) -> None:
+    """List all tags with article counts."""
+    try:
+        tags = list_tags()
+        counts = get_tag_article_counts()
+        if not tags:
+            click.secho("No tags created yet. Use 'tag add <name>' to create one.")
+            return
+        click.secho("Tag | Articles")
+        click.secho("-" * 30)
+        for t in tags:
+            count = counts.get(t.name, 0)
+            click.secho(f"{t.name} | {count}")
+    except Exception as e:
+        click.secho(f"Error: {e}", err=True, fg="red")
+        sys.exit(1)
+
+
+@tag.command("remove")
+@click.argument("tag_name")
+@click.pass_context
+def tag_remove(ctx: click.Context, tag_name: str) -> None:
+    """Remove a tag (unlinks from all articles)."""
+    try:
+        removed = remove_tag(tag_name)
+        if removed:
+            click.secho(f"Removed tag: {tag_name}", fg="green")
+        else:
+            click.secho(f"Tag not found: {tag_name}", fg="yellow")
+            sys.exit(1)
+    except Exception as e:
+        click.secho(f"Error: {e}", err=True, fg="red")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
