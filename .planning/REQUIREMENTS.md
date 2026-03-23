@@ -32,8 +32,8 @@ See `.planning/milestones/` for archived requirement sets.
 
 ### Article Detail View
 
-- [ ] **ARTICLE-05**: User can view full article detail with `article view <id>` command
-- [ ] **ARTICLE-06**: Detail shows title, source/feed, date, tags, link, and full content
+- [x] **ARTICLE-05**: User can view full article detail with `article view <id>` command
+- [x] **ARTICLE-06**: Detail shows title, source/feed, date, tags, link, and full content
 
 ### GitHub Release Tagging
 
@@ -42,7 +42,7 @@ See `.planning/milestones/` for archived requirement sets.
 
 ### Open in Browser
 
-- [ ] **ARTICLE-07**: User can open article link in browser with `article open <id>`
+- [x] **ARTICLE-07**: User can open article link in browser with `article open <id>`
 
 ## Future (Backlog)
 

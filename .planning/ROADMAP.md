@@ -19,7 +19,7 @@
 - [x] **Phase 8: GitHub URL Metadata** — Improved metadata extraction for GitHub URLs (v1.1)
   - [x] **Phase 8.1: Unified Feed Add** — Support GitHub URLs in feed add with changelog integration (gap closure) (completed 2026-03-23)
 - [x] **Phase 9: Enhanced Article List** — Show IDs and tags in list with N+1 query fix (v1.2)
-- [ ] **Phase 10: Article Detail View** — View full article details and open in browser (v1.2)
+- [x] **Phase 10: Article Detail View** — View full article details and open in browser (v1.2) (completed 2026-03-23)
 - [ ] **Phase 11: GitHub Release Tagging** — Unified tagging for GitHub releases (v1.2)
 
 ### Phase 8.1: Unified Feed Add (gap closure)
@@ -56,9 +56,9 @@
   2. User can run `article open <id>` to open article URL in default browser
   3. Detail view shows `content` field (not just `description`)
   4. View command works with truncated ID (8 chars) or full ID
-**Plans:** 1/1
+**Plans:** 1/1 plans complete
 **Plan list:**
-- [ ] 10-01-PLAN.md -- Article detail view with `article view` and `article open` commands
+- [x] 10-01-PLAN.md -- Article detail view with `article view` and `article open` commands
 **UI hint:** yes
 
 ### Phase 11: GitHub Release Tagging
@@ -88,7 +88,7 @@
 | 8. GitHub URL Metadata | Complete | ✅ | 2026-03-23 |
 | 8.1 Unified Feed Add | 1/1 | Complete   | 2026-03-23 |
 | 9. Enhanced Article List | 1/1 | Complete   | 2026-03-23 |
-| 10. Article Detail View | 1/1 | Not started | - |
+| 10. Article Detail View | 1/1 | Complete   | 2026-03-23 |
 | 11. GitHub Release Tagging | 0/1 | Not started | - |
 
 ---
