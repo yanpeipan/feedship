@@ -10,6 +10,13 @@
 
 ## Current State
 
+**In Progress: v1.3 Provider Architecture** (2026-03-23)
+- Phase 12 complete: Provider plugin architecture foundation + DB migrations
+  - ContentProvider & TagParser Protocols with @runtime_checkable
+  - ProviderRegistry with dynamic provider loading
+  - feeds.metadata column migration + github_repos data migration
+- Phase 13 next: Provider implementations + Tag parsers
+
 **Shipped: v1.2 Article List Enhancements** (2026-03-23)
 - CLI 工具，支持 feed 订阅、网页抓取、GitHub 仓库监控
 - GitHub Releases 和 Changelog 统一展示
@@ -107,4 +114,4 @@
 
 ---
 
-*Last updated: 2026-03-23 after v1.2 shipped; v1.3 started*
+*Last updated: 2026-03-23 after phase 12 complete*
