@@ -10,9 +10,10 @@ import glob
 import importlib
 import logging
 from pathlib import Path
-from typing import List, Set, Tuple
+from typing import TYPE_CHECKING, List, Set, Tuple
 
-from src.providers.base import Article, TagParser
+if TYPE_CHECKING:
+    from src.providers.base import Article, TagParser
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +46,12 @@ def load_tag_parsers() -> None:
             # Look for TAG_PARSER_INSTANCE attribute
             if hasattr(mod, "TAG_PARSER_INSTANCE"):
                 parser = mod.TAG_PARSER_INSTANCE
-                # Verify it implements TagParser protocol
-                if isinstance(parser, TagParser):
+                # Verify it has parse_tags method (TagParser protocol)
+                if callable(getattr(parser, "parse_tags", None)):
                     TAG_PARSERS.append((module_name, parser))
                     logger.debug("Registered tag parser: %s", module_name)
                 else:
-                    logger.warning("TAG_PARSER_INSTANCE in %s does not implement TagParser", full_module)
+                    logger.warning("TAG_PARSER_INSTANCE in %s does not implement TagParser (no parse_tags method)", full_module)
             logger.debug("Loaded tag parser module: %s", full_module)
         except Exception:
             logger.exception("Failed to load tag parser %s", full_module)
@@ -64,6 +65,7 @@ def get_tag_parsers() -> List[TagParser]:
     Returns:
         List of TagParser instances from TAG_PARSERS.
     """
+    _ensure_loaded()
     return [parser for _, parser in TAG_PARSERS]
 
 
@@ -76,6 +78,7 @@ def chain_tag_parsers(article: Article) -> List[str]:
     Returns:
         Combined list of tag names from all parsers, deduplicated.
     """
+    _ensure_loaded()
     all_tags: List[str] = []
     seen: Set[str] = set()
 
@@ -92,6 +95,14 @@ def chain_tag_parsers(article: Article) -> List[str]:
     return all_tags
 
 
-# Load tag parsers at module import time
-# Note: This runs after providers are loaded (providers/__init__.py imports tags)
-load_tag_parsers()
+# Note: Loading is deferred to first call of chain_tag_parsers() to avoid
+# circular import issues when providers import from src.tags at module load time.
+_LOADED = False
+
+
+def _ensure_loaded() -> None:
+    """Ensure tag parsers are loaded (idempotent, called on first use)."""
+    global _LOADED
+    if not _LOADED:
+        load_tag_parsers()
+        _LOADED = True

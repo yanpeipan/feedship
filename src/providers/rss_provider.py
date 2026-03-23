@@ -10,6 +10,7 @@ from typing import List
 
 from src.providers import PROVIDERS
 from src.providers.base import Article, ContentProvider, Raw, TagParser
+from src.tags import chain_tag_parsers
 
 logger = logging.getLogger(__name__)
 
@@ -139,15 +140,15 @@ class RSSProvider:
         return []
 
     def parse_tags(self, article: Article) -> List[str]:
-        """Parse tags for an article.
+        """Parse tags for an article using all loaded tag parsers.
 
         Args:
-            article: Article dict.
+            article: Article dict with title, description, etc.
 
         Returns:
-            Empty list - chaining is implemented in Plan 02 via chain_tag_parsers.
+            List of tag names from all tag parsers (union, deduped).
         """
-        return []
+        return chain_tag_parsers(article)
 
 
 # Register this provider - it will be sorted by priority() after all modules load
