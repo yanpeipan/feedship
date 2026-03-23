@@ -154,7 +154,7 @@ Plans:
 | 12. Provider Core Infrastructure | 2/2 | Complete    | 2026-03-23 |
 | 13. Provider Implementations | 2/2 | Complete    | 2026-03-23 |
 | 14. CLI Integration | 3/3 | Complete    | 2026-03-23 |
-| 15. PyGithub Refactor | 2/2 | Complete   | 2026-03-23 |
+| 15. PyGithub Refactor | 2/2 | Complete    | 2026-03-23 |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_
