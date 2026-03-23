@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import os
 import re
 import time
 from datetime import datetime, timezone
@@ -16,6 +17,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import httpx
+from github import Github, RateLimitExceededException, GithubException
 from bs4 import BeautifulSoup
 from readability import Document
 from robotexclusionrulesparser import RobotExclusionRulesParser
@@ -24,6 +26,17 @@ from src.db import get_connection
 from src.models import Article
 
 logger = logging.getLogger(__name__)
+
+# Module-level PyGithub client
+_github_client: Github | None = None
+
+
+def _get_github_client() -> Github:
+    """Get or create module-level Github client."""
+    global _github_client
+    if _github_client is None:
+        _github_client = Github(os.environ.get("GITHUB_TOKEN"))
+    return _github_client
 
 # Browser-like User-Agent header to avoid 403 bot blocks
 BROWSER_HEADERS = {
@@ -88,23 +101,18 @@ def fetch_github_file_metadata(owner: str, repo: str, path: str) -> tuple[Option
         Per D-GH02: Use GitHub Contents API for blob URLs.
         Per D-GH03: Title format with H1 extraction.
     """
-    from src.github import get_headers, is_rate_limited
-
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
     try:
-        response = httpx.get(url, headers=get_headers(), timeout=10.0)
-        if is_rate_limited(response):
-            logger.warning("GitHub Contents API rate limited for %s/%s", owner, repo)
-            return None, "Rate limited"
-        response.raise_for_status()
-        data = response.json()
+        client = _get_github_client()
+        gh_repo = client.get_repo(f"{owner}/{repo}")
+        contents = gh_repo.get_contents(path)
+        # contents is a ContentObject with content (base64), name, path, etc.
 
         # Extract filename from path for fallback title
         filename = path.split('/')[-1] if '/' in path else path
 
         # Decode base64 content and extract H1
-        if 'content' in data:
-            content_bytes = base64.b64decode(data['content'])
+        if contents.content:
+            content_bytes = base64.b64decode(contents.content)
             content = content_bytes.decode('utf-8')
 
             # Extract first H1 from markdown: lines starting with "# " (not "## " etc)
@@ -117,7 +125,10 @@ def fetch_github_file_metadata(owner: str, repo: str, path: str) -> tuple[Option
                 title = f"{owner}/{repo} / {filename}"
             return title, None
         return None, "No content field in API response"
-    except (httpx.RequestError, httpx.HTTPStatusError, httpx.TimeoutException, OSError) as e:
+    except RateLimitExceededException as e:
+        logger.warning("GitHub Contents API rate limited for %s/%s", owner, repo)
+        return None, "Rate limited"
+    except GithubException as e:
         logger.warning("Failed to fetch GitHub metadata for %s/%s: %s", owner, repo, e)
         return None, str(e)
 
@@ -137,26 +148,18 @@ def fetch_github_commit_time(owner: str, repo: str, path: Optional[str] = None) 
         error_message is None on success.
         Per D-GH04: Use GitHub Commits API for pub_date on commits URLs.
     """
-    from src.github import get_headers, is_rate_limited
-
-    url = f"https://api.github.com/repos/{owner}/{repo}/commits"
-    params = {"per_page": 1}
-    if path:
-        params["path"] = path
-
     try:
-        response = httpx.get(url, headers=get_headers(), params=params, timeout=10.0)
-        if is_rate_limited(response):
-            logger.warning("GitHub Commits API rate limited for %s/%s", owner, repo)
-            return None, "Rate limited"
-        response.raise_for_status()
-        commits = response.json()
-        if commits and len(commits) > 0:
-            # GitHub API returns ISO 8601 timestamp in commit.author.date
-            timestamp = commits[0]['commit']['author']['date']
-            return timestamp, None
-        return None, "No commits found"
-    except (httpx.RequestError, httpx.HTTPStatusError, httpx.TimeoutException, OSError) as e:
+        client = _get_github_client()
+        gh_repo = client.get_repo(f"{owner}/{repo}")
+        commits = gh_repo.get_commits(path=path if path else None)
+        # commits is a PaginatedList
+        first_commit = commits[0]
+        timestamp = first_commit.commit.author.date.isoformat()
+        return timestamp, None
+    except RateLimitExceededException as e:
+        logger.warning("GitHub Commits API rate limited for %s/%s", owner, repo)
+        return None, "Rate limited"
+    except GithubException as e:
         logger.warning("Failed to fetch commit time for %s/%s: %s", owner, repo, e)
         return None, str(e)
 
