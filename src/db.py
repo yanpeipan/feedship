@@ -314,3 +314,79 @@ def get_article_tags(article_id: str) -> list[str]:
         return [row["name"] for row in cursor.fetchall()]
     finally:
         conn.close()
+
+
+def store_article(
+    guid: str,
+    title: str,
+    content: str,
+    link: str,
+    feed_id: Optional[str] = None,
+    repo_id: Optional[str] = None,
+    pub_date: Optional[str] = None,
+) -> str:
+    """Store an article (insert or update based on guid existence).
+
+    Args:
+        guid: Unique identifier for the article.
+        title: Article title.
+        content: Article content (markdown/html).
+        link: URL to the article.
+        feed_id: Feed ID if from RSS feed (optional).
+        repo_id: GitHub repo ID if from GitHub source (optional).
+        pub_date: Publication date (optional).
+
+    Returns:
+        Article ID (existing if updated, new if inserted).
+    """
+    import uuid
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+
+        # Check if article exists
+        cursor.execute("SELECT id FROM articles WHERE guid = ?", (guid,))
+        existing = cursor.fetchone()
+
+        if existing:
+            # UPDATE existing article
+            article_id = existing["id"]
+            cursor.execute(
+                """UPDATE articles SET title = ?, content = ?, link = ?, pub_date = ?
+                   WHERE guid = ?""",
+                (title, content, link, pub_date or now, guid),
+            )
+        else:
+            # INSERT new article
+            article_id = str(uuid.uuid4())
+            cursor.execute(
+                """INSERT INTO articles (id, feed_id, repo_id, title, link, guid, pub_date, content, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    article_id,
+                    feed_id or "",
+                    repo_id or None,
+                    title,
+                    link,
+                    guid,
+                    pub_date or now,
+                    content,
+                    now,
+                ),
+            )
+
+        # Sync to FTS5
+        cursor.execute(
+            """INSERT OR REPLACE INTO articles_fts(rowid, title, description, content)
+               SELECT rowid, title, description, content FROM articles WHERE id = ?""",
+            (article_id,),
+        )
+
+        conn.commit()
+        return article_id
+    finally:
+        conn.close()
