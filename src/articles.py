@@ -5,7 +5,7 @@ Provides functions for listing and retrieving articles from the database.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from src.db import get_connection
@@ -362,5 +362,37 @@ def list_articles_with_tags(
                 )
             )
         return articles
+    finally:
+        conn.close()
+
+
+def get_articles_with_tags(article_ids: list[str]) -> dict[str, list[str]]:
+    """Batch fetch tags for multiple articles.
+
+    Args:
+        article_ids: List of article IDs to fetch tags for.
+
+    Returns:
+        Dict mapping article_id -> list of tag names.
+    """
+    if not article_ids:
+        return {}
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        placeholders = ",".join("?" * len(article_ids))
+        cursor.execute(f"""
+            SELECT at.article_id, t.name
+            FROM article_tags at
+            JOIN tags t ON at.tag_id = t.id
+            WHERE at.article_id IN ({placeholders})
+            ORDER BY at.article_id, t.name
+        """, article_ids)
+
+        result: dict[str, list[str]] = {aid: [] for aid in article_ids}
+        for row in cursor.fetchall():
+            result[row["article_id"]].append(row["name"])
+        return result
     finally:
         conn.close()
