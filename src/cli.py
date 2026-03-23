@@ -5,6 +5,7 @@ Provides commands for feed management and article listing.
 
 from __future__ import annotations
 
+import importlib
 import logging
 import platform
 import subprocess
@@ -31,8 +32,19 @@ from src.db import (
     tag_github_release,
 )
 from src.tag_rules import add_rule, remove_rule, list_rules, edit_rule
-from src.tags import run_auto_tagging
 from src.tag_rules import apply_rules_to_article
+
+# Import run_auto_tagging from src/tags.py module (not the src/tags/ package)
+# This uses importlib.machinery to explicitly load the module by file path
+# to avoid the naming conflict where src/tags/ package shadows src/tags.py module
+import importlib.machinery
+import pathlib
+_tags_module_path = pathlib.Path(__file__).parent / "tags.py"
+_loader = importlib.machinery.SourceFileLoader("src_tags_module", str(_tags_module_path))
+_spec = importlib.util.spec_from_loader("src_tags_module", _loader)
+_tags_module = importlib.util.module_from_spec(_spec)
+_loader.exec_module(_tags_module)
+run_auto_tagging = _tags_module.run_auto_tagging
 from src.feeds import (
     FeedNotFoundError,
     add_feed,
