@@ -6,14 +6,28 @@ Priority is 100 (highest - tried first).
 from __future__ import annotations
 
 import logging
+import os
 from typing import List
 from urllib.parse import urlparse
+
+from github import Github, RateLimitExceededException, GithubException
 
 from src.providers import PROVIDERS
 from src.providers.base import Article, ContentProvider, Raw, TagParser
 from src.tags import chain_tag_parsers
 
 logger = logging.getLogger(__name__)
+
+# Module-level PyGithub client (D-08)
+_github_client: Github | None = None
+
+
+def _get_github_client() -> Github:
+    """Get or create module-level Github client."""
+    global _github_client
+    if _github_client is None:
+        _github_client = Github(os.environ.get("GITHUB_TOKEN"))
+    return _github_client
 
 
 class GitHubProvider:
@@ -70,20 +84,27 @@ class GitHubProvider:
         Returns:
             List with single release dict, or empty list if no release or error.
         """
-        from src.github import fetch_latest_release, parse_github_url, RateLimitError, GitHubAPIError
+        from src.github_utils import parse_github_url
 
         try:
             owner, repo = parse_github_url(url)
-            release_data = fetch_latest_release(owner, repo)
-            if release_data is None:
-                logger.info("No releases found for %s/%s", owner, repo)
-                return []
+            client = _get_github_client()
+            gh_repo = client.get_repo(f"{owner}/{repo}")
+            release = gh_repo.get_latest_release()
+
+            release_data = {
+                "tag_name": release.tag_name,
+                "name": release.name,
+                "body": release.body,
+                "html_url": release.html_url,
+                "published_at": release.published_at.isoformat() if release.published_at else None,
+            }
             logger.debug("GitHubProvider.crawl(%s) returned release: %s", url, release_data.get("tag_name"))
             return [release_data]
-        except RateLimitError as e:
+        except RateLimitExceededException as e:
             logger.error("GitHub API rate limited for %s: %s", url, e)
             return []
-        except GitHubAPIError as e:
+        except GithubException as e:
             logger.error("GitHub API error for %s: %s", url, e)
             return []
         except ValueError as e:
