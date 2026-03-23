@@ -647,6 +647,16 @@ def store_changelog_as_article(repo_id: str, repo_name: str, content: str, filen
                 now,
             ),
         )
+
+        # Sync changelog to FTS5 for search
+        cursor.execute(
+            """
+            INSERT INTO articles_fts(rowid, title, description, content)
+            SELECT id, title, NULL as description, content FROM articles WHERE id = ?
+            """,
+            (article_id,),
+        )
+
         conn.commit()
         return article_id
     finally:
