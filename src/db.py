@@ -193,6 +193,15 @@ def init_db() -> None:
             cursor.execute("ALTER TABLE articles ADD COLUMN repo_id TEXT REFERENCES github_repos(id) ON DELETE SET NULL")
 
         conn.commit()
+
+        # Run v1.3 migrations after schema creation
+        try:
+            from src.db_migrations import run_v13_migrations
+            migration_results = run_v13_migrations()
+            logger.info("v1.3 migrations completed: %s", migration_results)
+        except Exception:
+            # Log but don't fail init if migrations fail (database might be read-only)
+            logger.exception("Failed to run v1.3 migrations")
     finally:
         conn.close()
 
