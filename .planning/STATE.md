@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Milestone shipped
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-03-23T04:40:33.833Z"
+status: Milestone complete
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-03-23T04:54:54.793Z"
 progress:
   total_phases: 7
-  completed_phases: 6
-  total_plans: 18
-  completed_plans: 17
+  completed_phases: 7
+  total_plans: 19
+  completed_plans: 19
 ---
 
 # Project State
@@ -80,6 +80,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 06-unified-display-refresh-integration]: LIKE search for GitHub releases (body not in FTS5) - avoids schema changes
 - [Phase 07-tagging-system]: Tag auto-creation: When tagging an article with non-existent tag, tag is automatically created
 - [Phase 07-tagging-system]: OR tag filtering: Multiple tags in filter use OR logic (article has tag A OR tag B)
+- [Phase 07]: Keyword/regex tag rules stored in ~/.radar/tag-rules.yaml with case-insensitive matching
 
 ### Pending Todos
 
@@ -91,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T04:40:33.828Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-03-23T04:45:37.889Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None
