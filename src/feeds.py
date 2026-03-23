@@ -413,6 +413,10 @@ def refresh_feed(feed_id: str) -> dict:
     if not feed:
         raise FeedNotFoundError(f"Feed not found: {feed_id}")
 
+    # Skip 'crawled' system feed - it has no URL to refresh
+    if feed.id == "crawled":
+        return {"new_articles": 0, "updated_etag": None, "updated_last_modified": None}
+
     # D-09: Detect GitHub blob URL and call refresh_changelog(repo_id)
     github_blob = is_github_blob_url(feed.url)
     if github_blob:
@@ -421,7 +425,13 @@ def refresh_feed(feed_id: str) -> dict:
         github_repo = get_github_repo_by_owner_repo(owner, repo)
         if not github_repo:
             return {"error": f"GitHub repo {owner}/{repo} not found"}
-        return refresh_changelog(github_repo.id)
+        result = refresh_changelog(github_repo.id)
+        # Add new_articles count for CLI feedback
+        if result.get("article_id"):
+            result["new_articles"] = 1
+        else:
+            result["new_articles"] = 0
+        return result
 
     try:
         content, etag, last_modified, status_code = fetch_feed_content(
@@ -451,6 +461,7 @@ def refresh_feed(feed_id: str) -> dict:
 
     new_articles = 0
     new_article_ids = []  # Track new articles for FTS5 sync
+    articles_needing_tags = []  # Collect (article_id, title, description) tuples for tagging after commit
     now = datetime.now(timezone.utc).isoformat()
 
     conn = get_connection()
@@ -491,15 +502,8 @@ def refresh_feed(feed_id: str) -> dict:
                 if cursor.rowcount > 0:
                     new_articles += 1
                     new_article_ids.append(article_id)
-
-                    # Apply keyword/regex rules to auto-tag the new article
-                    try:
-                        from src.tag_rules import apply_rules_to_article
-                        matched_tags = apply_rules_to_article(article_id, title, description)
-                        if matched_tags:
-                            logger.info(f"Auto-tagged article {article_id} with: {matched_tags}")
-                    except Exception as e:
-                        logger.warning(f"Failed to apply tag rules to article {article_id}: {e}")
+                    # Collect for tagging after commit to avoid nested connection writes
+                    articles_needing_tags.append((article_id, title, description))
             except Exception as e:
                 logger.warning("Failed to insert article %s: %s", article_id, e)
 
@@ -524,6 +528,17 @@ def refresh_feed(feed_id: str) -> dict:
         conn.commit()
     finally:
         conn.close()
+
+    # Apply tag rules AFTER commit to avoid "database is locked" from nested connections
+    # during the uncommitted transaction window
+    from src.tag_rules import apply_rules_to_article
+    for article_id, title, description in articles_needing_tags:
+        try:
+            matched_tags = apply_rules_to_article(article_id, title, description)
+            if matched_tags:
+                logger.info(f"Auto-tagged article {article_id} with: {matched_tags}")
+        except Exception as e:
+            logger.warning(f"Failed to apply tag rules to article {article_id}: {e}")
 
     return {
         "new_articles": new_articles,
