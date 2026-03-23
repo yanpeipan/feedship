@@ -5,9 +5,12 @@ Provides SQLite database connection with WAL mode and schema initialization.
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+logger = logging.getLogger(__name__)
 
 import platformdirs
 
