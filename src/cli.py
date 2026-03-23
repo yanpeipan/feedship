@@ -22,6 +22,7 @@ from src.db import (
     remove_tag,
     tag_article,
 )
+from src.tag_rules import add_rule, remove_rule, list_rules
 from src.feeds import (
     FeedNotFoundError,
     add_feed,
@@ -715,6 +716,80 @@ def tag_remove(ctx: click.Context, tag_name: str) -> None:
         else:
             click.secho(f"Tag not found: {tag_name}", fg="yellow")
             sys.exit(1)
+    except Exception as e:
+        click.secho(f"Error: {e}", err=True, fg="red")
+        sys.exit(1)
+
+
+@tag.group()
+@click.pass_context
+def rule(ctx: click.Context) -> None:
+    """Manage tag rules for automatic tagging."""
+    pass
+
+
+@rule.command("add")
+@click.argument("tag_name")
+@click.option("--keyword", "-k", multiple=True, help="Keyword to match (can specify multiple)")
+@click.option("--regex", "-r", help="Regex pattern to match")
+@click.pass_context
+def tag_rule_add(ctx: click.Context, tag_name: str, keyword: tuple, regex: Optional[str]) -> None:
+    """Add a rule for a tag (D-07).
+
+    Examples:
+        tag rule add AI --keyword "machine learning" --keyword "deep learning"
+        tag rule add Security --regex "CVE-\\d+"
+    """
+    if not keyword and not regex:
+        click.secho("Error: Must specify --keyword or --regex", fg="red")
+        sys.exit(1)
+    try:
+        add_rule(tag_name, keywords=list(keyword) if keyword else None, regex=[regex] if regex else None)
+        click.secho(f"Added rule(s) for tag '{tag_name}'", fg="green")
+    except Exception as e:
+        click.secho(f"Error: {e}", err=True, fg="red")
+        sys.exit(1)
+
+
+@rule.command("remove")
+@click.argument("tag_name")
+@click.option("--keyword", "-k", help="Keyword to remove")
+@click.option("--regex", "-r", help="Regex pattern to remove")
+@click.pass_context
+def tag_rule_remove(ctx: click.Context, tag_name: str, keyword: Optional[str], regex: Optional[str]) -> None:
+    """Remove a rule from a tag."""
+    if not keyword and not regex:
+        click.secho("Error: Must specify --keyword or --regex", fg="red")
+        sys.exit(1)
+    try:
+        removed = remove_rule(tag_name, keyword=keyword, regex_pattern=regex)
+        if removed:
+            click.secho(f"Removed rule from '{tag_name}'", fg="green")
+        else:
+            click.secho(f"Rule not found for '{tag_name}'", fg="yellow")
+    except Exception as e:
+        click.secho(f"Error: {e}", err=True, fg="red")
+        sys.exit(1)
+
+
+@rule.command("list")
+@click.pass_context
+def tag_rule_list(ctx: click.Context) -> None:
+    """List all tag rules."""
+    try:
+        rules = list_rules()
+        tags = rules.get("tags", {})
+        if not tags:
+            click.secho("No tag rules defined. Use 'tag rule add' to create one.")
+            return
+        click.secho("Tag Rules:")
+        click.secho("=" * 50)
+        for tag_name, rule in tags.items():
+            click.secho(f"\n{tag_name}:")
+            for kw in rule.get("keywords", []):
+                click.secho(f"  [keyword] {kw}")
+            for pattern in rule.get("regex", []):
+                click.secho(f"  [regex] {pattern}")
     except Exception as e:
         click.secho(f"Error: {e}", err=True, fg="red")
         sys.exit(1)
