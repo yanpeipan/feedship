@@ -2,10 +2,10 @@
 
 ## Milestones
 
-- ✅ **v1.0 MVP** — Phases 1-3 (shipped 2026-03-22)
-- ✅ **v1.1 GitHub Monitoring + Tagging** — Phases 4-8 (shipped 2026-03-23)
-- ✅ **v1.2 Article List Enhancements** — Phases 8.1-11 (shipped 2026-03-23)
-- ⏳ **v1.3** — (planned)
+- [x] **v1.0 MVP** — Phases 1-3 (shipped 2026-03-22)
+- [x] **v1.1 GitHub Monitoring + Tagging** — Phases 4-8 (shipped 2026-03-23)
+- [x] **v1.2 Article List Enhancements** — Phases 8.1-11 (shipped 2026-03-23)
+- [ ] **v1.3 Provider Architecture** — Phases 12-14 (planned)
 
 ## Phases
 
@@ -40,59 +40,66 @@
 
 </details>
 
-### v1.3 (Planned)
+### v1.3 Provider Architecture
 
+- [ ] **Phase 12: Provider Core Infrastructure** — Provider Protocol, Registry, Error Isolation, Fallback, DB migrations
+- [ ] **Phase 13: Provider Implementations + Tag Parsers** — RSS Provider, GitHub Provider, Tag Parser chaining
+- [ ] **Phase 14: CLI Integration** — fetch/feed commands wired to Registry, repo command deletion
 
-**Goal:** `python -m src.cli feed add` 支持 GitHub blob URL，自动委派给 changelog 流程
-**Depends on:** Phase 5 (changelog detection), Phase 8 (GitHub URL metadata)
-**Problem:** `feed add` 不检测 GitHub URL，直接当 RSS 解析导致 403/422 错误
-**Success Criteria:**
-  1. `feed add https://github.com/{owner}/{repo}/blob/{branch}/CHANGELOG.md` 成功添加
-  2. `feed add https://github.com/{owner}/{repo}/blob/{branch}/README.md` 成功添加
-  3. `fetch --all` 对 GitHub URL feed 不报错
-**Plans:** 2/2 plans complete ✅ (2026-03-23)
-**UI hint:** no
+---
 
-### Phase 9: Enhanced Article List
-**Goal:** Users can see article IDs and tags as separate columns in article list
-**Depends on:** Nothing
-**Requirements:** ARTICLE-01, ARTICLE-02, ARTICLE-03, ARTICLE-04
+### Phase 12: Provider Core Infrastructure
+
+**Goal:** Plugin architecture foundation with Provider Protocol, Registry, error isolation, fallback, and database migrations
+
+**Depends on:** Nothing (new milestone)
+
+**Requirements:** PROVIDER-01, PROVIDER-02, PROVIDER-03, PROVIDER-04, DB-01, DB-02, DB-03
+
 **Success Criteria** (what must be TRUE):
-  1. User sees truncated article ID (8 chars) in first column of `article list` output
-  2. User sees tags displayed in a separate dedicated column (not inline with title)
-  3. `article list` with 20+ articles loads in under 1 second (N+1 fix verified)
-  4. User can run `article list --verbose` to see full 32-char article IDs
-**Plans:** 1/1
-**Plan list:**
-- [x] 09-01-PLAN.md -- Enhanced article list with rich table, ID column, tags column, N+1 fix
-**UI hint:** yes
+1. System loads providers dynamically from `src/providers/` directory at startup, ordered by priority
+2. All providers implement `ContentProvider` Protocol with `match()`, `priority()`, `crawl()`, `parse()`, `tag_parsers()`, `parse_tags()` methods
+3. Single provider failure (crawl/parse exception) logs error and continues to next provider without crashing
+4. Unknown URL types fall back to default RSS provider (priority=0) without errors
+5. `feeds` table has `metadata` TEXT column storing JSON, `github_repos` data migrated, `github_repos` table deleted
 
-### Phase 10: Article Detail View
-**Goal:** Users can view complete article information without opening browser
-**Depends on:** Phase 9
-**Requirements:** ARTICLE-05, ARTICLE-06, ARTICLE-07
-**Success Criteria** (what must be TRUE):
-  1. User can run `article view <id>` and see title, source/feed, date, tags, link, and full content
-  2. User can run `article open <id>` to open article URL in default browser
-  3. Detail view shows `content` field (not just `description`)
-  4. View command works with truncated ID (8 chars) or full ID
-**Plans:** 1/1 plans complete
-**Plan list:**
-- [x] 10-01-PLAN.md -- Article detail view with `article view` and `article open` commands
-**UI hint:** yes
+**Plans:** TBD
 
-### Phase 11: GitHub Release Tagging
-**Goal:** Tags can be applied to GitHub releases using article tag commands
-**Depends on:** Phase 10
-**Requirements:** GITHUB-01, GITHUB-02
+---
+
+### Phase 13: Provider Implementations + Tag Parsers
+
+**Goal:** RSS and GitHub providers implementing ContentProvider interface, with tag parser chaining
+
+**Depends on:** Phase 12
+
+**Requirements:** PROVIDER-05, PROVIDER-06, TAG-01, TAG-02
+
 **Success Criteria** (what must be TRUE):
-  1. User can run `article tag <github-release-id>` to tag a GitHub release
-  2. User can run `article tag <article-id>` to tag a feed article (existing behavior preserved)
-  3. `article list --tag <tag>` shows both feed articles and GitHub releases with that tag
-  4. Tag CRUD operations work uniformly for both article types
-**Plans:** 1/1 plans complete
-**Plan list:**
-- [x] 11-01-PLAN.md -- GitHub release tagging with unified tagging commands
+1. RSS Provider handles RSS/Atom feeds with priority=50, wrapping existing feeds.py logic
+2. GitHub Provider handles GitHub URLs with priority=100, wrapping existing github.py logic
+3. Tag parser chaining runs multiple TagParsers and returns union with duplicates removed
+4. Default tag parser applies existing tag_rules.py logic for auto-tagging
+
+**Plans:** TBD
+
+---
+
+### Phase 14: CLI Integration
+
+**Goal:** CLI commands use Provider Registry for unified feed management
+
+**Depends on:** Phase 13
+
+**Requirements:** CLI-01, CLI-02, CLI-03, CLI-04
+
+**Success Criteria** (what must be TRUE):
+1. `fetch --all` iterates all providers via ProviderRegistry and calls crawl + parse for each
+2. `feed add <url>` auto-detects provider type via ProviderRegistry.discover() without user specifying type
+3. `repo add`, `repo list`, `repo remove`, `repo refresh` commands are deleted (统一到 feed 命令)
+4. `feed list` output includes provider_type column showing "RSS" or "GitHub"
+
+**Plans:** TBD
 
 ---
 
@@ -112,6 +119,9 @@
 | 9. Enhanced Article List | 1/1 | ✅ Complete | 2026-03-23 |
 | 10. Article Detail View | 1/1 | ✅ Complete | 2026-03-23 |
 | 11. GitHub Release Tagging | 1/1 | ✅ Complete | 2026-03-23 |
+| 12. Provider Core Infrastructure | 0/? | Not started | - |
+| 13. Provider Implementations | 0/? | Not started | - |
+| 14. CLI Integration | 0/? | Not started | - |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_
