@@ -1,54 +1,52 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: Milestone complete
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-03-23T05:30:48.645Z"
+milestone: v1.2
+milestone_name: Article List Enhancements
+status: Milestone started
+stopped_at: Roadmap created
+last_updated: "2026-03-23"
 progress:
-  total_phases: 9
-  completed_phases: 8
-  total_plans: 21
-  completed_plans: 20
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-23)
+See: .planning/PROJECT.md
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Phase 08 — github-url-metadata
+**Current focus:** v1.2 — Article List Enhancements
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
+**Milestone:** v1.2 (Article List Enhancements)
+**Phase:** Not started (roadmap created)
+**Plan:** —
+**Status:** Ready for planning
+**Last activity:** 2026-03-23 — Roadmap created
+
+### Phase Status
+
+| Phase | Status | Plans | Completed |
+|-------|--------|-------|-----------|
+| 9. Enhanced Article List | Not started | 0/1 | - |
+| 10. Article Detail View | Not started | 0/1 | - |
+| 11. GitHub Release Tagging | Not started | 0/1 | - |
 
 ## Performance Metrics
 
-**Velocity (v1.0):**
+**v1.0 velocity:**
+- 3 phases, 9 plans, ~3 hours
 
-- Total plans completed: 9
-- Total execution time: ~3 hours
+**v1.1 velocity:**
+- 4 phases, 10 plans, ~1 day
 
-**By Phase (v1.0):**
-
-| Phase | Plans | Avg/Plan |
-|-------|-------|----------|
-| 1. Foundation | 3 | ~8 min |
-| 2. Search & Refresh | 4 | ~32 min |
-| 3. Web Crawling | 2 | ~2 min |
-| Phase 04-github-api-client-releases-integration P04-01 | 2 | 3 tasks | 3 files |
-| Phase 04-github-api-client-releases-integration P04-02 | 1 min | 2 tasks | 2 files |
-| Phase 05-changelog-detection-scraping P05-01 | 48 | 2 tasks | 2 files |
-| Phase 05-changelog-detection-scraping P05-02 | 2 | 1 tasks | 1 files |
-| Phase 06-unified-display-refresh-integration P06-01 | 2 | 3 tasks | 1 files |
-| Phase 06-unified-display-refresh-integration P06-02 | 5 | 3 tasks | 1 files |
-| Phase 06-unified-display-refresh-integration P06-03 | 1 | 1 tasks | 1 files |
-| Phase 07-tagging-system P07-01 | 4 | 7 tasks | 4 files |
-| Phase 08 P01 | 5 | 3 tasks | 1 files |
+**v1.2 (current):**
+- 3 phases planned
 
 ## Accumulated Context
 
@@ -57,7 +55,6 @@ Plan: Not started
 Decisions are logged in PROJECT.md Key Decisions table.
 
 **v1.0 decisions:**
-
 - GUID fallback chain: guid -> link -> SHA256(link:pubDate) ensures unique article IDs
 - Bozo detection via feed.bozo flag logs malformed XML but continues processing
 - INSERT OR IGNORE + UNIQUE(feed_id, guid) handles duplicate articles silently
@@ -71,33 +68,42 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - CLI echoes errors in red, no-content in yellow, success in green
 
 **v1.1 decisions:**
-
 - GitHub Releases using GitHub API
 - GitHub Changelog using Scrapling web scraping
-- Phase 4: GitHub API Client + Releases Integration (GH-01, GH-02, GH-03, GH-04)
-- Phase 5: Changelog Detection + Scraping (GH-05, GH-06)
-- Phase 6: Unified Display + Refresh Integration (GH-07, GH-08)
-- [Phase 06-unified-display-refresh-integration]: UNION ALL pattern for combining feed articles and GitHub releases in list_articles
-- [Phase 06-unified-display-refresh-integration]: LIKE search for GitHub releases (body not in FTS5) - avoids schema changes
-- [Phase 07-tagging-system]: Tag auto-creation: When tagging an article with non-existent tag, tag is automatically created
-- [Phase 07-tagging-system]: OR tag filtering: Multiple tags in filter use OR logic (article has tag A OR tag B)
-- [Phase 07]: Keyword/regex tag rules stored in ~/.radar/tag-rules.yaml with case-insensitive matching
-- [Phase 08]: D-GH01: Detect GitHub URL type BEFORE fetching using URL pattern matching
-- [Phase 08]: D-GH02: Use GitHub Contents API for blob URLs to get file metadata
-- [Phase 08]: D-GH03: Title format {owner}/{repo} / {H1} or {owner}/{repo} / {filename}
-- [Phase 08]: D-GH04: Use GitHub Commits API for pub_date on commits URLs
-- [Phase 08]: D-GH05: Graceful fallback on GitHub API failure (rate limit, network error)
+- UNION ALL pattern for combining feed articles and GitHub releases in list_articles
+- LIKE search for GitHub releases (body not in FTS5) - avoids schema changes
+- Tag auto-creation: When tagging an article with non-existent tag, tag is automatically created
+- OR tag filtering: Multiple tags in filter use OR logic
+- Keyword/regex tag rules stored in ~/.radar/tag-rules.yaml with case-insensitive matching
 
-### Pending Todos
+**v1.2 decisions:**
+- Using `rich` library for terminal table formatting (Phase 9)
+- Detail view via rich Panel/Markdown rendering (Phase 10)
+- GitHub release tagging requires schema decision (Phase 11)
 
-None yet.
+### Technical Notes
+
+**Phase 9 (Enhanced Article List):**
+- N+1 query problem: current `article list` calls `get_article_tags()` per article
+- Fix: JOIN or batch query in `list_articles_with_tags()`
+- Truncated ID (8 chars) for display, full ID (32 chars) for commands
+
+**Phase 10 (Detail View):**
+- `get_article()` missing `content` field in SELECT clause
+- Must add `content` to SELECT when implementing detail view
+- Open in browser: `open` (macOS) / `xdg-open` (Linux)
+
+**Phase 11 (GitHub Release Tagging):**
+- `article_tags` table FK points to `articles.id`
+- GitHub releases are in separate `github_releases` table
+- Schema change or error handling needed before tagging works
 
 ### Blockers/Concerns
 
-None yet.
+None identified.
 
 ## Session Continuity
 
-Last session: 2026-03-23T05:28:09.786Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-03-23
+Stopped at: Roadmap created, ready for `/gsd:plan-phase 9`
 Resume file: None

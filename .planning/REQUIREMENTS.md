@@ -64,15 +64,15 @@ See `.planning/milestones/` for archived requirement sets.
 
 | REQ-ID | Phase | Description |
 |--------|-------|-------------|
-| ARTICLE-01 | 09-01 | Article list ID column |
-| ARTICLE-02 | 09-01 | Article list tags column |
-| ARTICLE-03 | 09-01 | N+1 query fix |
-| ARTICLE-04 | 09-01 | Verbose flag for full IDs |
-| ARTICLE-05 | 09-02 | Article detail view command |
-| ARTICLE-06 | 09-02 | Full content in detail |
-| GITHUB-01 | 09-03 | GitHub release tagging |
-| GITHUB-02 | 09-03 | Unified tag operations |
-| ARTICLE-07 | 09-04 | Open in browser |
+| ARTICLE-01 | 9 | Article list ID column |
+| ARTICLE-02 | 9 | Article list tags column |
+| ARTICLE-03 | 9 | N+1 query fix |
+| ARTICLE-04 | 9 | Verbose flag for full IDs |
+| ARTICLE-05 | 10 | Article detail view command |
+| ARTICLE-06 | 10 | Full content in detail |
+| ARTICLE-07 | 10 | Open in browser |
+| GITHUB-01 | 11 | GitHub release tagging |
+| GITHUB-02 | 11 | Unified tag operations |
 
 ---
 *Requirements created: 2026-03-23 for v1.2 milestone*
