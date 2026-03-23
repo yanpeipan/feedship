@@ -5,7 +5,7 @@
 - [x] **v1.0 MVP** — Phases 1-3 (shipped 2026-03-22)
 - [x] **v1.1 GitHub Monitoring + Tagging** — Phases 4-8 (shipped 2026-03-23)
 - [x] **v1.2 Article List Enhancements** — Phases 8.1-11 (shipped 2026-03-23)
-- [ ] **v1.3 Provider Architecture** — Phases 12-14 (planned)
+- [ ] **v1.3 Provider Architecture** — Phases 12-15 (planned)
 
 ## Phases
 
@@ -107,10 +107,10 @@ Plans:
 3. `repo add`, `repo list`, `repo remove`, `repo refresh` commands are deleted (统一到 feed 命令)
 4. `feed list` output includes provider_type column showing "RSS" or "GitHub"
 
-**Plans:** 3/3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
-- [ ] 14-01-PLAN.md — fetch --all via ProviderRegistry (CLI-01)
+- [x] 14-01-PLAN.md — fetch --all via ProviderRegistry (CLI-01)
 - [ ] 14-02-PLAN.md — feed add/list via ProviderRegistry + provider_type display (CLI-02, CLI-04)
 - [ ] 14-03-PLAN.md — Delete repo command group (CLI-03)
 
@@ -134,7 +134,7 @@ Plans:
 | 11. GitHub Release Tagging | 1/1 | ✅ Complete | 2026-03-23 |
 | 12. Provider Core Infrastructure | 2/2 | Complete    | 2026-03-23 |
 | 13. Provider Implementations | 2/2 | Complete    | 2026-03-23 |
-| 14. CLI Integration | 0/3 | Not started | - |
+| 14. CLI Integration | 1/3 | In Progress|  |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_
