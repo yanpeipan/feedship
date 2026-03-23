@@ -93,7 +93,7 @@ def list_articles(limit: int = 20, feed_id: Optional[str] = None) -> list[Articl
                        r.repo_id, g.name as repo_name, r.tag_name as release_tag
                 FROM github_releases r
                 JOIN github_repos g ON r.repo_id = g.id
-                ORDER BY pub_date DESC, created_at DESC
+                ORDER BY pub_date DESC
                 LIMIT ?
                 """,
                 (limit,),
@@ -193,7 +193,7 @@ def search_articles(
                        a.title, a.link, a.guid, a.pub_date, a.description,
                        NULL as repo_id, NULL as repo_name, NULL as release_tag
                 FROM articles_fts
-                JOIN articles a ON articles_fts.rowid = a.id
+                JOIN articles a ON articles_fts.rowid = a.rowid
                 JOIN feeds f ON a.feed_id = f.id
                 WHERE articles_fts MATCH ?
                   AND a.feed_id = ?
@@ -209,7 +209,7 @@ def search_articles(
                        a.title, a.link, a.guid, a.pub_date, a.description,
                        NULL as repo_id, NULL as repo_name, NULL as release_tag
                 FROM articles_fts
-                JOIN articles a ON articles_fts.rowid = a.id
+                JOIN articles a ON articles_fts.rowid = a.rowid
                 JOIN feeds f ON a.feed_id = f.id
                 WHERE articles_fts MATCH ?
                 ORDER BY bm25(articles_fts)

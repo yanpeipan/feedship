@@ -63,14 +63,14 @@ def feed_add(ctx: click.Context, url: str) -> None:
     verbose = ctx.parent and ctx.parent.obj.get("verbose")
     try:
         feed_obj = add_feed(url)
-        click.echo(f"Added feed: {feed_obj.name} ({feed_obj.url})", fg="green")
+        click.secho(f"Added feed: {feed_obj.name} ({feed_obj.url})", fg="green")
         if verbose:
-            click.echo(f"Feed ID: {feed_obj.id}")
+            click.secho(f"Feed ID: {feed_obj.id}")
     except ValueError as e:
-        click.echo(f"Error: {e}", err=True, fg="red")
+        click.secho(f"Error: {e}", err=True, fg="red")
         sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: Failed to add feed: {e}", err=True, fg="red")
+        click.secho(f"Error: Failed to add feed: {e}", err=True, fg="red")
         logger.exception("Failed to add feed")
         sys.exit(1)
 
@@ -83,17 +83,17 @@ def feed_list(ctx: click.Context) -> None:
     try:
         feeds = list_feeds()
         if not feeds:
-            click.echo("No feeds subscribed yet. Use 'feed add <url>' to add one.")
+            click.secho("No feeds subscribed yet. Use 'feed add <url>' to add one.")
             return
 
         # Print table header
-        click.echo("ID  | Name | URL | Articles | Last Fetched")
-        click.echo("-" * 80)
+        click.secho("ID  | Name | URL | Articles | Last Fetched")
+        click.secho("-" * 80)
 
         for f in feeds:
             last_fetched = f.last_fetched or "Never"
             if verbose:
-                click.echo(
+                click.secho(
                     f"{f.id}\n"
                     f"  Name: {f.name}\n"
                     f"  URL: {f.url}\n"
@@ -101,12 +101,12 @@ def feed_list(ctx: click.Context) -> None:
                     f"  Last Fetched: {last_fetched}"
                 )
             else:
-                click.echo(
+                click.secho(
                     f"{f.id[:8]}... | {f.name[:30]} | {f.url[:40]} | "
                     f"{getattr(f, 'articles_count', 0)} | {last_fetched[:10]}"
                 )
     except Exception as e:
-        click.echo(f"Error: Failed to list feeds: {e}", err=True, fg="red")
+        click.secho(f"Error: Failed to list feeds: {e}", err=True, fg="red")
         logger.exception("Failed to list feeds")
         sys.exit(1)
 
@@ -120,12 +120,12 @@ def feed_remove(ctx: click.Context, feed_id: str) -> None:
     try:
         removed = remove_feed(feed_id)
         if removed:
-            click.echo(f"Removed feed: {feed_id}", fg="green")
+            click.secho(f"Removed feed: {feed_id}", fg="green")
         else:
-            click.echo(f"Feed not found: {feed_id}", fg="yellow")
+            click.secho(f"Feed not found: {feed_id}", fg="yellow")
             sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: Failed to remove feed: {e}", err=True, fg="red")
+        click.secho(f"Error: Failed to remove feed: {e}", err=True, fg="red")
         logger.exception("Failed to remove feed")
         sys.exit(1)
 
@@ -139,18 +139,18 @@ def feed_refresh(ctx: click.Context, feed_id: str) -> None:
     try:
         result = refresh_feed(feed_id)
         if "error" in result:
-            click.echo(f"Error refreshing feed: {result['error']}", fg="red")
+            click.secho(f"Error refreshing feed: {result['error']}", fg="red")
             sys.exit(1)
         new_count = result.get("new_articles", 0)
         if new_count > 0:
-            click.echo(f"Fetched {new_count} new articles", fg="green")
+            click.secho(f"Fetched {new_count} new articles", fg="green")
         else:
-            click.echo("No new articles available", fg="yellow")
+            click.secho("No new articles available", fg="yellow")
     except FeedNotFoundError:
-        click.echo(f"Feed not found: {feed_id}", fg="red")
+        click.secho(f"Feed not found: {feed_id}", fg="red")
         sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: Failed to refresh feed: {e}", err=True, fg="red")
+        click.secho(f"Error: Failed to refresh feed: {e}", err=True, fg="red")
         logger.exception("Failed to refresh feed")
         sys.exit(1)
 
@@ -165,11 +165,11 @@ def article_list(ctx: click.Context, limit: int, feed_id: Optional[str]) -> None
     try:
         articles = list_articles(limit=limit, feed_id=feed_id)
         if not articles:
-            click.echo("No articles found. Add some feeds and fetch them first.")
+            click.secho("No articles found. Add some feeds and fetch them first.")
             return
 
-        click.echo("Title | Source | Date")
-        click.echo("-" * 80)
+        click.secho("Title | Source | Date")
+        click.secho("-" * 80)
 
         for article in articles:
             title = article.title or "No title"
@@ -182,18 +182,18 @@ def article_list(ctx: click.Context, limit: int, feed_id: Optional[str]) -> None
                 source = article.feed_name or "Unknown"
 
             if verbose:
-                click.echo(f"\nTitle: {title}")
-                click.echo(f"Source: {source}")
-                click.echo(f"Date: {pub_date}")
+                click.secho(f"\nTitle: {title}")
+                click.secho(f"Source: {source}")
+                click.secho(f"Date: {pub_date}")
                 if article.link:
-                    click.echo(f"Link: {article.link}")
+                    click.secho(f"Link: {article.link}")
                 if article.description:
                     desc_preview = article.description[:100] + "..." if len(article.description) > 100 else article.description
-                    click.echo(f"Description: {desc_preview}")
+                    click.secho(f"Description: {desc_preview}")
             else:
-                click.echo(f"{title[:50]} | {source[:25]} | {pub_date[:10]}")
+                click.secho(f"{title[:50]} | {source[:25]} | {pub_date[:10]}")
     except Exception as e:
-        click.echo(f"Error: Failed to list articles: {e}", err=True, fg="red")
+        click.secho(f"Error: Failed to list articles: {e}", err=True, fg="red")
         logger.exception("Failed to list articles")
         sys.exit(1)
 
@@ -215,11 +215,11 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional
     try:
         articles = search_articles(query=query, limit=limit, feed_id=feed_id)
         if not articles:
-            click.echo("No articles found matching your search.")
+            click.secho("No articles found matching your search.")
             return
 
-        click.echo("Title | Source | Date")
-        click.echo("-" * 80)
+        click.secho("Title | Source | Date")
+        click.secho("-" * 80)
 
         for article in articles:
             title = article.title or "No title"
@@ -232,18 +232,18 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional
                 source = article.feed_name or "Unknown"
 
             if verbose:
-                click.echo(f"\nTitle: {title}")
-                click.echo(f"Source: {source}")
-                click.echo(f"Date: {pub_date}")
+                click.secho(f"\nTitle: {title}")
+                click.secho(f"Source: {source}")
+                click.secho(f"Date: {pub_date}")
                 if article.link:
-                    click.echo(f"Link: {article.link}")
+                    click.secho(f"Link: {article.link}")
                 if article.description:
                     desc_preview = article.description[:100] + "..." if len(article.description) > 100 else article.description
-                    click.echo(f"Description: {desc_preview}")
+                    click.secho(f"Description: {desc_preview}")
             else:
-                click.echo(f"{title[:50]} | {source[:25]} | {pub_date[:10]}")
+                click.secho(f"{title[:50]} | {source[:25]} | {pub_date[:10]}")
     except Exception as e:
-        click.echo(f"Error: Failed to search articles: {e}", err=True, fg="red")
+        click.secho(f"Error: Failed to search articles: {e}", err=True, fg="red")
         logger.exception("Failed to search articles")
         sys.exit(1)
 
@@ -256,14 +256,14 @@ def fetch(ctx: click.Context, fetch_all: bool) -> None:
     verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
 
     if not fetch_all:
-        click.echo("Use --all to fetch all feeds: feed fetch --all")
-        click.echo("Or use 'feed refresh <id>' to refresh a specific feed")
+        click.secho("Use --all to fetch all feeds: feed fetch --all")
+        click.secho("Or use 'feed refresh <id>' to refresh a specific feed")
         return
 
     try:
         feeds = list_feeds()
         if not feeds:
-            click.echo("No feeds subscribed. Use 'feed add <url>' to add one.", fg="yellow")
+            click.secho("No feeds subscribed. Use 'feed add <url>' to add one.", fg="yellow")
             return
 
         total_new = 0
@@ -278,12 +278,12 @@ def fetch(ctx: click.Context, fetch_all: bool) -> None:
                 total_new += new_articles
                 success_count += 1
                 if verbose:
-                    click.echo(f"Fetched {new_articles} articles from {feed_obj.name}")
+                    click.secho(f"Fetched {new_articles} articles from {feed_obj.name}")
             except Exception as e:
                 error_count += 1
                 errors.append(f"{feed_obj.name}: {e}")
                 # Per-feed error isolation: continue with next feed
-                click.echo(f"Warning: Failed to fetch {feed_obj.name}: {e}", fg="yellow")
+                click.secho(f"Warning: Failed to fetch {feed_obj.name}: {e}", fg="yellow")
 
         # Refresh GitHub repos
         github_repos = list_github_repos()
@@ -294,31 +294,31 @@ def fetch(ctx: click.Context, fetch_all: bool) -> None:
                 if result.get("new_release"):
                     github_new_releases += 1
                     if verbose:
-                        click.echo(f"New release for {r.name}: {result['release'].tag_name}")
+                        click.secho(f"New release for {r.name}: {result['release'].tag_name}")
             except Exception as e:
                 error_count += 1
                 errors.append(f"{r.name} (GitHub): {e}")
-                click.echo(f"Warning: Failed to refresh {r.name}: {e}", fg="yellow")
+                click.secho(f"Warning: Failed to refresh {r.name}: {e}", fg="yellow")
 
         # Summary
         if error_count == 0:
-            click.echo(
+            click.secho(
                 f"Fetched {total_new} articles from {success_count} feeds, "
                 f"{github_new_releases} new releases from {len(github_repos)} repos",
                 fg="green",
             )
         else:
-            click.echo(
+            click.secho(
                 f"Fetched {total_new} articles from {success_count} feeds, "
                 f"{github_new_releases} new releases. {error_count} errors",
                 fg="yellow",
             )
             if verbose and errors:
                 for err in errors:
-                    click.echo(f"  - {err}", fg="red")
+                    click.secho(f"  - {err}", fg="red")
 
     except Exception as e:
-        click.echo(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
+        click.secho(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
         logger.exception("Failed to fetch feeds")
         sys.exit(1)
 
@@ -343,17 +343,17 @@ def crawl(ctx: click.Context, url: str, ignore_robots: bool) -> None:
     try:
         result = crawl_url(url, ignore_robots=ignore_robots)
         if result is None:
-            click.echo(f"No content extracted from {url}", fg="yellow")
+            click.secho(f"No content extracted from {url}", fg="yellow")
             sys.exit(1)
         title = result.get('title') or 'No title'
         link = result.get('link') or url
-        click.echo(f"Crawled: {title} ({link})", fg="green")
+        click.secho(f"Crawled: {title} ({link})", fg="green")
         if verbose:
             content_preview = result.get('content', '')[:200] + '...' if result.get('content') else ''
             if content_preview:
-                click.echo(f"Content preview: {content_preview}")
+                click.secho(f"Content preview: {content_preview}")
     except Exception as e:
-        click.echo(f"Error: Failed to crawl {url}: {e}", err=True, fg="red")
+        click.secho(f"Error: Failed to crawl {url}: {e}", err=True, fg="red")
         logger.exception("Failed to crawl")
         sys.exit(1)
 
@@ -380,16 +380,16 @@ def repo_add(ctx: click.Context, url: str) -> None:
     verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
     try:
         repo_obj = add_github_repo(url)
-        click.echo(f"Added GitHub repo: {repo_obj.name}", fg="green")
+        click.secho(f"Added GitHub repo: {repo_obj.name}", fg="green")
         if verbose:
-            click.echo(f"Repo ID: {repo_obj.id}")
+            click.secho(f"Repo ID: {repo_obj.id}")
             if repo_obj.last_tag:
-                click.echo(f"Latest release: {repo_obj.last_tag}")
+                click.secho(f"Latest release: {repo_obj.last_tag}")
     except ValueError as e:
-        click.echo(f"Error: {e}", err=True, fg="red")
+        click.secho(f"Error: {e}", err=True, fg="red")
         sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: Failed to add repo: {e}", err=True, fg="red")
+        click.secho(f"Error: Failed to add repo: {e}", err=True, fg="red")
         logger.exception("Failed to add repo")
         sys.exit(1)
 
@@ -402,25 +402,25 @@ def repo_list(ctx: click.Context) -> None:
     try:
         repos = list_github_repos()
         if not repos:
-            click.echo("No GitHub repos monitored yet. Use 'repo add <url>' to add one.")
+            click.secho("No GitHub repos monitored yet. Use 'repo add <url>' to add one.")
             return
 
-        click.echo("ID | Name | Latest Tag")
-        click.echo("-" * 60)
+        click.secho("ID | Name | Latest Tag")
+        click.secho("-" * 60)
 
         for r in repos:
             tag = r.last_tag or "None"
             if verbose:
-                click.echo(f"\n{r.id}")
-                click.echo(f"  Name: {r.name}")
-                click.echo(f"  Owner: {r.owner}")
-                click.echo(f"  Repo: {r.repo}")
-                click.echo(f"  Latest Tag: {tag}")
-                click.echo(f"  Last Fetched: {r.last_fetched or 'Never'}")
+                click.secho(f"\n{r.id}")
+                click.secho(f"  Name: {r.name}")
+                click.secho(f"  Owner: {r.owner}")
+                click.secho(f"  Repo: {r.repo}")
+                click.secho(f"  Latest Tag: {tag}")
+                click.secho(f"  Last Fetched: {r.last_fetched or 'Never'}")
             else:
-                click.echo(f"{r.id[:8]}... | {r.name[:40]} | {tag}")
+                click.secho(f"{r.id[:8]}... | {r.name[:40]} | {tag}")
     except Exception as e:
-        click.echo(f"Error: Failed to list repos: {e}", err=True, fg="red")
+        click.secho(f"Error: Failed to list repos: {e}", err=True, fg="red")
         logger.exception("Failed to list repos")
         sys.exit(1)
 
@@ -434,12 +434,12 @@ def repo_remove(ctx: click.Context, repo_id: str) -> None:
     try:
         removed = remove_github_repo(repo_id)
         if removed:
-            click.echo(f"Removed repo: {repo_id}", fg="green")
+            click.secho(f"Removed repo: {repo_id}", fg="green")
         else:
-            click.echo(f"Repo not found: {repo_id}", fg="yellow")
+            click.secho(f"Repo not found: {repo_id}", fg="yellow")
             sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: Failed to remove repo: {e}", err=True, fg="red")
+        click.secho(f"Error: Failed to remove repo: {e}", err=True, fg="red")
         logger.exception("Failed to remove repo")
         sys.exit(1)
 
@@ -460,21 +460,21 @@ def repo_refresh(ctx: click.Context, repo_id: Optional[str]) -> None:
             result = refresh_github_repo(repo_id)
             if result.get("new_release"):
                 release = result["release"]
-                click.echo(f"New release: {release.tag_name}", fg="green")
+                click.secho(f"New release: {release.tag_name}", fg="green")
                 if verbose and release.name:
-                    click.echo(f"Title: {release.name}")
+                    click.secho(f"Title: {release.name}")
             elif result.get("error"):
-                click.echo(f"Error: {result['error']}", fg="red")
+                click.secho(f"Error: {result['error']}", fg="red")
                 if "rate limit" in result["error"].lower():
-                    click.echo("Hint: Set GITHUB_TOKEN environment variable for 5000 req/hour", fg="yellow")
+                    click.secho("Hint: Set GITHUB_TOKEN environment variable for 5000 req/hour", fg="yellow")
                 sys.exit(1)
             else:
-                click.echo(result.get("message", "No new release"), fg="yellow")
+                click.secho(result.get("message", "No new release"), fg="yellow")
         else:
             # Refresh all repos
             repos = list_github_repos()
             if not repos:
-                click.echo("No GitHub repos monitored. Use 'repo add <url>' first.")
+                click.secho("No GitHub repos monitored. Use 'repo add <url>' first.")
                 return
 
             new_release_count = 0
@@ -483,22 +483,22 @@ def repo_refresh(ctx: click.Context, repo_id: Optional[str]) -> None:
                     result = refresh_github_repo(r.id)
                     if result.get("new_release"):
                         new_release_count += 1
-                        click.echo(f"New release for {r.name}: {result['release'].tag_name}", fg="green")
+                        click.secho(f"New release for {r.name}: {result['release'].tag_name}", fg="green")
                     elif result.get("error"):
-                        click.echo(f"Error refreshing {r.name}: {result['error']}", fg="yellow")
+                        click.secho(f"Error refreshing {r.name}: {result['error']}", fg="yellow")
                 except Exception as e:
-                    click.echo(f"Error refreshing {r.name}: {e}", fg="yellow")
+                    click.secho(f"Error refreshing {r.name}: {e}", fg="yellow")
 
             if new_release_count > 0:
-                click.echo(f"\nFetched {new_release_count} new release(s)", fg="green")
+                click.secho(f"\nFetched {new_release_count} new release(s)", fg="green")
             else:
-                click.echo("No new releases found")
+                click.secho("No new releases found")
 
     except RepoNotFoundError:
-        click.echo(f"Repo not found: {repo_id}", fg="red")
+        click.secho(f"Repo not found: {repo_id}", fg="red")
         sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: Failed to refresh repos: {e}", err=True, fg="red")
+        click.secho(f"Error: Failed to refresh repos: {e}", err=True, fg="red")
         logger.exception("Failed to refresh repos")
         sys.exit(1)
 
@@ -525,13 +525,13 @@ def repo_changelog(ctx: click.Context, repo_id: Optional[str], refresh: bool) ->
             # List all repos and let user select one
             repos = list_github_repos()
             if not repos:
-                click.echo("No GitHub repos monitored. Use 'repo add <url>' first.")
+                click.secho("No GitHub repos monitored. Use 'repo add <url>' first.")
                 return
 
-            click.echo("Select a repo to view changelog:")
+            click.secho("Select a repo to view changelog:")
             for i, r in enumerate(repos, 1):
-                click.echo(f"  {i}. {r.name}")
-            click.echo()
+                click.secho(f"  {i}. {r.name}")
+            click.secho()
 
             # For now, show changelog for first repo with stored changelog
             for r in repos:
@@ -540,13 +540,13 @@ def repo_changelog(ctx: click.Context, repo_id: Optional[str], refresh: bool) ->
                     _display_changelog(r, changelog, verbose)
                     return
 
-            click.echo("No changelogs stored yet. Use 'repo changelog <id> --refresh' to fetch.")
+            click.secho("No changelogs stored yet. Use 'repo changelog <id> --refresh' to fetch.")
 
     except RepoNotFoundError:
-        click.echo(f"Repo not found: {repo_id}", fg="red")
+        click.secho(f"Repo not found: {repo_id}", fg="red")
         sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: {e}", err=True, fg="red")
+        click.secho(f"Error: {e}", err=True, fg="red")
         logger.exception("Failed to get changelog")
         sys.exit(1)
 
@@ -568,19 +568,19 @@ def _show_repo_changelog(repo_id: str, refresh: bool, verbose: bool) -> None:
             break
 
     if not repo:
-        click.echo(f"Repo not found: {repo_id}", fg="red")
+        click.secho(f"Repo not found: {repo_id}", fg="red")
         sys.exit(1)
 
     if refresh:
         # Refresh changelog first
         result = refresh_changelog(repo_id)
         if result.get("error"):
-            click.echo(f"Error refreshing changelog: {result['error']}", fg="red")
+            click.secho(f"Error refreshing changelog: {result['error']}", fg="red")
             # Fall through to show stored changelog if available
         elif result.get("changelog_found"):
-            click.echo(f"Changelog refreshed: {result.get('filename', 'unknown')}", fg="green")
+            click.secho(f"Changelog refreshed: {result.get('filename', 'unknown')}", fg="green")
         else:
-            click.echo(f"No changelog found: {result.get('message', 'unknown')}", fg="yellow")
+            click.secho(f"No changelog found: {result.get('message', 'unknown')}", fg="yellow")
             return
 
     # Get stored changelog
@@ -588,7 +588,7 @@ def _show_repo_changelog(repo_id: str, refresh: bool, verbose: bool) -> None:
     if changelog:
         _display_changelog(repo, changelog, verbose)
     else:
-        click.echo(f"No changelog stored for {repo.name}. Use --refresh to fetch.", fg="yellow")
+        click.secho(f"No changelog stored for {repo.name}. Use --refresh to fetch.", fg="yellow")
 
 
 def _display_changelog(repo, changelog: dict, verbose: bool) -> None:
@@ -599,22 +599,22 @@ def _display_changelog(repo, changelog: dict, verbose: bool) -> None:
         changelog: Dict with title, link, content, created_at.
         verbose: Whether to show full content or just header.
     """
-    click.echo(f"\n=== {changelog['title']} ===")
-    click.echo(f"Source: {changelog['link']}")
-    click.echo(f"Stored: {changelog['created_at']}")
-    click.echo()
+    click.secho(f"\n=== {changelog['title']} ===")
+    click.secho(f"Source: {changelog['link']}")
+    click.secho(f"Stored: {changelog['created_at']}")
+    click.secho()
 
     if verbose:
         # Show full content
-        click.echo(changelog['content'])
+        click.secho(changelog['content'])
     else:
         # Show first 2000 characters
         content = changelog['content']
         if len(content) > 2000:
-            click.echo(content[:2000])
-            click.echo(f"\n... (truncated, use --verbose for full content)")
+            click.secho(content[:2000])
+            click.secho(f"\n... (truncated, use --verbose for full content)")
         else:
-            click.echo(content)
+            click.secho(content)
 
 
 if __name__ == "__main__":

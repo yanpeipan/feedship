@@ -59,14 +59,14 @@ def fetch_feed_content(
     if last_modified:
         headers["If-Modified-Since"] = last_modified
 
-    response = httpx.get(url, headers=headers, timeout=30.0)
+    response = httpx.get(url, headers=headers, timeout=30.0, follow_redirects=True)
+
+    # Handle 304 Not Modified (httpx raises on 304 after redirects)
+    if response.status_code == 304:
+        return None, None, None, 304
+
     response.raise_for_status()
-
     status_code = response.status_code
-
-    # Handle 304 Not Modified
-    if status_code == 304:
-        return None, None, None, status_code
 
     # Extract headers for future conditional requests
     new_etag = response.headers.get("etag")
@@ -399,7 +399,7 @@ def refresh_feed(feed_id: str) -> dict:
             cursor.execute(
                 """
                 INSERT INTO articles_fts(rowid, title, description, content)
-                SELECT id, title, description, content FROM articles WHERE id = ?
+                SELECT rowid, title, description, content FROM articles WHERE id = ?
                 """,
                 (article_id,),
             )
