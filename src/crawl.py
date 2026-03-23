@@ -8,7 +8,6 @@ and article storage in the existing articles table.
 from __future__ import annotations
 
 import base64
-import hashlib
 import logging
 import re
 import time
@@ -25,6 +24,11 @@ from src.db import get_connection
 from src.models import Article
 
 logger = logging.getLogger(__name__)
+
+# Browser-like User-Agent header to avoid 403 bot blocks
+BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
 
 # Rate limiting state: {host: last_request_timestamp}
 _rate_limit_state: dict[str, float] = {}
@@ -246,7 +250,7 @@ def crawl_url(url: str, ignore_robots: bool = False) -> Optional[dict]:
         robots_url = f"{robots_parsed.scheme}://{robots_parsed.netloc}/robots.txt"
         try:
             parser = RobotExclusionRulesParser()
-            response = httpx.get(robots_url, timeout=10.0)
+            response = httpx.get(robots_url, headers=BROWSER_HEADERS, timeout=10.0)
             parser.parse(response.text)
             if not parser.is_allowed(robots_check_url, "*"):
                 logger.warning("Blocked by robots.txt: %s", robots_check_url)
@@ -276,7 +280,7 @@ def crawl_url(url: str, ignore_robots: bool = False) -> Optional[dict]:
     # Fetch page content with httpx
     # For GitHub blob URLs, use the raw URL to get actual content
     try:
-        response = httpx.get(robots_check_url, timeout=30.0, follow_redirects=True)
+        response = httpx.get(robots_check_url, headers=BROWSER_HEADERS, timeout=30.0, follow_redirects=True)
         response.raise_for_status()
     except (httpx.RequestError, httpx.HTTPStatusError, httpx.TimeoutException, OSError) as e:
         logger.error("Failed to fetch %s: %s", url, e)
@@ -299,40 +303,28 @@ def crawl_url(url: str, ignore_robots: bool = False) -> Optional[dict]:
         logger.error("Failed to extract content from %s: %s", url, e)
         return None
 
-    # D-07: Store in articles table with feed_id='crawled'
+    # D-07: Store article using unified store_article function
     # Ensure system feed exists
     ensure_crawled_feed()
 
-    # Generate article ID: use URL as guid (with crawl: prefix)
-    article_id = f"crawl:{hashlib.sha256(url.encode()).hexdigest()[:16]}"
+    # Use URL as guid for deduplication
+    guid = url
     pub_date = github_pub_date if github_pub_date else datetime.now(timezone.utc).isoformat()
 
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-
-        # D-07: Store article - use URL as link, content field for full text
-        cursor.execute(
-            """INSERT OR IGNORE INTO articles
-               (id, feed_id, title, link, guid, pub_date, description, content, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (article_id, 'crawled', title, url, article_id, pub_date, None, content, pub_date)
-        )
-
-        # Sync to FTS5 only if article was actually inserted (not ignored)
-        if cursor.rowcount > 0:
-            cursor.execute(
-                """INSERT INTO articles_fts(rowid, title, description, content)
-                   SELECT rowid, title, description, content FROM articles WHERE id = ?""",
-                (article_id,)
-            )
-
-        conn.commit()
-    finally:
-        conn.close()
+    # Use unified store_article function (handles INSERT or UPDATE by guid, FTS5 sync)
+    from src.db import store_article
+    article_id = store_article(
+        guid=guid,
+        title=title or "No title",
+        content=content,
+        link=url,
+        feed_id="crawled",
+        repo_id=None,
+        pub_date=pub_date,
+    )
 
     return {
-        'title': title,
+        'title': title or "No title",
         'link': url,
         'content': content,
         'pub_date': pub_date,
