@@ -22,11 +22,13 @@ from src.crawl import crawl_url
 from src.db import (
     add_tag,
     get_article_tags,
+    get_release_tags,
     get_tag_article_counts,
     init_db,
     list_tags,
     remove_tag,
     tag_article,
+    tag_github_release,
 )
 from src.tag_rules import add_rule, remove_rule, list_rules, edit_rule
 from src.tags import run_auto_tagging
@@ -119,7 +121,7 @@ def feed_list(ctx: click.Context) -> None:
                 )
             else:
                 click.secho(
-                    f"{f.id[:8]}... | {f.name[:30]} | {f.url[:40]} | "
+                    f"{f.id} | {f.name[:30]} | {f.url[:40]} | "
                     f"{getattr(f, 'articles_count', 0)} | {last_fetched[:10]}"
                 )
     except Exception as e:
@@ -248,19 +250,41 @@ def article_view(ctx: click.Context, article_id: str, verbose: bool) -> None:
     """View full article details including content.
 
     Shows title, source/feed, date, tags, link, and full content.
+    Works for both feed articles and GitHub releases.
     Content is truncated to 2000 characters unless --verbose is specified.
     """
     try:
+        from src.db import get_release_detail
+
+        # First try article
         article = get_article_detail(article_id)
+
+        # If not found, try release
         if not article:
-            click.secho(f"Article not found: {article_id}", fg="red")
-            sys.exit(1)
+            release = get_release_detail(article_id)
+            if release:
+                # Format release as article-like dict for display
+                article = {
+                    "id": release["id"],
+                    "feed_name": release["repo_name"],
+                    "pub_date": release["published_at"],
+                    "tags": release["tags"],
+                    "link": release["html_url"],
+                    "title": release["name"] or release["tag_name"],
+                    "content": release["body"],
+                    "source_type": "github",
+                }
+            else:
+                click.secho(f"Article not found: {article_id}", fg="red")
+                sys.exit(1)
 
         console = Console()
 
         # Create metadata table
         meta_table = Table(show_header=False, box=None)
+        source_type = article.get("source_type", "feed")
         meta_table.add_row("Source:", article["feed_name"] or "Unknown")
+        meta_table.add_row("Type:", source_type.capitalize())
         meta_table.add_row("Date:", article["pub_date"] or "No date")
 
         # Tags
@@ -317,16 +341,27 @@ def open_in_browser(url: str) -> None:
 @click.argument("article_id")
 @click.pass_context
 def article_open(ctx: click.Context, article_id: str) -> None:
-    """Open article URL in default browser."""
+    """Open article URL in default browser. Works for both articles and releases."""
     try:
-        article = get_article_detail(article_id)
-        if not article:
-            click.secho(f"Article not found: {article_id}", fg="red")
-            sys.exit(1)
+        from src.db import get_release_detail
 
-        link = article.get("link")
+        article = get_article_detail(article_id)
+
+        # If not found, try release
+        if not article:
+            release = get_release_detail(article_id)
+            if release:
+                link = release["html_url"]
+                source_type = "release"
+            else:
+                click.secho(f"Article not found: {article_id}", fg="red")
+                sys.exit(1)
+        else:
+            link = article.get("link")
+            source_type = "article"
+
         if not link:
-            click.secho("No link available for this article", fg="red")
+            click.secho(f"No link available for this {source_type}", fg="red")
             sys.exit(1)
 
         open_in_browser(link)
@@ -407,14 +442,33 @@ def article_tag(ctx: click.Context, article_id: Optional[str], tag_name: Optiona
             sys.exit(1)
 
     elif article_id and tag_name:
-        # Manual tagging (D-04)
+        # Manual tagging - auto-detect if article_id is a release or article
         try:
-            tagged = tag_article(article_id, tag_name)
-            if tagged:
-                click.secho(f"Tagged article {article_id} with '{tag_name}'", fg="green")
+            from src.db import get_connection
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            # Check if it's a GitHub release ID
+            cursor.execute("SELECT id FROM github_releases WHERE id = ? OR id LIKE ? || '%'", (article_id, article_id))
+            release_row = cursor.fetchone()
+
+            if release_row:
+                # It's a GitHub release
+                tagged = tag_github_release(release_row["id"], tag_name)
+                if tagged:
+                    click.secho(f"Tagged release {article_id} with '{tag_name}'", fg="green")
+                else:
+                    click.secho(f"Failed to tag release", fg="red")
+                    sys.exit(1)
             else:
-                click.secho(f"Failed to tag article", fg="red")
-                sys.exit(1)
+                # It's a feed article
+                tagged = tag_article(article_id, tag_name)
+                if tagged:
+                    click.secho(f"Tagged article {article_id} with '{tag_name}'", fg="green")
+                else:
+                    click.secho(f"Failed to tag article", fg="red")
+                    sys.exit(1)
+            conn.close()
         except Exception as e:
             click.secho(f"Error: {e}", err=True, fg="red")
             sys.exit(1)
