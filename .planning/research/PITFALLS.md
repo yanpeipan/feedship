@@ -1,207 +1,285 @@
-# Pitfalls Research: Article List Enhancements and Detail View
+# Pitfalls Research
 
-**Domain:** CLI article management with SQLite backend
+**Domain:** Plugin-based Provider Architecture for Python CLI
 **Researched:** 2026-03-23
-**Confidence:** HIGH
-
-## Executive Summary
-
-Adding ID display, tags column, and article detail view to an existing CLI RSS reader. The existing codebase has a critical N+1 query pattern in the article list command, missing content fetch in the detail function, and a schema limitation where GitHub releases cannot be tagged.
+**Confidence:** MEDIUM (established Python patterns; verify with official docs and community wisdom)
 
 ## Critical Pitfalls
 
-### Pitfall 1: N+1 Query Problem in Tag Display
+### Pitfall 1: Circular Import Chain
 
 **What goes wrong:**
-Article list takes 20+ database queries to display 20 articles with tags (1 initial query + 1 query per article for tags). Performance degrades linearly with article count.
+`ImportError: cannot import name 'ProviderRegistry' from partially initialized module` — application fails to start, often with misleading tracebacks pointing at unrelated imports.
 
 **Why it happens:**
-The existing code at `cli.py:210` calls `get_article_tags(article.id)` inside the article loop:
+Classic chicken-and-egg problem. Common patterns that trigger it:
+- Main app imports a plugin at module level, plugin imports main app
+- Plugin `__init__.py` imports from main package
+- `importlib` loads plugin which immediately tries to access shared state
+- Database models imported by both main app and plugin before initialization completes
+
+**How to avoid:**
+1. Use `TYPE_CHECKING` for type hints only, never for runtime imports
+2. Defer all imports inside plugin functions/methods (lazy import pattern)
+3. Pass dependencies as parameters rather than importing shared state
+4. Keep plugin interface isolated — plugins should receive data, not import from core
+5. Use `importlib` with explicit module paths, not `from x import *`
 
 ```python
-for article in articles:
-    article_tags = get_article_tags(article.id) if hasattr(article, 'id') else []
-```
+# BAD — triggers circular import
+# main.py
+from providers import rss_provider
+# providers/__init__.py
+from main import ProviderRegistry  # circular!
 
-This executes a new SQL query for each iteration. For 20 articles, this is 21 database round-trips.
-
-**Consequences:**
-- List command becomes slow as article count grows (100 articles = 101 queries)
-- Database lock contention under concurrent access
-- Poor user experience with noticeable delay on each list command
-
-**Prevention:**
-Fetch tags in a single JOIN query or batch query:
-
-```python
-# Option 1: JOIN in main query (recommended)
-cursor.execute("""
-    SELECT a.*, GROUP_CONCAT(t.name) as tags
-    FROM articles a
-    LEFT JOIN article_tags at ON a.id = at.article_id
-    LEFT JOIN tags t ON at.tag_id = t.id
-    GROUP BY a.id
-    LIMIT ?
-""", (limit,))
-
-# Option 2: Batch fetch after main query
-article_ids = [a.id for a in articles]
-cursor.execute("""
-    SELECT at.article_id, t.name
-    FROM article_tags at
-    JOIN tags t ON at.tag_id = t.id
-    WHERE at.article_id IN ({})
-""".format(','.join('?' * len(article_ids))), article_ids)
-# Build tag map: {article_id: [tag1, tag2]}
+# GOOD — deferred import
+# main.py
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from providers import ProviderRegistry
+# In function, not at module level:
+def load_plugins():
+    from providers import get_providers  # deferred
+    return get_providers()
 ```
 
 **Warning signs:**
-- `len(articles) + 1` queries logged per list command
-- Article list takes >100ms for 20 articles
-- sqlite3.OperationalError: "database is locked" during list
+- Any `from main import X` or `from . import X` in plugin `__init__.py`
+- Application startup fails with `AttributeError` on seemingly unrelated objects
+- Traceback shows imports in unexpected order
 
 **Phase to address:**
-Phase implementing article list enhancements (should be fixed as part of this feature, not deferred)
+Phase 1 (Plugin Core Infrastructure)
 
 ---
 
-### Pitfall 2: Missing Content Field in Article Detail
+### Pitfall 2: Plugin Interface Drift
 
 **What goes wrong:**
-`articles.py:get_article()` returns only: id, feed_id, feed_name, title, link, guid, pub_date, description. The `content` field (full article body) is never fetched, even though it exists in the database.
+Plugin works in isolation but causes cryptic errors when integrated. Methods are called with wrong signatures, return values are unexpected, lifecycle hooks are missing.
 
 **Why it happens:**
-The SQL query in `get_article()` at line 138-147 does not include the `content` column:
+No explicit interface definition. Plugin authors guess at expected behavior:
+- No `Protocol` class defining required methods
+- No abstract base class enforcing contract
+- Documentation exists but is not enforced
+- Breaking changes in core without corresponding plugin updates
+
+**How to avoid:**
+1. Define `ProviderProtocol` using Python's `typing.Protocol`
+2. Use `@runtime_checkable` decorator for verification
+3. Document method signatures, return types, and exceptions explicitly
+4. Create a "blessed" example plugin that demonstrates correct implementation
+5. Add runtime validation at plugin load time, not discovery time
 
 ```python
-cursor.execute("""
-    SELECT a.id, a.feed_id, f.name as feed_name, a.title, a.link,
-           a.guid, a.pub_date, a.description
-    FROM articles a
-    ...
-""")
-```
+from typing import Protocol, runtime_checkable
+from abc import abstractmethod
 
-**Consequences:**
-- Article detail view shows only description/excerpt, not full content
-- Users cannot read full article text stored in database
-- Content field exists but is inaccessible
+@runtime_checkable
+class FeedProvider(Protocol):
+    """Interface all feed providers must implement."""
 
-**Prevention:**
-Add `content` to the SELECT clause:
+    @property
+    def name(self) -> str:
+        """Unique provider identifier."""
+        ...
 
-```python
-cursor.execute("""
-    SELECT a.id, a.feed_id, f.name as feed_name, a.title, a.link,
-           a.guid, a.pub_date, a.description, a.content
-    FROM articles a
-    ...
-""")
+    @abstractmethod
+    def fetch(self, url: str) -> list[Article]:
+        """Fetch articles from provider."""
+        ...
+
+    @abstractmethod
+    def validate_url(self, url: str) -> bool:
+        """Check if URL is supported by this provider."""
+        ...
 ```
 
 **Warning signs:**
-- `article detail` output shows empty content section
-- Users report "content not found" despite content existing
+- Plugin works when tested standalone, fails when integrated
+- "Missing positional argument" errors at runtime
+- Different plugins return different shapes for same operation
+- No clear error when plugin method signature is wrong
 
 **Phase to address:**
-Phase implementing article detail view (must include content fetch)
+Phase 1 (Plugin Core Infrastructure) — define interfaces before plugins
 
 ---
 
-### Pitfall 3: GitHub Releases Cannot Be Tagged (Schema Limitation)
+### Pitfall 3: Monolithic Plugin Loading (No Isolation)
 
 **What goes wrong:**
-Tags only link to `articles.id`, but GitHub releases have separate IDs in `github_releases` table. Running `article tag <github-release-id> <tag>` silently fails or creates orphan links.
+One buggy plugin crashes entire application. Plugin can access/modify internal state of other plugins or core. Memory leaks in plugins accumulate.
 
 **Why it happens:**
-The `article_tags` table has foreign key to `articles.id`:
+Plugins loaded into same Python process without sandboxing:
+- No error isolation — unhandled exception in plugin kills main loop
+- Plugins share global namespace
+- No lifecycle hooks (no unload/cleanup)
+- Plugin can modify singletons or global state
 
-```sql
-FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
-```
+**How to avoid:**
+1. Wrap plugin calls in try/except with clear error messages
+2. Implement optional plugin lifecycle: `load()`, `unload()`, `shutdown()`
+3. Create plugin context that limits what plugins can access
+4. Consider running plugins in subprocess if isolation is critical (complexity tradeoff)
+5. Log plugin errors with provider name for debugging
 
-GitHub releases are stored in `github_releases` table with their own `id` primary key. There is no `github_release_tags` table.
-
-**Consequences:**
-- Users cannot tag GitHub releases
-- `article tag` command succeeds but tag association is silently lost for GitHub items
-- Tag filtering may show unexpected results when mixing feed articles and GitHub releases
-
-**Prevention:**
-1. **Option A (Correct):** Add `github_release_tags` table parallel to `article_tags`
-2. **Option B (Workaround):** Detect GitHub release ID format and show "Tags not supported for GitHub releases" error
-3. **Option C (Design change):** Unify by storing GitHub releases as articles with `source_type='github'` and copy tags
-
-**Warning signs:**
-- `article tag <github-id> <tag>` succeeds with no error but `get_article_tags(<github-id>)` returns empty
-- Tag count doesn't match when filtering by tag that should include GitHub releases
-
-**Phase to address:**
-Phase implementing tagging integration with GitHub releases (requires schema decision)
-
----
-
-### Pitfall 4: ID Column Width and Truncation Inconsistency
-
-**What goes wrong:**
-Displaying full UUIDs (36 chars) in list view pushes other columns off-screen. But using truncated IDs (8 chars) means users cannot copy-paste full ID for commands like `article tag <id>`.
-
-**Why it happens:**
-- `feed list` truncates to 8 chars: `{f.id[:8]}...` (line 116)
-- Article tag commands require full ID
-- No `--verbose` flag for article list to show full IDs
-
-**Consequences:**
-- Users must use truncated ID which doesn't work in commands
-- "Feed not found" errors when truncated ID doesn't match
-- Inconsistent UX between list commands
-
-**Prevention:**
-1. Add `--verbose` / `-v` flag to article list showing full IDs
-2. Use consistent ID column width: 8 chars truncated with `...` suffix
-3. In verbose mode, show ID on separate line or in header
-4. Ensure error messages suggest using `--verbose` for full ID
-
-**Warning signs:**
-- User reports "article tag fails with truncated ID"
-- Inconsistent ID display between `feed list` and `article list`
-
-**Phase to address:**
-Phase implementing article list ID column display
-
----
-
-### Pitfall 5: Tags Column Truncation Breaks Alignment
-
-**What goes wrong:**
-With many tags, the tag string makes the title column extremely narrow or breaks line alignment entirely.
-
-**Why it happens:**
-Current code (line 211, 224):
 ```python
-tag_str = "".join(f"[{t}]" for t in article_tags)
-click.secho(f"{tag_str}{title[:50-len(tag_str)]} | {source[:25]} | {pub_date[:10]}")
+def invoke_provider(provider: FeedProvider, url: str) -> list[Article]:
+    try:
+        return provider.fetch(url)
+    except Exception as e:
+        logger.error(f"Provider {provider.name} failed: {e}")
+        raise ProviderError(f"{provider.name}: {e}") from e
 ```
 
-If an article has tags `[python][machine-learning][ai]`, the tag string is 31 chars, leaving only 19 chars for title in a 50-char budget.
-
-**Consequences:**
-- Long titles get severely truncated
-- Tag-heavy articles show almost no title
-- Output alignment breaks when truncation varies
-
-**Prevention:**
-1. Move tags to their own column or end of line
-2. Limit tag display to first N tags with `+N` indicator: `[python][machine-learning]+3`
-3. In verbose mode, show all tags on separate line
-4. Use consistent column widths with horizontal scrolling for wide terminals
-
 **Warning signs:**
-- Titles truncated to 5-10 characters for tagged articles
-- Tag display varies wildly between articles
+- Adding a new plugin requires restarting app to avoid state pollution
+- Removing a plugin leaves residual state
+- No way to disable a plugin without code changes
+- Debugging requires restarting entire application
 
 **Phase to address:**
-Phase implementing article list tags column
+Phase 2 (Provider Integration) — error isolation is foundation
+
+---
+
+### Pitfall 4: Hardcoded Migration Trap
+
+**What goes wrong:**
+Old hardcoded RSS/GitHub handling breaks during migration. Existing feeds stop working. Migration is attempted all at once rather than incrementally.
+
+**Why it happens:**
+Refactoring without maintaining backward compatibility:
+- Old `refresh_feed()` is replaced entirely before new plugin system is verified
+- No way to use old code path for comparison/testing
+- Database schema assumes new plugin system immediately
+- Migration commits to plugin architecture before validating it works for existing use cases
+
+**How to avoid:**
+1. **Strangler fig pattern**: Keep old code working, add plugin system alongside, migrate incrementally
+2. Implement plugin that wraps existing RSS handling as "legacy provider"
+3. Feature flag the plugin system, off by default initially
+4. Ensure existing feeds continue working through old path
+5. Write integration tests comparing old vs new results before switching
+
+```python
+# Good: Legacy provider wrapping existing code
+class LegacyRSSProvider:
+    """Wrapper around existing feeds.py functionality."""
+    def __init__(self):
+        self._legacy = FeedsManager()  # Existing class
+
+    def fetch(self, url: str) -> list[Article]:
+        # Delegates to existing refresh_feed logic
+        return self._legacy.refresh_feed(url)
+```
+
+**Warning signs:**
+- "We'll migrate everything at once" plan
+- No fallback path if plugin architecture has issues
+- Existing functionality has no test coverage during transition
+- Database changes coupled with architectural changes
+
+**Phase to address:**
+Phase 1 (Plugin Core Infrastructure) — plan for incremental migration
+
+---
+
+### Pitfall 5: Entry Point Discovery Failures
+
+**What goes wrong:**
+Plugins installed but not discovered. `pip install` seems to work but plugin never appears. Debugging why plugin is not loading is difficult.
+
+**Why it happens:**
+Misconfigured entry points or packaging:
+- Entry point group name typo (case sensitivity, wrong string)
+- Plugin not properly registered in `pyproject.toml` or `setup.py`
+- Multiple entry point definitions conflicting
+- Console script vs library entry points confusion
+- Installation not in editable mode during development
+
+**How to avoid:**
+1. Use consistent entry point group naming convention
+2. Validate entry points load correctly during development
+3. Log discovered plugins with version info at startup
+4. Create CLI command to list loaded plugins for debugging
+5. Document exact `pyproject.toml` configuration required
+
+```toml
+# pyproject.toml
+[project.entry-points."radar.providers"]
+rss = "radar_providers.rss:RSSProvider"
+github = "radar_providers.github:GithubProvider"
+```
+
+```python
+# Discovery verification
+from importlib.metadata import entry_points
+
+def list_plugins():
+    eps = entry_points(group="radar.providers")
+    for ep in eps:
+        print(f"{ep.name}: {ep.value}")
+```
+
+**Warning signs:**
+- `pip install -e .` succeeds but plugin not visible
+- Plugin only loads in dev, not after `pip install`
+- Different behavior between `python -m myapp` and installed executable
+- No feedback when plugin fails to load (silent failure)
+
+**Phase to address:**
+Phase 1 (Plugin Core Infrastructure)
+
+---
+
+### Pitfall 6: Plugin Version Compatibility
+
+**What goes wrong:**
+Plugin designed for older version crashes application. Or new plugin version breaks because API changed. No visibility into which plugin versions work.
+
+**Why it happens:**
+No version checking or interface versioning:
+- Plugin declares no required API version
+- Core makes breaking changes without plugin awareness
+- No plugin version reporting
+- Plugin pins to wrong core version
+
+**How to avoid:**
+1. Include `api_version` in plugin interface
+2. Check version compatibility at load time
+3. Log warning (not error) for minor version mismatches
+4. Semantic versioning for plugin interface itself
+5. Maintain changelog for interface changes
+
+```python
+# In base provider
+class BaseProvider:
+    API_VERSION = "1.0"
+
+    def __init__(self):
+        if not hasattr(self, 'API_VERSION'):
+            warnings.warn(f"{self.__class__.__name__} missing API_VERSION")
+
+    def validate_api_version(self):
+        if self.API_VERSION != BaseProvider.API_VERSION:
+            raise PluginError(
+                f"Plugin {self.name} API {self.API_VERSION} "
+                f"incompatible with core {BaseProvider.API_VERSION}"
+            )
+```
+
+**Warning signs:**
+- No `__version__` or `API_VERSION` in plugins
+- No error when plugin targets wrong core version
+- Silent degradation instead of clear error
+- Cannot tell which version of plugin is loaded
+
+**Phase to address:**
+Phase 1 (Plugin Core Infrastructure) — version contract
 
 ---
 
@@ -209,10 +287,12 @@ Phase implementing article list tags column
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Per-article tag query in loop | Simpler code, no query changes needed | N+1 performance problem | Never - must batch |
-| Skip content in detail view | Fewer fields to handle | Feature incomplete | Never |
-| Ignore GitHub release tagging | No schema changes needed | Tags don't work for 50% of sources | MVP only, must address before release |
-| Truncate IDs without verbose full-ID option | Cleaner display | Cannot use IDs in commands | Never |
+| Skip Protocol/ABC definition | Faster initial plugin writing | Runtime errors instead of clear failures | Never — causes debugging nightmares |
+| Import plugin at module level | Simpler code | Circular import trap | Never |
+| Skip error isolation | Simpler code | One plugin crashes app | MVP only, must fix before production |
+| No lifecycle hooks | Fewer methods to implement | Resource leaks, no cleanup | Never for production plugins |
+| Hardcode plugin list instead of discovery | No packaging complexity | Must edit code to add plugins | Development only, debugging |
+| Skip version checking | No compatibility code | Silent breakage | MVP only |
 
 ---
 
@@ -220,10 +300,12 @@ Phase implementing article list tags column
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| SQLite | N+1 queries in loops | Use JOIN or batch WHERE IN |
-| CLI display | Hardcoded column widths | Calculate based on terminal width or use separate lines |
-| Tags + GitHub | Assuming unified article ID space | Detect source type, handle separately or error clearly |
-| Detail view | Forgetting content field | Explicitly include all needed columns in SELECT |
+| SQLite database | Plugin opens own connection, causing locking | Pass db connection to plugins, single shared connection |
+| CLI framework (click) | Plugin registers its own commands globally | Plugin returns commands, main app registers them |
+| Logging | Plugin creates its own logger | Accept logger as initialization parameter |
+| Configuration | Plugin reads config file directly | Accept config dict or path at initialization |
+| HTTP client (httpx) | Plugin creates its own client | Use provided client or initialize with proper timeout |
+| Existing RSS handling | Duplicate/override existing refresh_feed | Wrap legacy code as provider |
 
 ---
 
@@ -231,23 +313,45 @@ Phase implementing article list tags column
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| N+1 tag queries | Query count = O(articles) | Single JOIN query | At >10 articles |
-| No index on article_tags.article_id | Slow tag lookups | idx_article_tags_tag_id exists, need composite | At >1000 articles |
-| Full content in list query | Memory bloat | Only fetch content in detail view | At >100 articles |
+| Lazy import everything | First plugin call is slow | Pre-import critical paths | Interactive CLI with immediate feedback expected |
+| Plugin discovery on every command | Slow startup | Cache discovered plugins | CLI tools where startup time matters |
+| Plugin loading in main thread | UI freeze during load | Async loading or spinner | Any CLI with loading UX |
+| No plugin caching | Memory grows with repeated runs | Implement instance caching | Long-running processes |
 
-Note: `idx_article_tags_tag_id` exists per `db.py:173`, but queries typically filter by `article_id` which needs its own index. Current index is on `tag_id` only.
+---
+
+## Security Mistakes
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Plugin imports arbitrary code from internet | Code execution vulnerabilities | Pin plugin versions, verify source |
+| Plugin filesystem access | Path traversal attacks | Sandboxing, restrict paths |
+| Plugin sees environment variables | Credential leakage | Don't pass `os.environ` directly |
+| No plugin signing/verification | Tampered plugin runs | Checksum verification for production |
+
+---
+
+## UX Pitfalls
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| No plugin list command | Users don't know what's available | `myapp plugin list` |
+| Silent plugin load failures | Plugin doesn't work, no explanation | Clear error: "Plugin X failed to load: [reason]" |
+| No plugin enable/disable | Can't disable buggy plugin | Config-based plugin toggle |
+| Plugin has no help text | Users don't know how to use | Standardized help interface |
+| Mixed plugin origins | Unknown which plugin is "official" | Clearly mark built-in vs third-party |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Tags in list:** Verified with 20+ articles, each having 3+ tags - not just single article test
-- [ ] **Tags in list:** Verified N+1 is fixed - check query count in logs
-- [ ] **Article detail:** Shows full content field - verify with article that has content
-- [ ] **Article detail:** Works for both feed articles AND GitHub releases
-- [ ] **ID column:** Full ID shown in verbose mode, usable in commands
-- [ ] **ID column:** Truncated in normal mode doesn't break alignment
-- [ ] **Tag filtering:** Combined with ID display doesn't cause truncation issues
+- [ ] **Plugin Loading:** Plugins are discovered but verify ALL plugins actually load — check for silent failures
+- [ ] **Error Isolation:** Test each plugin individually fails — does app continue?
+- [ ] **Interface Compliance:** Use `runtime_checkable` Protocol — not just documentation
+- [ ] **Legacy Fallback:** Existing feeds still work after migration — integration test required
+- [ ] **CLI Integration:** New provider architecture powers `feed add/refresh` commands — end-to-end test
+- [ ] **Lifecycle:** Add plugin, remove plugin, restart app — no residual state
+- [ ] **Version Compatibility:** Load plugin with wrong API version — clear error, not silent
 
 ---
 
@@ -255,10 +359,11 @@ Note: `idx_article_tags_tag_id` exists per `db.py:173`, but queries typically fi
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| N+1 queries deployed | LOW | Add JOIN, redeploy; performance immediately improves |
-| Missing content field | LOW | Add to SELECT, redeploy; no data migration needed |
-| GitHub release tags broken | MEDIUM | Add migration for github_release_tags table, backfill existing releases |
-| ID truncation user confusion | LOW | Add verbose flag showing full ID, update error messages |
+| Circular import | MEDIUM | Move imports inside functions, add `TYPE_CHECKING` guard, restructure package |
+| Plugin crashes app | LOW | Add try/except wrapper, log error with plugin name, continue with others |
+| Hardcoded migration failure | HIGH | Revert to legacy path, fix plugin system in isolation, re-migrate |
+| Entry point not found | LOW | Verify `pyproject.toml`, reinstall in editable mode, check group name |
+| Version mismatch | LOW | Update plugin API version or core, log clearly what versions expected |
 
 ---
 
@@ -266,33 +371,25 @@ Note: `idx_article_tags_tag_id` exists per `db.py:173`, but queries typically fi
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| N+1 query problem | Phase implementing list with tags | Log query count, verify single query with EXPLAIN |
-| Missing content field | Phase implementing detail view | Manual test: view article known to have content |
-| GitHub release tagging | Phase integrating tags with GitHub source | Tag a GitHub release, verify persistence |
-| ID column width | Phase implementing ID display | Test truncated display and verbose full-ID |
-| Tags truncation | Phase implementing tags column | Test with articles having 5+ tags |
+| Circular import | Phase 1: Plugin Core Infrastructure | App starts, all plugins load, no ImportError |
+| Interface drift | Phase 1: Define ProviderProtocol | `runtime_checkable` passes, plugin mismatch caught early |
+| No isolation | Phase 2: Provider Integration | Test plugin raising exception — app continues |
+| Hardcoded migration trap | Phase 1: Incremental migration plan | Existing feeds work via legacy wrapper, new feeds via plugin |
+| Entry point failures | Phase 1: Plugin discovery | `myapp plugin list` shows all installed plugins |
+| Version incompatibility | Phase 1: API versioning | Load wrong-version plugin — clear error, not silent |
 
 ---
 
 ## Sources
 
-- [SQLite Query Planning: Avoid N+1](https://www.sqlite.org/queryplanner.html) (HIGH confidence - official docs)
-- [CLI Design Best Practices](https://clig.dev/) (HIGH confidence - industry guidelines)
-- Existing codebase: `cli.py:210` shows N+1 pattern, `articles.py:get_article()` missing content
+- [Python importlib.metadata documentation](https://docs.python.org/3/library/importlib.metadata.html) (HIGH confidence)
+- [Python typing.Protocol documentation](https://docs.python.org/3/library/typing.html#typing.Protocol) (HIGH confidence)
+- [Click plugin architecture patterns](https://click.palletsprojects.com/en/8.1.x/) (HIGH confidence)
+- [Real Python: Python entry points](https://realpython.com/python-import-module-main/) (MEDIUM confidence)
+- [Stack Overflow: Circular import patterns](https://stackoverflow.com/questions/2217476/) (MEDIUM confidence)
+- [Python packaging user guide: entry points](https://packaging.python.org/en/latest/specifications/entry-points/) (HIGH confidence)
 
 ---
 
-## Confidence Assessment
-
-| Area | Level | Reason |
-|------|-------|--------|
-| N+1 query pitfalls | HIGH | Clear pattern in existing code, well-known SQLite issue |
-| Missing content field | HIGH | Obvious from code inspection, SELECT clause explicitly omits column |
-| GitHub tagging limitation | HIGH | Schema FK constraint prevents cross-table tagging |
-| CLI display issues | MEDIUM | General UX patterns, specific thresholds may need user testing |
-| Performance impact | MEDIUM | Depends on article count scale, but N+1 is clear issue |
-
----
-
-*Pitfalls research for: Article list ID/tags columns and detail view in Python CLI RSS reader*
+*Pitfalls research for: Plugin-based Provider Architecture v1.3*
 *Researched: 2026-03-23*

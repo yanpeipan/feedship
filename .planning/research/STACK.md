@@ -1,7 +1,7 @@
 # Technology Stack: Personal Information System
 
 **Project Type:** CLI tool for RSS subscription and website crawling
-**Researched:** 2026-03-22 (v1.0), 2026-03-23 (v1.1 additions), 2026-03-23 (v1.2 additions)
+**Researched:** 2026-03-22 (v1.0), 2026-03-23 (v1.1 additions), 2026-03-23 (v1.2 additions), 2026-03-23 (v1.3 plugin architecture)
 **Confidence:** HIGH
 
 ## Recommended Stack
@@ -338,6 +338,197 @@ markdown = h.handle(html_content)
 
 ---
 
+## v1.3 Addition: Plugin/Provider Architecture
+
+### Core Plugin Framework
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **pluggy** | 1.5.0 (installed) | Hook specification and plugin management | Industry standard (pytest, tox, devpi). Provides `PluginManager` with `load_setuptools_entrypoints()` for discovery. Active maintenance, MIT license. |
+| **importlib.metadata** | built-in (Python 3.9+) | Plugin discovery via entry points | Standard library for discovering installed packages and their entry points. `entry_points()` returns `EntryPoints` object. |
+
+**No new dependencies required** - pluggy is already installed.
+
+### Hook Specification Pattern (using pluggy)
+
+Define what providers must implement via hook specs:
+
+```python
+# src/providers/hooks.py
+from pluggy import HookspecMarker, HookimplMarker
+
+hookspec = HookspecMarker("rss_reader")
+hookimpl = HookimplMarker("rss_reader")
+
+class SourceProviderSpec:
+    """Hook specification for content source providers."""
+
+    @hookspec
+    def provider_name(self) -> str:
+        """Return unique provider identifier."""
+
+    @hookspec
+    def add_source(self, url: str) -> "SourceResult":
+        """Add a new source by URL."""
+
+    @hookspec
+    def refresh_source(self, source_id: str) -> "RefreshResult":
+        """Refresh a source to fetch new content."""
+
+    @hookspec
+    def list_sources(self) -> list["Source"]:
+        """List all managed sources."""
+```
+
+### Provider Implementation Pattern
+
+Each provider implements the hooks:
+
+```python
+# src/providers/rss_provider.py
+from pluggy import HookimplMarker
+
+class RSSProvider:
+    """RSS/Atom feed provider implementation."""
+
+    @HookimplMarker("rss_reader")
+    def provider_name(self) -> str:
+        return "rss"
+
+    @HookimplMarker("rss_reader")
+    def add_source(self, url: str):
+        # ... existing add_feed logic
+        return result
+
+    # ... other implementations
+```
+
+### Plugin Manager Pattern
+
+Central manager loads and coordinates providers:
+
+```python
+# src/providers/manager.py
+from pluggy import PluginManager
+
+class ProviderManager:
+    """Manages all content source providers."""
+
+    def __init__(self):
+        self.pm = PluginManager("rss_reader")
+        # Load built-in providers
+        self.pm.register(RSSProvider(), name="rss")
+        self.pm.register(GitHubProvider(), name="github")
+        # Load external plugins via entry points
+        self.pm.load_setuptools_entrypoints("rss_reader")
+
+    def get_provider(self, name: str):
+        return self.pm.get_plugin(name)
+
+    def hook(self, name: str, **kwargs):
+        """Call a hook across all providers."""
+        return getattr(self.pm.hook, name)(**kwargs)
+```
+
+### Circular Import Avoidance Patterns
+
+**Pattern 1: TYPE_CHECKING Guard**
+```python
+# src/providers/hooks.py
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models import Feed, Article  # Only for type hints
+```
+
+**Pattern 2: Lazy Import (Import Inside Function)**
+```python
+# src/providers/base.py
+class ProviderBase:
+    def some_method(self):
+        from src.db import get_connection  # Deferred import
+        conn = get_connection()
+```
+
+**Pattern 3: Protocol/ABC with String Annotations**
+```python
+# src/providers/protocols.py
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class SourceProvider(Protocol):
+    def provider_name(self) -> str: ...
+    def add_source(self, url: str) -> "dict": ...  # String annotation
+```
+
+### Discovery Mechanisms
+
+**Entry Points (Recommended for External Plugins)**
+
+In `pyproject.toml`:
+```toml
+# For the main app
+[project.entry-points."rss_reader.providers"]
+rss = "src.providers.rss:RSSProvider"
+github = "src.providers.github:GitHubProvider"
+
+# For external plugins (third-party)
+[project.entry-points."rss_reader.providers"]
+hackernews = "hackernews_provider:HackerNewsProvider"
+```
+
+Loading in code:
+```python
+pm.load_setuptools_entrypoints("rss_reader.providers")
+```
+
+**Directory Scanning (For Built-in/Local Plugins)**
+```python
+import pkgutil
+import importlib
+from pathlib import Path
+
+def discover_local_providers():
+    """Discover providers in src/providers/ directory."""
+    providers = []
+    package_dir = Path(__file__).parent
+    for _, module_name, _ in pkgutil.iter_modules([str(package_dir)]):
+        if module_name.endswith("_provider"):
+            module = importlib.import_module(f"src.providers.{module_name}")
+            # Find provider class and register
+    return providers
+```
+
+### Provider Interface Contract
+
+For v1.3, each provider must implement:
+
+| Method | Purpose | Returns |
+|--------|---------|---------|
+| `provider_name()` | Unique identifier | `str` |
+| `add_source(url)` | Add a new source | `dict` with success/error |
+| `refresh_source(source_id)` | Fetch new content | `dict` with new_articles count |
+| `list_sources()` | List managed sources | `list[dict]` |
+| `remove_source(source_id)` | Remove a source | `bool` |
+
+### Proposed Directory Structure for v1.3
+
+```
+src/
+├── providers/              # NEW: Plugin architecture
+│   ├── __init__.py         # ProviderManager exports
+│   ├── hooks.py            # Hook specifications (pluggy)
+│   ├── manager.py         # Provider registry
+│   ├── rss_provider.py     # RSS/Atom provider (migrated from feeds.py)
+│   └── github_provider.py  # GitHub provider (migrated from github.py)
+├── cli.py                  # Updated to use ProviderManager
+├── feeds.py                # Deprecate after migration
+└── github.py              # Deprecate after migration
+```
+
+---
+
 ## Project Structure Best Practices
 
 ```
@@ -351,7 +542,12 @@ my_rss_tool/
 │       ├── feeds.py        # Feed parsing (feedparser)
 │       ├── scraper.py      # HTML scraping (httpx + bs4)
 │       ├── github.py       # GitHub API + changelog (httpx + scrapling) [v1.1]
-│       └── monitors.py     # Monitor management [v1.1]
+│       ├── monitors.py     # Monitor management [v1.1]
+│       └── providers/      # Plugin architecture [v1.3]
+│           ├── __init__.py
+│           ├── hooks.py
+│           ├── manager.py
+│           └── ...
 ├── tests/
 │   └── ...
 ├── data/                   # SQLite database storage
@@ -359,7 +555,7 @@ my_rss_tool/
 └── README.md
 ```
 
-**pyproject.toml dependencies (v1.2):**
+**pyproject.toml dependencies (v1.3):**
 ```toml
 [project]
 dependencies = [
@@ -370,6 +566,7 @@ dependencies = [
     "click>=8.1.0",
     "scrapling>=0.4.2",     # v1.1: Changelog scraping
     "rich>=13.0.0",         # v1.2: Terminal display enhancement
+    "pluggy>=1.5.0",        # v1.3: Plugin framework (already installed)
     # "html2text>=2024.0.0", # v1.2: Only if article.content is HTML
 ]
 requires-python = ">=3.10"   # v1.1: Bumped from 3.6+ to 3.10+
@@ -391,6 +588,10 @@ requires-python = ">=3.10"   # v1.1: Bumped from 3.6+ to 3.10+
 | GitHub API Client | httpx (direct) | PyGithub | httpx handles REST API fine with simple Bearer token auth. PyGithub adds unnecessary dependency. |
 | Changelog Scraping | scrapling | Playwright only | scrapling is adaptive wrapper around Playwright with easier API. Keep Playwright for complex cases. |
 | Terminal Display | rich | tabulate + manual | rich handles both tables AND detail view (panels, markdown). Single dep over multiple. |
+| Plugin Framework | pluggy | stevedore | stevedore is more complex (OpenStack). pluggy is simpler and already installed. |
+| Plugin Framework | pluggy | yapsy | yapsy is older with less active maintenance. pluggy is the pytest standard. |
+| Plugin Discovery | Entry points | Directory scanning | Entry points better for extensible plugins. Directory scanning OK for built-ins. |
+| Plugin Pattern | Hook spec | ABC inheritance | Hook pattern is more flexible, allows optional methods. ABC forces implementation. |
 
 ---
 
@@ -403,6 +604,12 @@ requires-python = ">=3.10"   # v1.1: Bumped from 3.6+ to 3.10+
 | Unauthenticated GitHub API in production | 60 req/hr limit is restrictive | Use personal access token for 5000 req/hr |
 | tabulate for article list | Only handles tables, no detail view support | rich (handles both) |
 | Multiple display libraries | Complexity of managing tabulate + html2text + custom formatting | rich (all-in-one) |
+| zipimport | Overly complex for local plugins | File-based discovery or entry points |
+| importlib.reload | Causes issues with already-imported modules | Structured plugin lifecycle management |
+| Global plugin registry singleton | Hard to test, creates hidden state | Dependency injection via PluginManager |
+| Plugin that mutates core state | Breaks isolation | Plugins only interact via hooks |
+| stevedore | More complex, designed for OpenStack | pluggy (simpler, already installed) |
+| yapsy | Older, less active maintenance | pluggy (pytest standard) |
 
 ---
 
@@ -415,6 +622,7 @@ requires-python = ">=3.10"   # v1.1: Bumped from 3.6+ to 3.10+
 | feedparser 6.0.x | Python >=3.6 | Existing. Works with Python 3.10+. |
 | rich 13.x | Python >=3.7 | Compatible with existing Python 3.10+ requirement. |
 | html2text 2024.x | Python >=3.8 | If needed. |
+| pluggy 1.5.0 | Python >=3.8 | Already installed. Standard for plugin systems. |
 
 ---
 
@@ -435,3 +643,6 @@ requires-python = ">=3.10"   # v1.1: Bumped from 3.6+ to 3.10+
 - [GitHub REST API: Contents](https://docs.github.com/en/rest/repos/contents) — File content endpoint (HIGH confidence)
 - [rich documentation](https://rich.readthedocs.io/) — Terminal formatting (MEDIUM confidence - training data)
 - [html2text PyPI](https://pypi.org/project/html2text/) — HTML to markdown (MEDIUM confidence - training data)
+- [pluggy GitHub](https://github.com/pytest-dev/pluggy) — Plugin framework (HIGH confidence - verified installed)
+- [Python importlib.metadata docs](https://docs.python.org/3/library/importlib.metadata.html) — Entry points (HIGH confidence - built-in)
+- [packaging.python.org plugin guide](https://packaging.python.org/en/latest/guides/creating-and-discovering-plugins/) — Plugin discovery best practices (HIGH confidence)
