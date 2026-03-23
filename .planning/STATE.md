@@ -84,3 +84,9 @@ None identified.
 Last session: 2026-03-23T15:44:35.968Z
 Stopped at: Phase 13 context gathered
 Next action: `/gsd:plan-phase 12` to start Phase 12 planning
+
+## Quick Tasks Completed
+
+| Date | Task | Files | Notes |
+|------|------|-------|-------|
+| 2026-03-24 | 260324-0u6 | Remove github.py, github tables, github CLI commands, embedding code | Deleted 808-line github.py, removed github_repos/releases/release_tags tables from db.py, cleaned articles.py JOINs, removed repo command group from cli.py, removed embedding/clustering from tags.py, removed GitHub models |
