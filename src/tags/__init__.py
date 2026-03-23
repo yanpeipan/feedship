@@ -41,7 +41,16 @@ def load_tag_parsers() -> None:
 
         full_module = f"src.tags.{module_name}"
         try:
-            importlib.import_module(full_module)
+            mod = importlib.import_module(full_module)
+            # Look for TAG_PARSER_INSTANCE attribute
+            if hasattr(mod, "TAG_PARSER_INSTANCE"):
+                parser = mod.TAG_PARSER_INSTANCE
+                # Verify it implements TagParser protocol
+                if isinstance(parser, TagParser):
+                    TAG_PARSERS.append((module_name, parser))
+                    logger.debug("Registered tag parser: %s", module_name)
+                else:
+                    logger.warning("TAG_PARSER_INSTANCE in %s does not implement TagParser", full_module)
             logger.debug("Loaded tag parser module: %s", full_module)
         except Exception:
             logger.exception("Failed to load tag parser %s", full_module)
