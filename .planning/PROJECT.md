@@ -10,6 +10,12 @@
 
 ## Current State
 
+**Shipped: v1.4 Storage Layer Enforcement** (2026-03-25)
+- Phase 18 complete: All database operations centralized in `src/storage/sqlite.py`
+  - `get_db()` is now internal to storage layer only
+  - AI tagging, feed, article, crawl, and CLI modules all delegate to storage functions
+  - 16 new storage functions added covering all database operations
+
 **Shipped: v1.4 GitHubReleaseProvider** (2026-03-24)
 - Phase 16 complete: GitHubReleaseProvider (priority=200) using PyGithub repo.get_latest_release()
   - Separate from GitHubProvider — coexists with different focus
@@ -122,4 +128,4 @@
 
 ---
 
-*Last updated: 2026-03-24 after phase 16 complete*
+*Last updated: 2026-03-25 after phase 18 complete*
