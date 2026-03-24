@@ -1,245 +1,286 @@
-# Feature Research: nanoid ID Migration
+# Feature Research: pytest Testing Coverage
 
-**Domain:** Database ID migration for Python RSS reader
+**Domain:** Python CLI RSS Reader App Testing
 **Researched:** 2026-03-25
-**Confidence:** HIGH (verified via code analysis and database inspection)
+**Confidence:** MEDIUM-HIGH
 
-## Problem Statement
+## Feature Landscape
 
-All 5,594 articles in the database have URL-like IDs (or SHA256 hash IDs) instead of proper UUID/nanoid IDs:
+### Table Stakes (Core Test Categories)
 
-| ID Pattern | Length | Count | Example |
-|-----------|--------|-------|---------|
-| SHA256 hash | 26 | 2,710 | `3a4b5c6d7e8f9012345678...` |
-| URL-like | 32-78+ | 2,884 | `https://openai.com/blog/...` |
+These are the essential test categories for a CLI RSS reader with SQLite storage and provider plugins. Missing any of these leaves significant coverage gaps.
 
-The `articles.id` column should contain short, URL-safe identifiers, not full URLs or long hashes.
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| **Storage Layer Tests** | All data operations go through `src/storage/sqlite.py` | MEDIUM | Requires isolated temp DB per test, fixture for common operations |
+| **Provider Plugin Tests** | Plugin architecture is core to extensibility | MEDIUM | Mock HTTP responses, test `discover()` and `fetch()` methods |
+| **Tag Parser Tests** | Tag system affects article metadata quality | LOW | Pure functions with sample input/output |
+| **CLI Command Tests** | User-facing interface must work correctly | MEDIUM | Use Click's `CliRunner` for invocation tests |
+| **Integration Tests** | End-to-end workflows must function | MEDIUM | Test `fetch --all` with mocked providers |
 
----
+### Differentiators (Advanced Testing Patterns)
 
-## Migration Behavior
-
-### Detection Strategy
-
-URL-like IDs are identifiable by these characteristics:
-
-| Pattern | Detection | Example |
-|---------|-----------|---------|
-| URL | Contains `://` or starts with `http` | `https://openai.com/index/...` |
-| Hash | 64 hex chars (SHA256) or truncated version | `3a4b5c6d7e8f90123456789...` |
-| UUID | Matches `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` | (none currently in DB) |
-| nanoid | Alphanumeric, 21 chars default | (none currently in DB) |
-
-**Detection query:**
-```sql
-SELECT id, length(id) as len FROM articles
-WHERE id LIKE '%://%'      -- URL-like
-   OR length(id) = 64     -- Full SHA256
-   OR (id GLOB '*[!a-z0-9_-]*' AND length(id) > 21)  -- Contains invalid nanoid chars
-```
-
-**nanoid format:**
-- Characters: `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_-`
-- Default length: 21 characters
-- No special characters (unlike URLs)
-
-### Regeneration Approach
-
-1. **Generate new ID per article:**
-   ```python
-   import nanoid
-   new_id = nanoid.generate()  # 21 char URL-safe ID
-   ```
-
-2. **Update articles table:**
-   ```python
-   UPDATE articles SET id = ? WHERE id = ?
-   ```
-
-3. **Cascade to foreign keys:**
-   - `article_tags.article_id` (3,737 entries)
-   - `article_embeddings.article_id`
-
-### Expected Behavior During Migration
-
-| Phase | Action | Duration | Risk |
-|-------|--------|----------|------|
-| 1. Detect | Find all non-nanoid IDs | <1s | LOW |
-| 2. Backup | Create DB backup | varies | LOW |
-| 3. Generate | Create ID mapping table | <1s | LOW |
-| 4. Update tags | UPDATE article_tags | ~1s | MEDIUM (data loss if interrupted) |
-| 5. Update embeddings | UPDATE article_embeddings | ~1s | MEDIUM (data loss if interrupted) |
-| 6. Update articles | UPDATE articles | ~1s | MEDIUM (data loss if interrupted) |
-| 7. Verify | Count matches, spot-check | <1s | LOW |
-| 8. Vacuum | VACUUM to reclaim space | varies | LOW |
-
-**Critical: All updates must be in a single transaction or use temporary mapping table.**
-
-### Post-Migration Behavior
-
-| Metric | Before | After |
-|--------|--------|-------|
-| ID length | 26-78+ chars | 21 chars |
-| ID type | URL or SHA256 | nanoid |
-| URL-safe | No (URLs have `://?&=`) | Yes |
-| Foreign keys | 3,737 article_tags | Preserved |
-| Embeddings | Preserved | Preserved |
-
----
-
-## Migration Pattern: Temporary Mapping Table
-
-Recommended approach to avoid foreign key issues:
-
-```python
-def migrate_article_ids():
-    """Migrate article IDs from URL/hash to nanoid."""
-    import nanoid
-
-    with get_db() as conn:
-        cursor = conn.cursor()
-
-        # Step 1: Create temporary mapping table
-        cursor.execute("""
-            CREATE TEMP TABLE article_id_map (
-                old_id TEXT,
-                new_id TEXT,
-                PRIMARY KEY (old_id)
-            )
-        """)
-
-        # Step 2: Generate new IDs for all articles
-        cursor.execute("SELECT DISTINCT id FROM articles")
-        for row in cursor.fetchall():
-            old_id = row["id"]
-            new_id = nanoid.generate()
-            cursor.execute(
-                "INSERT INTO article_id_map (old_id, new_id) VALUES (?, ?)",
-                (old_id, new_id)
-            )
-
-        # Step 3: Update foreign key tables first (preserves referential integrity)
-        cursor.execute("""
-            UPDATE article_tags
-            SET article_id = (
-                SELECT new_id FROM article_id_map WHERE old_id = article_tags.article_id
-            )
-            WHERE EXISTS (
-                SELECT 1 FROM article_id_map WHERE old_id = article_tags.article_id
-            )
-        """)
-
-        cursor.execute("""
-            UPDATE article_embeddings
-            SET article_id = (
-                SELECT new_id FROM article_id_map WHERE old_id = article_embeddings.article_id
-            )
-            WHERE EXISTS (
-                SELECT 1 FROM article_id_map WHERE old_id = article_embeddings.article_id
-            )
-        """)
-
-        # Step 4: Update articles table
-        cursor.execute("""
-            UPDATE articles
-            SET id = (
-                SELECT new_id FROM article_id_map WHERE old_id = articles.id
-            )
-            WHERE EXISTS (
-                SELECT 1 FROM article_id_map WHERE old_id = articles.id
-            )
-        """)
-
-        conn.commit()
-
-        # Step 5: Verify counts
-        cursor.execute("SELECT COUNT(*) as total FROM article_tags")
-        tags_count = cursor.fetchone()["total"]
-
-        cursor.execute("SELECT COUNT(*) as total FROM articles")
-        articles_count = cursor.fetchone()["total"]
-
-        return {"articles": articles_count, "tags": tags_count}
-```
-
----
-
-## Table Stakes (Required for Migration)
-
-| Feature | Why Required | Complexity | Notes |
-|---------|-------------|------------|-------|
-| ID regeneration | All 5,594 articles have wrong ID type | LOW | Simple nanoid.generate() call |
-| Foreign key updates | article_tags (3,737), article_embeddings depend on article.id | MEDIUM | Must update atomically |
-| Verification | Ensure no orphaned tags/embeddings after migration | LOW | Count comparison |
-| store_article() update | New articles should use nanoid, not uuid.uuid4() | LOW | Replace 1 function call |
-
-## Differentiators (Quality Improvements)
+Features that elevate test quality but are not strictly required.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Transactional migration | All-or-nothing update prevents partial state | MEDIUM | Single transaction or rollback |
-| ID length display | CLI shows truncated 8-char IDs (already implemented) | LOW | No change needed |
-| Backward compat lookup | Support looking up by old ID during transition | LOW | Optional: add old_id column |
+| **Async Fetch Tests** | uvloop/httpx async path critical for performance | HIGH | Requires `pytest-asyncio` with proper event loop handling |
+| **Provider Priority/Routing Tests** | Plugin routing determines which provider handles each URL | MEDIUM | Test `ProviderRegistry.discover_or_default()` behavior |
+| **FTS5 Search Tests** | Full-text search is a key user feature | LOW | Test search queries against known article data |
+| **Error Recovery Tests** | Network failures, malformed feeds, DB locked scenarios | MEDIUM | Verify graceful degradation and user-facing errors |
+| **Concurrent Fetch Tests** | Semaphore limits concurrent crawls | HIGH | Test concurrency limits and SQLite write serialization |
 
-## Anti-Features (Avoid)
+### Anti-Features (Testing Patterns to Avoid)
 
-| Feature | Why Problematic | Alternative |
-|---------|-----------------|--------------|
-| In-place ID swap without mapping | Foreign keys break immediately | Use temp mapping table |
-| Deleting and re-inserting articles | Loses pub_date, created_at, FTS data | UPDATE in place |
-| Concurrent migration + writes | Race condition corrupts data | Lock table or single-thread |
-| Changing ID generation mid-migration | Creates mixed ID formats | Complete migration, then switch |
-
----
+| Anti-Pattern | Why Problematic | Alternative |
+|--------------|-----------------|-------------|
+| **Live network calls in CI** | Flaky, slow, rate-limited | Mock HTTP responses with `responses` or `httpx`'s `AsyncClient` mocking |
+| **Shared SQLite DB across tests** | State leakage causes flaky tests | Use `tmp_path` fixture for per-test isolated DB |
+| **Testing implementation details** | Brittle, refactoring breaks tests | Test behavior through public interfaces |
+| **Mocking everything** | Loses integration value | Reserve mocks for external dependencies (HTTP, GitHub API) |
 
 ## Feature Dependencies
 
 ```
-store_article() ID generation
-    └──requires──> Migration of existing articles
-                      └──requires──> Foreign key cleanup (article_tags, article_embeddings)
+Storage Tests (tmp_path DB)
+    └──requires──> Fixtures for common data (feeds, articles)
 
-Verification
-    └──requires──> Migration completion
+Provider Tests
+    └──requires──> Mock HTTP responses (RSS XML, HTML pages)
+    └──requires──> ProviderRegistry fixture
+
+Tag Parser Tests
+    └──requires──> Sample feeds with known tag outcomes
+
+CLI Tests
+    └──requires──> CliRunner invocation
+    └──requires──> Isolated filesystem (Click's `isolated_filesystem`)
+    └──requires──> In-memory or temp DB
+
+Integration Tests (fetch --all)
+    └──requires──> All of the above working together
+    └──requires──> Async event loop setup (uvloop or standard asyncio)
+
+Async Tests
+    └──requires──> pytest-asyncio configuration
+    └──requires──> Proper fixture scoping (function vs session)
 ```
 
----
+## MVP Definition
 
-## MVP Definition (v1.6)
+### Launch With (v1.7)
 
-### Launch With
+Minimum viable test coverage for the milestone to be considered successful.
 
-- [x] nanoid installed (v3.16.0)
-- [ ] Migration script that:
-  - [ ] Detects URL-like and hash-based IDs
-  - [ ] Generates new nanoid IDs
-  - [ ] Updates article_tags.article_id
-  - [ ] Updates article_embeddings.article_id
-  - [ ] Updates articles.id
-  - [ ] Runs in single transaction
-- [ ] store_article() uses nanoid.generate() instead of uuid.uuid4()
-- [ ] Verification that all article_tags and embeddings are preserved
+- [ ] **conftest.py fixtures**: temp DB (`tmp_path`), sample RSS feed data, mock HTTP responses
+- [ ] **Storage tests**: `store_article()`, `get_articles()`, `search_articles()`, feed CRUD
+- [ ] **Provider tests**: RSSProvider, GitHubProvider, GitHubReleaseProvider with mocked HTTP
+- [ ] **Tag parser tests**: DefaultTagParser, ReleaseTagParser with sample inputs
+- [ ] **CLI tests**: `feed add`, `feed list`, `article list`, `article detail` using CliRunner
 
-### Add After Validation (v1.6.x)
+### Add After Validation (v1.8+)
 
-- [ ] CLI command to run migration with `--dry-run` option
-- [ ] Backup creation before migration
-- [ ] Rollback capability
+Features to add once basic coverage exists.
+
+- [ ] **Async fetch tests**: Test `fetch --all` with mocked async providers
+- [ ] **Error path tests**: Malformed feeds, network timeouts, DB locked scenarios
+- [ ] **Provider priority tests**: Registry routing behavior with multiple matching providers
+- [ ] **FTS search tests**: Verify search relevance and query handling
 
 ### Future Consideration (v2+)
 
-- [ ] Old ID lookup table (for bookmarks/external references)
+Features to defer until core tests are stable.
 
----
+- [ ] **Concurrent fetch stress tests**: Verify Semaphore limits under load
+- [ ] **Performance benchmarks**: Track test execution time as a metric
+- [ ] **Coverage targets**: Enforce minimum coverage percentages via tooling
+
+## Test Categories Breakdown
+
+### 1. Unit Tests (Pure Functions)
+
+**Complexity:** LOW
+
+| Module | What to Test | Approach |
+|--------|--------------|----------|
+| `src/tags/default_tag_parser.py` | Tag extraction from text | Sample inputs with expected outputs |
+| `src/tags/release_tag_parser.py` | Semantic version parsing | Known version strings with expected tags |
+| `src/tags/tag_rules.py` | Rule-based tag matching | Sample rules with test inputs |
+| `src/storage/sqlite.py` | Individual functions | Isolated DB, single operation per test |
+
+**Example test:**
+```python
+def test_default_tag_parser_extracts_keywords():
+    parser = DefaultTagParser()
+    result = parser.parse("Python 3.12 released with performance improvements")
+    assert "python" in result
+    assert "release" in result
+```
+
+### 2. Storage Layer Tests (SQLite Operations)
+
+**Complexity:** MEDIUM
+
+| Operation | What to Test |
+|-----------|--------------|
+| `store_feed()` | Insert feed, verify retrieval, handle duplicates |
+| `store_article()` | Insert article, verify with different ID generators |
+| `get_articles()` | Filtering by feed, pagination, ordering |
+| `search_articles()` | FTS5 query matching, relevance ordering |
+| `update_feed_metadata()` | Update fields, verify persistence |
+
+**Key fixtures:**
+- `empty_db` - Fresh DB for each test
+- `db_with_feeds` - Pre-populated with sample feeds
+- `db_with_articles` - Pre-populated with sample articles
+
+**Example test:**
+```python
+def test_store_article_with_nanoid(db_with_feeds, sample_article_data):
+    article_id = store_article(db_with_feeds, sample_article_data)
+    assert len(article_id) == 21  # nanoid default length
+    assert article_id.isalnum() or '-' in article_id  # URL-safe
+```
+
+### 3. Provider Tests (Plugin Architecture)
+
+**Complexity:** MEDIUM
+
+| Provider | What to Test | Mock Strategy |
+|----------|--------------|---------------|
+| `RSSProvider` | Parses RSS/Atom, returns articles | Mock httpx response with sample RSS XML |
+| `GitHubProvider` | GitHub repo URL handling, API calls | Mock PyGithub responses |
+| `GitHubReleaseProvider` | Release extraction, version parsing | Mock PyGithub release data |
+| `DefaultProvider` | Fallback HTML scraping | Mock httpx response with HTML |
+
+**Key fixtures:**
+- `rss_feed_xml` - Sample RSS 2.0 and Atom 1.0 feeds
+- `github_release_data` - Sample GitHub API responses
+- `html_page_content` - Sample HTML for scraping
+
+**Example test:**
+```python
+@responses.activate
+def test_rss_provider_discovers_articles(sample_rss_feed):
+    responses.add(responses.GET, 'https://example.com/feed.xml',
+                  body=sample_rss_feed, status=200)
+    provider = RSSProvider()
+    articles = provider.discover('https://example.com/feed.xml')
+    assert len(articles) > 0
+    assert articles[0].title is not None
+```
+
+### 4. CLI Tests (Click Commands)
+
+**Complexity:** MEDIUM
+
+| Command | What to Test |
+|---------|--------------|
+| `feed add <url>` | Success, invalid URL, duplicate feed |
+| `feed list` | Empty state, populated list, formatting |
+| `article list` | Filters, pagination, search integration |
+| `article detail <id>` | Found, not found, formatting |
+| `fetch --all` | With mocked providers, concurrency handling |
+| `tag <article_id> <tags>` | Success, invalid article |
+
+**Key fixtures:**
+- `cli_runner` - CliRunner instance
+- `isolated_db` - DB isolated via tmp_path + CliRunner's filesystem
+- `populated_db` - DB with sample data for list/detail tests
+
+**Example test:**
+```python
+def test_feed_list_empty(cli_runner, empty_db):
+    result = cli_runner.invoke(feed_list, [], obj={'db_path': empty_db})
+    assert result.exit_code == 0
+    assert 'No feeds found' in result.output
+```
+
+### 5. Integration Tests (End-to-End)
+
+**Complexity:** MEDIUM-HIGH
+
+| Workflow | What to Test |
+|----------|--------------|
+| `feed add` then `fetch --all` | Full add-and-fetch cycle |
+| `article list` then `article detail` | List navigation |
+| Search then tag | Search -> detail -> tag chain |
+| `fetch --all` with concurrency | Multiple feeds fetched in parallel |
+
+**Key fixtures:**
+- `integration_env` - Full app environment with temp DB
+- `mocked_providers` - All HTTP calls mocked
+
+## Fixture Design
+
+### conftest.py Structure
+
+```python
+# conftest.py - Root fixtures
+import pytest
+from click.testing import CliRunner
+
+@pytest.fixture
+def cli_runner():
+    return CliRunner()
+
+@pytest.fixture
+def sample_rss_feed():
+    """Valid RSS 2.0 feed XML string"""
+
+@pytest.fixture
+def sample_atom_feed():
+    """Valid Atom 1.0 feed XML string"""
+
+@pytest.fixture
+def sample_github_release():
+    """PyGithub Release object fixture"""
+
+@pytest.fixture
+def empty_db(tmp_path):
+    """Fresh SQLite DB path per test"""
+    db_path = tmp_path / "test.db"
+    # Initialize schema
+    yield str(db_path)
+```
+
+### Scoping Strategy
+
+| Fixture | Scope | Reason |
+|---------|-------|--------|
+| `cli_runner` | function | Not thread-safe |
+| `empty_db` | function | Per-test isolation |
+| `sample_rss_feed` | session | Static data, no mutation |
+| `mocked_providers` | function | May have state |
+
+## Testing Tooling
+
+### Required Packages
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `pytest` | 8.x | Test framework |
+| `pytest-asyncio` | 0.23.x | Async test support |
+| `responses` | 0.25.x | Sync HTTP mocking |
+| `pytest-httpx` | 0.30.x | Async HTTP mocking alternative |
+| `pytest-cov` | 5.x | Coverage reporting |
+
+### Optional (Future)
+
+| Package | Purpose |
+|---------|---------|
+| `pytest-xdist` | Parallel test execution |
+| `faker` | Generate test data |
+| `freezegun` | Time-based testing |
 
 ## Sources
 
-- [nanoid Python library](https://pypi.org/project/nanoid/) (HIGH confidence)
-- Code analysis: `src/storage/sqlite.py` store_article() (HIGH confidence)
-- Code analysis: `src/utils/__init__.py` generate_article_id() (HIGH confidence)
-- Database inspection: ~/Library/Application Support/rss-reader/rss-reader.db (HIGH confidence)
+- [Click Testing Documentation](https://click.palletsprojects.com/en/8.1.x/testing/) (HIGH confidence)
+- [Pytest Fixtures Best Practices](https://docs.pytest.org/en/stable/explanation/fixtures.html) (HIGH confidence)
+- [Pytest Monkeypatching](https://docs.pytest.org/en/stable/how-to/monkeypatch.html) (HIGH confidence)
+- [Pytest tmp_path for Temp Directories](https://docs.pytest.org/en/stable/how-to/tmp_path.html) (HIGH confidence)
 
 ---
 
-*Feature research for: nanoid ID migration*
+*Feature research for: pytest testing coverage*
 *Researched: 2026-03-25*

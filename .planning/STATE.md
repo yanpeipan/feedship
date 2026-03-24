@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: pytest测试框架
-status: Milestone started — defining requirements
-stopped_at: v1.6 deferred, v1.7 milestone started
-last_updated: "2026-03-25T04:50:00.000Z"
+milestone: v1.5
+milestone_name: uvloop并发支持
+status: Executing Phase 26
+stopped_at: Roadmap created for v1.6 — 3 phases derived from 3 requirements
+last_updated: "2026-03-24T21:22:46.363Z"
 progress:
-  total_phases: 4
+  total_phases: 6
   completed_phases: 0
-  total_plans: 0
+  total_plans: 1
   completed_plans: 0
 ---
 
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (v1.7 milestone started)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** v1.7 — pytest测试框架
+**Current focus:** Phase 26 — pytest
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
+Phase: 26 (pytest) — EXECUTING
+Plan: 1 of 1
 
 ## v1.7 Phase Structure
 

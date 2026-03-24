@@ -18,8 +18,15 @@ Requires-Dist: numpy>=2.2.6
 Requires-Dist: scikit-learn>=1.7.2
 Requires-Dist: pyyaml>=6.0.3
 Requires-Dist: uvloop>=0.22.0
+Requires-Dist: nanoid>=2.0.0
 Provides-Extra: test
-Requires-Dist: pytest>=7.0.0; extra == "test"
+Requires-Dist: pytest>=9.0.2; extra == "test"
+Requires-Dist: pytest-asyncio>=1.0.0; extra == "test"
+Requires-Dist: pytest-cov>=7.0.0; extra == "test"
+Requires-Dist: pytest-mock>=3.15.0; extra == "test"
+Requires-Dist: pytest-click>=1.1.0; extra == "test"
+Requires-Dist: pytest-httpx>=0.36.0; extra == "test"
+Requires-Dist: pytest-xdist>=3.8.0; extra == "test"
 Provides-Extra: ml
 Requires-Dist: sentence-transformers>=3.0.0; extra == "ml"
 Requires-Dist: torch>=2.0.0; extra == "ml"

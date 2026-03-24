@@ -7,9 +7,6 @@ import warnings
 
 import click
 
-# Suppress httpx INFO-level HTTP request logs (expose referer headers)
-logging.getLogger("httpx").setLevel(logging.WARNING)
-
 # Suppress requests version mismatch warning (urllib3 2.6.3 is functionally compatible)
 warnings.filterwarnings("ignore", message="urllib3.*doesn't match a supported version")
 

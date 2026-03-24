@@ -8,6 +8,7 @@ src/application/asyncio_utils.py
 src/application/config.py
 src/application/crawl.py
 src/application/feed.py
+src/application/fetch.py
 src/cli/__init__.py
 src/cli/__main__.py
 src/cli/article.py
@@ -36,3 +37,4 @@ src/utils/__init__.py
 src/utils/github.py
 tests/test_ai_tagging.py
 tests/test_config.py
+tests/test_fetch.py
