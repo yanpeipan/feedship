@@ -91,14 +91,15 @@ None identified.
 
 ## Session Continuity
 
-Last session: 2026-03-24T16:00:00.000Z
-Stopped at: Completed 260324-x3k-SUMMARY.md
+Last session: 2026-03-25T00:00:00.000Z
+Stopped at: Completed quick 260324-xau: github_utils.py → utils/github.py
 Next action: `/gsd:plan-phase 16` to plan GitHubReleaseProvider
 
 ## Quick Tasks Completed
 
 | Date | Task | Files | Notes |
 |------|------|-------|-------|
+| 2026-03-24 | 260324-xau | github_utils.py → utils/github.py | Merged parse_github_url into utils/github.py, updated imports, deleted github_utils.py |
 | 2026-03-24 | 260324-waj | README.md (259 lines) | Created comprehensive README with badges, features, tech stack, installation, CLI usage, config, project structure |
 | 2026-03-24 | 260324-v34 | Refactor feeds.py to modules | Migrated generate_article_id/generate_feed_id to utils, add_feed/list_feeds/get_feed/remove_feed to application/feed.py, fetch_feed_content/parse_feed to rss_provider.py, deleted feeds.py |
 | 2026-03-24 | 260324-0u6 | Remove github.py, github tables, github CLI commands, embedding code | Deleted 808-line github.py, removed github_repos/releases/release_tags tables from db.py, cleaned articles.py JOINs, removed repo command group from cli.py, removed embedding/clustering from tags.py, removed GitHub models |
