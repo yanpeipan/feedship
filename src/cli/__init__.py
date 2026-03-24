@@ -1,18 +1,28 @@
-"""CLI package - re-exports cli() function.
+"""CLI package - defines cli() command group and registers subcommands."""
 
-Note: The cli() function is currently defined in src.cli (cli.py).
-This __init__.py re-exports it using importlib to avoid circular imports.
-After migration is complete (Task 8), this file will define cli directly.
-"""
-import importlib.util
-import sys
+from __future__ import annotations
 
-# Explicitly load src.cli module (cli.py file, not the package)
-_spec = importlib.util.spec_from_file_location("src.cli_module", "/Users/y3/radar/src/cli.py")
-_module = importlib.util.module_from_spec(_spec)
-sys.modules["src.cli_module"] = _module
-_spec.loader.exec_module(_module)
-cli = _module.cli
+import warnings
+
+import click
+
+# Suppress requests version mismatch warning (urllib3 2.6.3 is functionally compatible)
+warnings.filterwarnings("ignore", message="urllib3.*doesn't match a supported version")
+
+
+@click.group()
+@click.version_option(version="0.1.0")
+@click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
+@click.pass_context
+def cli(ctx: click.Context, verbose: bool) -> None:
+    """RSS reader CLI - manage feeds and read articles."""
+    ctx.ensure_object(dict)
+    ctx.obj["verbose"] = verbose
+
+    # Initialize database on every command
+    from src.db import init_db
+    init_db()
+
 
 if __name__ == "__main__":
     cli()

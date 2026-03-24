@@ -86,7 +86,7 @@ Plans:
 **Goal:** Implement Phase 2 of docs/feed.md target architecture — split cli.py, fix feed_meta(), adopt DB context manager
 **Requirements**: (none mapped)
 **Depends on:** None
-**Plans:** 2/2 plans created
+**Plans:** 1/2 plans executed
 
 Plans:
 - [x] 17-01-PLAN.md — CLI package split (cli.py → cli/)
