@@ -310,7 +310,7 @@ class RSSProvider:
             ValueError: If feed cannot be fetched or parsed.
         """
         from src.models import Feed
-        from src.config import get_timezone
+        from src.application.config import get_timezone
         from datetime import datetime
 
         try:

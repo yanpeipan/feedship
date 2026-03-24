@@ -129,7 +129,7 @@ def get_article_embedding(article_id: str) -> Optional[np.ndarray]:
 
 def _get_article_by_id(article_id: str) -> Optional[Any]:
     """Get article by ID (imported at runtime to avoid circular imports)."""
-    from src.articles import get_article
+    from src.application.articles import get_article
     return get_article(article_id)
 
 

@@ -176,7 +176,7 @@ class GitHubReleaseProvider:
         """
         from src.github_utils import parse_github_url
         from src.models import Feed
-        from src.config import get_timezone
+        from src.application.config import get_timezone
         from datetime import datetime
 
         owner, repo = parse_github_url(url)

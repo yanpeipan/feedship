@@ -13,7 +13,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from src.articles import get_article_detail, list_articles, search_articles
+from src.application.articles import get_article_detail, list_articles, search_articles
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ def article_list(ctx: click.Context, limit: int, feed_id: Optional[str], tag: Op
     """
     verbose = verbose or (ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False)
     try:
-        from src.articles import list_articles_with_tags, get_articles_with_tags
+        from src.application.articles import list_articles_with_tags, get_articles_with_tags
         articles = list_articles_with_tags(limit=limit, feed_id=feed_id, tag=tag, tags=tags)
         if not articles:
             click.secho("No articles found. Add some feeds and fetch them first.")

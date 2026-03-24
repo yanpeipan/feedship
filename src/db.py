@@ -301,7 +301,7 @@ def store_article(
     """
     import uuid
     from datetime import datetime
-    from src.config import get_timezone
+    from src.application.config import get_timezone
 
     now = datetime.now(get_timezone()).isoformat()
 

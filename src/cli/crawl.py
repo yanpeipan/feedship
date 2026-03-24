@@ -5,7 +5,7 @@ import logging
 
 import click
 
-from src.crawl import crawl_url
+from src.application.crawl import crawl_url
 
 logger = logging.getLogger(__name__)
 

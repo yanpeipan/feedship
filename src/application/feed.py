@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from src.config import get_timezone
+from src.application.config import get_timezone
 from src.db import get_db
 from src.models import Feed
 from src.providers import discover_or_default
