@@ -423,3 +423,87 @@ def get_articles_without_embeddings() -> list[str]:
             WHERE ae.article_id IS NULL
         """)
         return [row["id"] for row in cursor.fetchall()]
+
+
+def feed_exists(url: str) -> bool:
+    """Check if feed with given URL exists."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM feeds WHERE url = ?", (url,))
+        return cursor.fetchone() is not None
+
+
+def add_feed(feed) -> Feed:
+    """Insert new feed, return Feed object."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO feeds (id, name, url, etag, last_modified, last_fetched, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (feed.id, feed.name, feed.url, feed.etag, feed.last_modified, feed.last_fetched, feed.created_at)
+        )
+        conn.commit()
+        return feed
+
+
+def list_feeds() -> list:
+    """List all feeds with article counts."""
+    from src.models import Feed
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT f.id, f.name, f.url, f.etag, f.last_modified, f.last_fetched, f.created_at,
+                   COUNT(a.id) as articles_count
+            FROM feeds f
+            LEFT JOIN articles a ON f.id = a.feed_id
+            GROUP BY f.id
+            ORDER BY f.created_at DESC
+        """)
+        rows = cursor.fetchall()
+        feeds = []
+        for row in rows:
+            feed = Feed(
+                id=row["id"],
+                name=row["name"],
+                url=row["url"],
+                etag=row["etag"],
+                last_modified=row["last_modified"],
+                last_fetched=row["last_fetched"],
+                created_at=row["created_at"],
+            )
+            feed.articles_count = row["articles_count"]
+            feeds.append(feed)
+        return feeds
+
+
+def get_feed(feed_id: str) -> Optional[Feed]:
+    """Get single feed by ID."""
+    from src.models import Feed
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, name, url, etag, last_modified, last_fetched, created_at FROM feeds WHERE id = ?",
+            (feed_id,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return Feed(
+            id=row["id"],
+            name=row["name"],
+            url=row["url"],
+            etag=row["etag"],
+            last_modified=row["last_modified"],
+            last_fetched=row["last_fetched"],
+            created_at=row["created_at"],
+        )
+
+
+def remove_feed(feed_id: str) -> bool:
+    """Delete feed by ID. Returns True if deleted."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM feeds WHERE id = ?", (feed_id,))
+        deleted = cursor.rowcount > 0
+        conn.commit()
+        return deleted

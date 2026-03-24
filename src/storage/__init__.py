@@ -14,4 +14,9 @@ from src.storage.sqlite import (
     get_db_path,
     store_embedding,
     get_article_embedding,
+    feed_exists,
+    add_feed,
+    list_feeds,
+    get_feed,
+    remove_feed,
 )
