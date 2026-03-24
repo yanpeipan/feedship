@@ -5,10 +5,17 @@ Provides functions for listing and retrieving articles from the database.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
-from src.storage.sqlite import get_db
+from src.storage import (
+    list_articles as storage_list_articles,
+    get_article as storage_get_article,
+    get_article_detail as storage_get_article_detail,
+    search_articles as storage_search_articles,
+    list_articles_with_tags as storage_list_articles_with_tags,
+    get_articles_with_tags as storage_get_articles_with_tags,
+)
 
 
 @dataclass
@@ -46,51 +53,7 @@ def list_articles(limit: int = 20, feed_id: Optional[str] = None) -> list[Articl
     Returns:
         List of ArticleListItem objects ordered by pub_date DESC, limited to specified count.
     """
-    with get_db() as conn:
-        cursor = conn.cursor()
-
-        if feed_id:
-            cursor.execute(
-                """
-                SELECT a.id, a.feed_id, f.name as feed_name,
-                       a.title, a.link, a.guid, a.pub_date, a.description
-                FROM articles a
-                JOIN feeds f ON a.feed_id = f.id
-                WHERE a.feed_id = ?
-                ORDER BY a.pub_date DESC, a.created_at DESC
-                LIMIT ?
-                """,
-                (feed_id, limit),
-            )
-        else:
-            cursor.execute(
-                """
-                SELECT a.id, a.feed_id, f.name as feed_name,
-                       a.title, a.link, a.guid, a.pub_date, a.description
-                FROM articles a
-                JOIN feeds f ON a.feed_id = f.id
-                ORDER BY a.pub_date DESC, a.created_at DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
-
-        rows = cursor.fetchall()
-        articles = []
-        for row in rows:
-            articles.append(
-                ArticleListItem(
-                    id=row["id"],
-                    feed_id=row["feed_id"],
-                    feed_name=row["feed_name"],
-                    title=row["title"],
-                    link=row["link"],
-                    guid=row["guid"],
-                    pub_date=row["pub_date"],
-                    description=row["description"],
-                )
-            )
-        return articles
+    return storage_list_articles(limit=limit, feed_id=feed_id)
 
 
 def get_article(article_id: str) -> Optional[ArticleListItem]:
@@ -102,31 +65,7 @@ def get_article(article_id: str) -> Optional[ArticleListItem]:
     Returns:
         ArticleListItem object if found, None otherwise.
     """
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT a.id, a.feed_id, f.name as feed_name, a.title, a.link,
-                   a.guid, a.pub_date, a.description
-            FROM articles a
-            JOIN feeds f ON a.feed_id = f.id
-            WHERE a.id = ?
-            """,
-            (article_id,),
-        )
-        row = cursor.fetchone()
-        if not row:
-            return None
-        return ArticleListItem(
-            id=row["id"],
-            feed_id=row["feed_id"],
-            feed_name=row["feed_name"],
-            title=row["title"],
-            link=row["link"],
-            guid=row["guid"],
-            pub_date=row["pub_date"],
-            description=row["description"],
-        )
+    return storage_get_article(article_id)
 
 
 def get_article_detail(article_id: str) -> Optional[dict]:
@@ -139,57 +78,7 @@ def get_article_detail(article_id: str) -> Optional[dict]:
         Dict with all article fields plus 'tags' key containing list of tag names.
         Returns None if article not found.
     """
-    with get_db() as conn:
-        cursor = conn.cursor()
-
-        # First try exact match
-        cursor.execute(
-            """
-            SELECT a.id, a.feed_id, f.name as feed_name, a.title, a.link, a.guid,
-                   a.pub_date, a.description, a.content, 'feed' as source_type
-            FROM articles a
-            JOIN feeds f ON a.feed_id = f.id
-            WHERE a.id = ?
-            """,
-            (article_id,),
-        )
-        row = cursor.fetchone()
-
-        # If not found and length == 8, try truncated ID match
-        if not row and len(article_id) == 8:
-            cursor.execute(
-                """
-                SELECT a.id, a.feed_id, f.name as feed_name, a.title, a.link, a.guid,
-                       a.pub_date, a.description, a.content, 'feed' as source_type
-                FROM articles a
-                JOIN feeds f ON a.feed_id = f.id
-                WHERE a.id LIKE ? || '%'
-                LIMIT 1
-                """,
-                (article_id,),
-            )
-            row = cursor.fetchone()
-
-        if not row:
-            return None
-
-        # Fetch tags for the article
-        from src.storage.sqlite import get_article_tags
-        tags = get_article_tags(row["id"])
-
-        return {
-            "id": row["id"],
-            "feed_id": row["feed_id"],
-            "feed_name": row["feed_name"],
-            "title": row["title"],
-            "link": row["link"],
-            "guid": row["guid"],
-            "pub_date": row["pub_date"],
-            "description": row["description"],
-            "content": row["content"],
-            "source_type": row["source_type"],
-            "tags": tags,
-        }
+    return storage_get_article_detail(article_id)
 
 
 def search_articles(
@@ -207,58 +96,7 @@ def search_articles(
     Returns:
         List of ArticleListItem objects ordered by relevance
     """
-    if not query or not query.strip():
-        return []
-
-    with get_db() as conn:
-        cursor = conn.cursor()
-
-        if feed_id:
-            cursor.execute(
-                """
-                SELECT a.id, a.feed_id, f.name as feed_name,
-                       a.title, a.link, a.guid, a.pub_date, a.description
-                FROM articles_fts
-                JOIN articles a ON articles_fts.rowid = a.rowid
-                JOIN feeds f ON a.feed_id = f.id
-                WHERE articles_fts MATCH ?
-                  AND a.feed_id = ?
-                ORDER BY bm25(articles_fts)
-                LIMIT ?
-                """,
-                (query, feed_id, limit),
-            )
-        else:
-            cursor.execute(
-                """
-                SELECT a.id, a.feed_id, f.name as feed_name,
-                       a.title, a.link, a.guid, a.pub_date, a.description
-                FROM articles_fts
-                JOIN articles a ON articles_fts.rowid = a.rowid
-                JOIN feeds f ON a.feed_id = f.id
-                WHERE articles_fts MATCH ?
-                ORDER BY bm25(articles_fts)
-                LIMIT ?
-                """,
-                (query, limit),
-            )
-
-        articles = []
-        for row in cursor.fetchall():
-            articles.append(
-                ArticleListItem(
-                    id=row["id"],
-                    feed_id=row["feed_id"],
-                    feed_name=row["feed_name"],
-                    title=row["title"],
-                    link=row["link"],
-                    guid=row["guid"],
-                    pub_date=row["pub_date"],
-                    description=row["description"],
-                )
-            )
-
-        return articles
+    return storage_search_articles(query=query, limit=limit, feed_id=feed_id)
 
 
 def list_articles_with_tags(
@@ -276,77 +114,7 @@ def list_articles_with_tags(
         tags: Comma-separated tag names (OR logic - has a OR has b).
               If both tag and tags provided, tag takes precedence.
     """
-    # Parse multiple tags
-    tag_list: Optional[list[str]] = None
-    if tags:
-        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
-    elif tag:
-        tag_list = [tag]
-
-    if not tag_list:
-        # No tag filter - use existing list_articles logic
-        return list_articles(limit=limit, feed_id=feed_id)
-
-    with get_db() as conn:
-        cursor = conn.cursor()
-        placeholders = ",".join("?" * len(tag_list))
-
-        if feed_id:
-            cursor.execute(
-                f"""
-                SELECT DISTINCT a.id, a.feed_id,
-                       f.name as feed_name,
-                       a.title, a.link, a.guid, a.pub_date, a.description
-                FROM articles a
-                JOIN feeds f ON a.feed_id = f.id
-                WHERE a.feed_id = ?
-                  AND a.id IN (
-                      SELECT DISTINCT at.article_id
-                      FROM article_tags at
-                      JOIN tags t ON at.tag_id = t.id
-                      WHERE t.name IN ({placeholders})
-                  )
-                ORDER BY a.pub_date DESC, a.created_at DESC
-                LIMIT ?
-                """,
-                [feed_id] + list(tag_list) + [limit],
-            )
-        else:
-            cursor.execute(
-                f"""
-                SELECT DISTINCT a.id, a.feed_id,
-                       f.name as feed_name,
-                       a.title, a.link, a.guid, a.pub_date, a.description
-                FROM articles a
-                JOIN feeds f ON a.feed_id = f.id
-                WHERE a.id IN (
-                    SELECT DISTINCT at.article_id
-                    FROM article_tags at
-                    JOIN tags t ON at.tag_id = t.id
-                    WHERE t.name IN ({placeholders})
-                )
-                ORDER BY a.pub_date DESC, a.created_at DESC
-                LIMIT ?
-                """,
-                list(tag_list) + [limit],
-            )
-
-        rows = cursor.fetchall()
-        articles = []
-        for row in rows:
-            articles.append(
-                ArticleListItem(
-                    id=row["id"],
-                    feed_id=row["feed_id"],
-                    feed_name=row["feed_name"],
-                    title=row["title"],
-                    link=row["link"],
-                    guid=row["guid"],
-                    pub_date=row["pub_date"],
-                    description=row["description"],
-                )
-            )
-        return articles
+    return storage_list_articles_with_tags(limit=limit, feed_id=feed_id, tag=tag, tags=tags)
 
 
 def get_articles_with_tags(article_ids: list[str]) -> dict[str, list[str]]:
@@ -358,24 +126,4 @@ def get_articles_with_tags(article_ids: list[str]) -> dict[str, list[str]]:
     Returns:
         Dict mapping article_id -> list of tag names.
     """
-    result: dict[str, list[str]] = {aid: [] for aid in article_ids}
-
-    if not article_ids:
-        return result
-
-    with get_db() as conn:
-        cursor = conn.cursor()
-
-        placeholders = ",".join("?" * len(article_ids))
-        cursor.execute(f"""
-            SELECT at.article_id, t.name
-            FROM article_tags at
-            JOIN tags t ON at.tag_id = t.id
-            WHERE at.article_id IN ({placeholders})
-            ORDER BY at.article_id, t.name
-        """, article_ids)
-
-        for row in cursor.fetchall():
-            result[row["article_id"]].append(row["name"])
-
-        return result
+    return storage_get_articles_with_tags(article_ids)
