@@ -8,14 +8,15 @@
 
 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
 
-## Current Milestone: v1.6 nanoid ID生成
+## Current Milestone: v1.7 pytest测试框架
 
-**Goal:** 使用nanoid替代uuid.uuid4()生成更短、URL-safe的article ID，修复历史遗留的URL-like ID问题
+**Goal:** 引入pytest测试框架，为核心模块构建完整的单元测试覆盖
 
 **Target features:**
-- nanoid替代uuid生成article id（更短：21字符 vs 36字符）
-- 迁移脚本修复历史数据（~2479条URL-like IDs）
-- nanoid需安装（v2.0.0）
+- pytest测试框架引入（conftest.py、fixture设计）
+- Provider插件架构的单元测试（RSSProvider、GitHubReleaseProvider等）
+- Storage层SQLite操作的单元测试
+- CLI命令的集成测试
 
 ---
 
@@ -58,11 +59,12 @@
 
 ## Requirements
 
-### Active (v1.6)
+### Active (v1.7)
 
-- [ ] NANO-01: store_article()使用nanoid.generate()替代uuid.uuid4()
-- [ ] NANO-02: 生成迁移脚本，修复~2479条URL-like ID的历史数据
-- [ ] NANO-03: 验证所有article相关操作（CRUD、tagging、search）正常
+- [ ] TEST-01: 引入pytest测试框架，配置conftest.py和基础fixtures
+- [ ] TEST-02: 为Provider插件架构编写单元测试
+- [ ] TEST-03: 为Storage层SQLite操作编写单元测试
+- [ ] TEST-04: 为CLI命令编写集成测试
 
 ### Validated (v1.5)
 
@@ -103,6 +105,11 @@
 - [ ] 文章书签功能
 - [ ] 定时自动抓取（cron 集成）
 - [ ] 多输出格式（JSON、CSV）
+
+### Deferred (v1.6)
+- [ ] NANO-01: store_article()使用nanoid.generate()替代uuid.uuid4() — deferred to v1.8
+- [ ] NANO-02: 生成迁移脚本，修复~2479条URL-like ID的历史数据 — deferred to v1.8
+- [ ] NANO-03: 验证所有article相关操作（CRUD、tagging、search）正常 — deferred to v1.8
 
 ### Out of Scope
 
@@ -162,4 +169,4 @@
 
 ---
 
-*Last updated: 2026-03-25 — v1.6 nanoid ID生成 milestone started*
+*Last updated: 2026-03-25 — v1.7 pytest测试框架 milestone started*

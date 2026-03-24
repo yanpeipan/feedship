@@ -1,38 +1,39 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: nanoid ID生成
-status: Phase 23 complete — Phase 25 (verification) next
-stopped_at: Phase 23 complete, Phase 25 ready to plan
-last_updated: "2026-03-25T02:00:00.000Z"
+milestone: v1.7
+milestone_name: pytest测试框架
+status: Milestone started — defining requirements
+stopped_at: v1.6 deferred, v1.7 milestone started
+last_updated: "2026-03-25T04:50:00.000Z"
 progress:
-  total_phases: 3
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (v1.6 milestone started)
+See: .planning/PROJECT.md (v1.7 milestone started)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** v1.6 — nanoid ID生成
+**Current focus:** v1.7 — pytest测试框架
 
 ## Current Position
 
-Phase: 23 (complete) → Phase 25 (next to plan/execute)
-Phase 24 (Migration Script) deferred — not needed during development
+Phase: Not started (defining requirements)
+Plan: —
 
-## v1.6 Phase Structure
+## v1.7 Phase Structure
 
 | Phase | Goal | Requirements |
 |-------|------|--------------|
-| 23 | nanoid Code Changes | NANO-01 |
-| 24 | Migration Script | NANO-02 |
-| 25 | Verification | NANO-03 |
+| 26 | pytest框架搭建 | TEST-01 |
+| 27 | Provider单元测试 | TEST-02 |
+| 28 | Storage层单元测试 | TEST-03 |
+| 29 | CLI集成测试 | TEST-04 |
 
 | Phase | Goal | Requirements |
 |-------|------|--------------|
