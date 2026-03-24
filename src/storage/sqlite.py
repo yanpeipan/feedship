@@ -771,3 +771,32 @@ def get_articles_with_tags(article_ids: list[str]) -> dict[str, list[str]]:
         for row in cursor.fetchall():
             result[row["article_id"]].append(row["name"])
         return result
+
+
+def ensure_crawled_feed() -> None:
+    """Create 'crawled' system feed if it doesn't exist."""
+    from src.application.config import get_timezone
+    from datetime import datetime
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM feeds WHERE id = 'crawled'")
+        if cursor.fetchone() is None:
+            now = datetime.now(get_timezone()).isoformat()
+            cursor.execute(
+                """INSERT INTO feeds (id, name, url, created_at)
+                   VALUES ('crawled', 'Crawled Pages', '', ?)""",
+                (now,)
+            )
+            conn.commit()
+
+
+def get_untagged_articles() -> list[dict]:
+    """Get all articles without tags. Returns list of dicts with id, title, description."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT a.id, a.title, a.description FROM articles a
+            LEFT JOIN article_tags at ON a.id = at.article_id
+            WHERE at.article_id IS NULL
+        """)
+        return [dict(row) for row in cursor.fetchall()]
