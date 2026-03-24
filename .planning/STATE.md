@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Milestone complete
-stopped_at: Phase 18 context gathered (assumptions mode)
-last_updated: "2026-03-24T16:31:52.565Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 18-01-PLAN.md - storage layer enforcement
+last_updated: "2026-03-24T16:58:16.613Z"
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 3
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (v1.3 milestone archived)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Phase 16 — github-release-provider
+**Current focus:** Phase 18 — storage-layer-enforcement
 
 ## Current Position
 
-Phase: 17
-Plan: Not started
+Phase: 18 (storage-layer-enforcement) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -70,6 +70,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 15]: Extracted parse_github_url to github_utils.py (pure URL parsing, no external deps)
 - [Phase 15]: Extracted DB ops and changelog functions to github_ops.py using httpx/raw.githubusercontent.com
 - [Phase 17-anti-refactoring]: RSSProvider.feed_meta uses httpx.get with 5s timeout instead of crawl()
+- [Phase 18]: Added get_all_embeddings() and get_articles_without_embeddings() helper functions to storage to eliminate remaining get_db() calls in ai_tagging.py
+- [Phase 18]: Storage layer enforcement: get_db() is internal to src/storage/ only - no direct database calls outside storage layer
 
 ### Technical Notes
 
@@ -91,8 +93,8 @@ None identified.
 
 ## Session Continuity
 
-Last session: 2026-03-24T16:31:52.559Z
-Stopped at: Phase 18 context gathered (assumptions mode)
+Last session: 2026-03-24T16:58:12.167Z
+Stopped at: Completed 18-01-PLAN.md - storage layer enforcement
 Next action: `/gsd:plan-phase 16` to plan GitHubReleaseProvider
 
 ## Quick Tasks Completed

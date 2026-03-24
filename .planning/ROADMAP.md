@@ -82,7 +82,7 @@ Plans:
 - [x] 16-01-PLAN.md — Create GitHubReleaseProvider (priority 200) and ReleaseTagParser
 
 ### Phase 18: Storage Layer Enforcement
-**Plans:** 1/1 plans
+**Plans:** 1/1 plans complete
 
 **Goal:** Make `get_db()` internal to `src/storage/` — move all SQL operations into `src/storage/sqlite/` directory
 **Requirements**: (none mapped)
