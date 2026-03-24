@@ -71,5 +71,15 @@
 | 14. CLI Integration | 3/3 | Complete    | 2026-03-23 |
 | 15. PyGithub Refactor | 2/2 | Complete    | 2026-03-23 |
 
+### Phase 16: github_release_provider using pygithub repo.get_latest_release
+
+**Goal:** Create a GitHubReleaseProvider using PyGithub's repo.get_latest_release() to fetch release information
+**Requirements**: (none mapped)
+**Depends on:** Phase 15 (PyGithub Refactor)
+**Plans:** 1 plan
+
+Plans:
+- [ ] 16-01-PLAN.md — Create GitHubReleaseProvider (priority 200) and ReleaseTagParser
+
 ---
 _For completed milestone details, see `.planning/milestones/`_
