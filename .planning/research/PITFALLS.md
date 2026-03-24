@@ -1,285 +1,289 @@
-# Pitfalls Research
+# Pitfalls Research: uvloop Async Concurrency
 
-**Domain:** Plugin-based Provider Architecture for Python CLI
-**Researched:** 2026-03-23
-**Confidence:** MEDIUM (established Python patterns; verify with official docs and community wisdom)
+**Domain:** Adding uvloop/async concurrency to Python CLI with httpx sync and SQLite
+**Researched:** 2026-03-25
+**Confidence:** MEDIUM
+
+*Note: Web search was unavailable during research. Findings are based on established Python async programming knowledge and known library behaviors.*
+
+---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Circular Import Chain
+### Pitfall 1: feedparser.parse() Blocks the Event Loop
 
 **What goes wrong:**
-`ImportError: cannot import name 'ProviderRegistry' from partially initialized module` — application fails to start, often with misleading tracebacks pointing at unrelated imports.
+The event loop stalls while `feedparser.parse()` processes XML. With 10 concurrent feeds, the entire async pipeline freezes during each parse operation, eliminating concurrency benefits.
 
 **Why it happens:**
-Classic chicken-and-egg problem. Common patterns that trigger it:
-- Main app imports a plugin at module level, plugin imports main app
-- Plugin `__init__.py` imports from main package
-- `importlib` loads plugin which immediately tries to access shared state
-- Database models imported by both main app and plugin before initialization completes
+`feedparser.parse()` is a CPU-bound synchronous function. It performs XML parsing in the calling thread. Async/await cannot yield control during the parse operation.
 
 **How to avoid:**
-1. Use `TYPE_CHECKING` for type hints only, never for runtime imports
-2. Defer all imports inside plugin functions/methods (lazy import pattern)
-3. Pass dependencies as parameters rather than importing shared state
-4. Keep plugin interface isolated — plugins should receive data, not import from core
-5. Use `importlib` with explicit module paths, not `from x import *`
-
+Run feedparser in a thread pool executor:
 ```python
-# BAD — triggers circular import
-# main.py
-from providers import rss_provider
-# providers/__init__.py
-from main import ProviderRegistry  # circular!
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
-# GOOD — deferred import
-# main.py
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from providers import ProviderRegistry
-# In function, not at module level:
-def load_plugins():
-    from providers import get_providers  # deferred
-    return get_providers()
+_executor = ThreadPoolExecutor(max_workers=4)
+
+async def parse_feed_async(content: bytes, url: str):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(_executor, feedparser.parse, content)
 ```
 
 **Warning signs:**
-- Any `from main import X` or `from . import X` in plugin `__init__.py`
-- Application startup fails with `AttributeError` on seemingly unrelated objects
-- Traceback shows imports in unexpected order
+- Event loop appears frozen during feed parsing
+- High CPU on single core during concurrent fetches
+- "slow callback" warnings from uvloop
 
 **Phase to address:**
-Phase 1 (Plugin Core Infrastructure)
+Phase 1 (uvloop setup + executor pool for feedparser)
 
 ---
 
-### Pitfall 2: Plugin Interface Drift
+### Pitfall 2: Provider crawl() Methods Are Synchronous
 
 **What goes wrong:**
-Plugin works in isolation but causes cryptic errors when integrated. Methods are called with wrong signatures, return values are unexpected, lifecycle hooks are missing.
+`ContentProvider.crawl()` and all concrete implementations (RSSProvider, GitHubReleaseProvider) are synchronous. Calling `provider.crawl(url)` directly from async code blocks the event loop for the entire duration of the HTTP request.
 
 **Why it happens:**
-No explicit interface definition. Plugin authors guess at expected behavior:
-- No `Protocol` class defining required methods
-- No abstract base class enforcing contract
-- Documentation exists but is not enforced
-- Breaking changes in core without corresponding plugin updates
+The Provider protocol was designed for synchronous execution. Each provider's `crawl()` method internally calls `httpx.get()` (blocking) and `feedparser.parse()` (blocking).
 
 **How to avoid:**
-1. Define `ProviderProtocol` using Python's `typing.Protocol`
-2. Use `@runtime_checkable` decorator for verification
-3. Document method signatures, return types, and exceptions explicitly
-4. Create a "blessed" example plugin that demonstrates correct implementation
-5. Add runtime validation at plugin load time, not discovery time
+Either:
+1. Wrap all provider calls in executor: `await loop.run_in_executor(None, provider.crawl, url)`
+2. Or refactor providers to async methods (breaking change to protocol)
 
+Option 1 is less invasive for existing code.
+
+**Warning signs:**
+- Sequential behavior despite asyncio.gather() usage
+- Concurrent fetches taking longer than sequential would
+
+**Phase to address:**
+Phase 2 (Provider wrapper for async execution)
+
+---
+
+### Pitfall 3: httpx.AsyncClient Lifecycle Mismanagement
+
+**What goes wrong:**
+Connection leaks, "Unclosed client session" warnings, or socket exhaustion. The AsyncClient is created but never properly closed, or closed too early.
+
+**Why it happens:**
+`httpx.AsyncClient` requires explicit lifecycle management. Unlike the sync `httpx.get()` which handles connections internally, AsyncClient maintains a connection pool that must be closed.
+
+**How to avoid:**
+Always use context manager or ensure proper cleanup:
 ```python
-from typing import Protocol, runtime_checkable
-from abc import abstractmethod
+async with httpx.AsyncClient() as client:
+    results = await asyncio.gather(*[fetch_one(client, url) for url in urls])
+# Client automatically closed here
 
-@runtime_checkable
-class FeedProvider(Protocol):
-    """Interface all feed providers must implement."""
+# For shared client across module:
+_client: httpx.AsyncClient | None = None
 
-    @property
-    def name(self) -> str:
-        """Unique provider identifier."""
-        ...
-
-    @abstractmethod
-    def fetch(self, url: str) -> list[Article]:
-        """Fetch articles from provider."""
-        ...
-
-    @abstractmethod
-    def validate_url(self, url: str) -> bool:
-        """Check if URL is supported by this provider."""
-        ...
+async def get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None:
+        _client = httpx.AsyncClient()
+    return _client
 ```
 
 **Warning signs:**
-- Plugin works when tested standalone, fails when integrated
-- "Missing positional argument" errors at runtime
-- Different plugins return different shapes for same operation
-- No clear error when plugin method signature is wrong
+- "Unclosed client session" in logs
+- Socket/file descriptor exhaustion
+- Connection reset errors
 
 **Phase to address:**
-Phase 1 (Plugin Core Infrastructure) — define interfaces before plugins
+Phase 1 (httpx async client setup)
 
 ---
 
-### Pitfall 3: Monolithic Plugin Loading (No Isolation)
+### Pitfall 4: uvloop Cannot Run in Non-Main Thread
 
 **What goes wrong:**
-One buggy plugin crashes entire application. Plugin can access/modify internal state of other plugins or core. Memory leaks in plugins accumulate.
+`ValueError: uvloop can only be installed in the main thread` when running certain Click command invocations, especially with subprocess execution or certain IDE integrations.
 
 **Why it happens:**
-Plugins loaded into same Python process without sandboxing:
-- No error isolation — unhandled exception in plugin kills main loop
-- Plugins share global namespace
-- No lifecycle hooks (no unload/cleanup)
-- Plugin can modify singletons or global state
+uvloop uses low-level threading APIs that only work in the Python main thread. Click may invoke commands in ways that are not the main thread.
 
 **How to avoid:**
-1. Wrap plugin calls in try/except with clear error messages
-2. Implement optional plugin lifecycle: `load()`, `unload()`, `shutdown()`
-3. Create plugin context that limits what plugins can access
-4. Consider running plugins in subprocess if isolation is critical (complexity tradeoff)
-5. Log plugin errors with provider name for debugging
-
+Guard uvloop installation:
 ```python
-def invoke_provider(provider: FeedProvider, url: str) -> list[Article]:
+import asyncio
+import uvloop
+import sys
+
+def main():
+    if sys.platform != 'win32' and sys.implementation.name == 'cpython':
+        # Only install uvloop in main thread on CPython (not PyPy)
+        try:
+            uvloop.install()
+        except ValueError:
+            pass  # Already in non-main thread or uvloop unavailable
+
+    # Rest of CLI setup
+    cli()
+```
+
+**Warning signs:**
+- `ValueError: uvloop can only be installed in the main thread` crashes
+- Works in direct CLI execution but fails in tests or IDE
+
+**Phase to address:**
+Phase 1 (uvloop installation)
+
+---
+
+### Pitfall 5: SQLite "database is locked" with Async Access
+
+**What goes wrong:**
+`sqlite3.OperationalError: database is locked` errors occur when multiple async tasks attempt to write to SQLite simultaneously, even with WAL mode.
+
+**Why it happens:**
+SQLite uses file-level locking. WAL mode allows concurrent readers but serialized writers. When 10 async tasks try to `store_article()` concurrently, SQLite's busy_timeout (5s) is exceeded on some connections.
+
+**How to avoid:**
+Serialize all SQLite writes through a single async queue:
+```python
+import asyncio
+from collections.abc import Callable
+
+_write_queue: asyncio.Queue[Callable] = asyncio.Queue()
+_write_lock = asyncio.Lock()
+
+async def serialized_db_operation(func: Callable, *args, **kwargs):
+    """Queue a synchronous DB operation to run serially."""
+    result = await _write_lock.acquire()
     try:
-        return provider.fetch(url)
-    except Exception as e:
-        logger.error(f"Provider {provider.name} failed: {e}")
-        raise ProviderError(f"{provider.name}: {e}") from e
+        return func(*args, **kwargs)
+    finally:
+        _write_lock.release()
+
+# Or use a dedicated writer task:
+async def _db_writer():
+    while True:
+        func, args, kwargs, future = await _write_queue.get()
+        try:
+            result = func(*args, **kwargs)
+            future.set_result(result)
+        except Exception as e:
+            future.set_exception(e)
+        finally:
+            _write_queue.task_done()
 ```
 
+The project plan explicitly keeps SQLite writes serial. Implementation must enforce this.
+
 **Warning signs:**
-- Adding a new plugin requires restarting app to avoid state pollution
-- Removing a plugin leaves residual state
-- No way to disable a plugin without code changes
-- Debugging requires restarting entire application
+- `database is locked` errors during concurrent fetches
+- `PRAGMA busy_timeout` being exceeded
 
 **Phase to address:**
-Phase 2 (Provider Integration) — error isolation is foundation
+Phase 3 (SQLite write serialization)
 
 ---
 
-### Pitfall 4: Hardcoded Migration Trap
+### Pitfall 6: Click Commands Cannot Be Async Directly
 
 **What goes wrong:**
-Old hardcoded RSS/GitHub handling breaks during migration. Existing feeds stop working. Migration is attempted all at once rather than incrementally.
+Defining a click command with `async def` leaves the coroutine unawaited. The function runs but returns a coroutine object that is never executed.
 
 **Why it happens:**
-Refactoring without maintaining backward compatibility:
-- Old `refresh_feed()` is replaced entirely before new plugin system is verified
-- No way to use old code path for comparison/testing
-- Database schema assumes new plugin system immediately
-- Migration commits to plugin architecture before validating it works for existing use cases
+Click's decorator-based command system expects synchronous functions. It calls the decorated function and does not await coroutines.
 
 **How to avoid:**
-1. **Strangler fig pattern**: Keep old code working, add plugin system alongside, migrate incrementally
-2. Implement plugin that wraps existing RSS handling as "legacy provider"
-3. Feature flag the plugin system, off by default initially
-4. Ensure existing feeds continue working through old path
-5. Write integration tests comparing old vs new results before switching
-
+Wrap async code in `asyncio.run()`:
 ```python
-# Good: Legacy provider wrapping existing code
-class LegacyRSSProvider:
-    """Wrapper around existing feeds.py functionality."""
-    def __init__(self):
-        self._legacy = FeedsManager()  # Existing class
+@cli.command("fetch")
+@click.option("--all", is_flag=True)
+@click.pass_context
+def fetch(ctx, all):
+    """Fetch feeds - async internally."""
+    asyncio.run(_fetch_async(all))
 
-    def fetch(self, url: str) -> list[Article]:
-        # Delegates to existing refresh_feed logic
-        return self._legacy.refresh_feed(url)
+async def _fetch_async(all):
+    # All async code here
+    pass
 ```
 
+Or use a library like `click-asyncio` that handles this.
+
 **Warning signs:**
-- "We'll migrate everything at once" plan
-- No fallback path if plugin architecture has issues
-- Existing functionality has no test coverage during transition
-- Database changes coupled with architectural changes
+- Functions with `async def` that don't execute
+- "Coroutine was never awaited" warnings (in Python 3.7+)
 
 **Phase to address:**
-Phase 1 (Plugin Core Infrastructure) — plan for incremental migration
+Phase 1 (CLI async wrapper pattern)
 
 ---
 
-### Pitfall 5: Entry Point Discovery Failures
+### Pitfall 7: Missing await on Async Function Calls
 
 **What goes wrong:**
-Plugins installed but not discovered. `pip install` seems to work but plugin never appears. Debugging why plugin is not loading is difficult.
+An async function is called but not awaited, resulting in a coroutine being created but never executed. The code appears to run but produces no results.
 
 **Why it happens:**
-Misconfigured entry points or packaging:
-- Entry point group name typo (case sensitivity, wrong string)
-- Plugin not properly registered in `pyproject.toml` or `setup.py`
-- Multiple entry point definitions conflicting
-- Console script vs library entry points confusion
-- Installation not in editable mode during development
+Common mistake when converting sync to async code:
+```python
+# WRONG
+async def fetch_feed(url):
+    client = httpx.AsyncClient()
+    response = client.get(url)  # Missing await!
+
+# CORRECT
+async def fetch_feed(url):
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+```
 
 **How to avoid:**
-1. Use consistent entry point group naming convention
-2. Validate entry points load correctly during development
-3. Log discovered plugins with version info at startup
-4. Create CLI command to list loaded plugins for debugging
-5. Document exact `pyproject.toml` configuration required
-
-```toml
-# pyproject.toml
-[project.entry-points."radar.providers"]
-rss = "radar_providers.rss:RSSProvider"
-github = "radar_providers.github:GithubProvider"
-```
-
-```python
-# Discovery verification
-from importlib.metadata import entry_points
-
-def list_plugins():
-    eps = entry_points(group="radar.providers")
-    for ep in eps:
-        print(f"{ep.name}: {ep.value}")
-```
+- Use `await` on all async calls
+- Enable linting rules for `misc Rule: await` in Ruff
+- Check for "coroutine was never awaited" warnings
 
 **Warning signs:**
-- `pip install -e .` succeeds but plugin not visible
-- Plugin only loads in dev, not after `pip install`
-- Different behavior between `python -m myapp` and installed executable
-- No feedback when plugin fails to load (silent failure)
+- No results but no errors
+- "Coroutine was never awaited" warnings
+- Code that appears to run but produces nothing
 
 **Phase to address:**
-Phase 1 (Plugin Core Infrastructure)
+Phase 1 (code review checklist)
 
 ---
 
-### Pitfall 6: Plugin Version Compatibility
+### Pitfall 8: httpx Sync Client Still Used in Providers
 
 **What goes wrong:**
-Plugin designed for older version crashes application. Or new plugin version breaks because API changed. No visibility into which plugin versions work.
+Providers still use `httpx.get()` (synchronous) instead of async client, causing blocking HTTP calls despite async infrastructure.
 
 **Why it happens:**
-No version checking or interface versioning:
-- Plugin declares no required API version
-- Core makes breaking changes without plugin awareness
-- No plugin version reporting
-- Plugin pins to wrong core version
+Existing code in RSSProvider uses sync patterns:
+```python
+def fetch_feed_content(url, etag=None, last_modified=None):
+    response = httpx.get(url, ...)  # Sync!
+```
 
 **How to avoid:**
-1. Include `api_version` in plugin interface
-2. Check version compatibility at load time
-3. Log warning (not error) for minor version mismatches
-4. Semantic versioning for plugin interface itself
-5. Maintain changelog for interface changes
-
+Replace with async client usage:
 ```python
-# In base provider
-class BaseProvider:
-    API_VERSION = "1.0"
-
-    def __init__(self):
-        if not hasattr(self, 'API_VERSION'):
-            warnings.warn(f"{self.__class__.__name__} missing API_VERSION")
-
-    def validate_api_version(self):
-        if self.API_VERSION != BaseProvider.API_VERSION:
-            raise PluginError(
-                f"Plugin {self.name} API {self.API_VERSION} "
-                f"incompatible with core {BaseProvider.API_VERSION}"
-            )
+async def fetch_feed_content_async(client: httpx.AsyncClient, url, etag=None, last_modified=None):
+    headers = {}
+    if etag:
+        headers["If-None-Match"] = etag
+    if last_modified:
+        headers["If-Modified-Since"] = last_modified
+    response = await client.get(url, headers=headers, timeout=30.0)
+    return response
 ```
 
 **Warning signs:**
-- No `__version__` or `API_VERSION` in plugins
-- No error when plugin targets wrong core version
-- Silent degradation instead of clear error
-- Cannot tell which version of plugin is loaded
+- Sync `httpx.get` or `httpx.post` calls in provider code
+- "Blocking HTTP call in async context" warnings
 
 **Phase to address:**
-Phase 1 (Plugin Core Infrastructure) — version contract
+Phase 2 (Provider async HTTP methods)
 
 ---
 
@@ -287,12 +291,10 @@ Phase 1 (Plugin Core Infrastructure) — version contract
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Skip Protocol/ABC definition | Faster initial plugin writing | Runtime errors instead of clear failures | Never — causes debugging nightmares |
-| Import plugin at module level | Simpler code | Circular import trap | Never |
-| Skip error isolation | Simpler code | One plugin crashes app | MVP only, must fix before production |
-| No lifecycle hooks | Fewer methods to implement | Resource leaks, no cleanup | Never for production plugins |
-| Hardcode plugin list instead of discovery | No packaging complexity | Must edit code to add plugins | Development only, debugging |
-| Skip version checking | No compatibility code | Silent breakage | MVP only |
+| Using `asyncio.to_thread()` instead of executor pool | Simpler code | Less control over thread pool size | MVP only, must refactor before production |
+| Creating new AsyncClient per request | Simpler lifecycle | Socket exhaustion at scale | Never - reuse client |
+| Wrapping all DB ops in single lock | Serialization without queue | Blocks all reads during write | MVP only |
+| Ignoring "Unclosed client session" | Faster development | Resource leaks, eventual crashes | Never |
 
 ---
 
@@ -300,12 +302,11 @@ Phase 1 (Plugin Core Infrastructure) — version contract
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| SQLite database | Plugin opens own connection, causing locking | Pass db connection to plugins, single shared connection |
-| CLI framework (click) | Plugin registers its own commands globally | Plugin returns commands, main app registers them |
-| Logging | Plugin creates its own logger | Accept logger as initialization parameter |
-| Configuration | Plugin reads config file directly | Accept config dict or path at initialization |
-| HTTP client (httpx) | Plugin creates its own client | Use provided client or initialize with proper timeout |
-| Existing RSS handling | Duplicate/override existing refresh_feed | Wrap legacy code as provider |
+| httpx + uvloop | Not setting `http2=True` for HTTP/2 | HTTP/2 support in httpx requires explicit `http2=True` if needed |
+| feedparser + async | Calling parse() directly | Wrap in `run_in_executor()` |
+| SQLite + asyncio | Multiple connections for writes | Single serialized connection or queue |
+| Click + asyncio | `async def` command without wrapper | Wrap in `asyncio.run()` |
+| Provider protocol + async | Assuming crawl() is awaitable | It's sync - wrap in executor |
 
 ---
 
@@ -313,10 +314,10 @@ Phase 1 (Plugin Core Infrastructure) — version contract
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Lazy import everything | First plugin call is slow | Pre-import critical paths | Interactive CLI with immediate feedback expected |
-| Plugin discovery on every command | Slow startup | Cache discovered plugins | CLI tools where startup time matters |
-| Plugin loading in main thread | UI freeze during load | Async loading or spinner | Any CLI with loading UX |
-| No plugin caching | Memory grows with repeated runs | Implement instance caching | Long-running processes |
+| Thread pool exhaustion | Slow requests despite concurrency | Size thread pool appropriately (4-8 workers for I/O) | At 50+ concurrent feeds |
+| Connection pool too small | HTTP 429 rate limiting | Set `limits` on AsyncClient | At high concurrency |
+| Serial DB writes bottleneck | Async fetch completes but storage lags | Profile with actual workloads | At 20+ feeds with many articles |
+| No backpressure | Memory growth | Use bounded queue with `maxsize` | With large feed lists |
 
 ---
 
@@ -324,10 +325,9 @@ Phase 1 (Plugin Core Infrastructure) — version contract
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Plugin imports arbitrary code from internet | Code execution vulnerabilities | Pin plugin versions, verify source |
-| Plugin filesystem access | Path traversal attacks | Sandboxing, restrict paths |
-| Plugin sees environment variables | Credential leakage | Don't pass `os.environ` directly |
-| No plugin signing/verification | Tampered plugin runs | Checksum verification for production |
+| Sharing AsyncClient across processes | Connection state contamination | One client per process |
+| Not limiting concurrent requests | DoS on upstream servers | Semaphore to limit concurrency |
+| Storing credentials in async client | Credentials in memory longer | Use context manager, minimize lifetime |
 
 ---
 
@@ -335,23 +335,21 @@ Phase 1 (Plugin Core Infrastructure) — version contract
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| No plugin list command | Users don't know what's available | `myapp plugin list` |
-| Silent plugin load failures | Plugin doesn't work, no explanation | Clear error: "Plugin X failed to load: [reason]" |
-| No plugin enable/disable | Can't disable buggy plugin | Config-based plugin toggle |
-| Plugin has no help text | Users don't know how to use | Standardized help interface |
-| Mixed plugin origins | Unknown which plugin is "official" | Clearly mark built-in vs third-party |
+| No progress indication during concurrent fetch | User thinks app hung | Progress bar updates even during concurrent operations |
+| Errors cause silent failures | User doesn't know some feeds failed | Aggregate errors, show summary at end |
+| Concurrent fetch is too fast | Rate limit bans from servers | Respect `UVLP-04` serial writes as backpressure signal |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Plugin Loading:** Plugins are discovered but verify ALL plugins actually load — check for silent failures
-- [ ] **Error Isolation:** Test each plugin individually fails — does app continue?
-- [ ] **Interface Compliance:** Use `runtime_checkable` Protocol — not just documentation
-- [ ] **Legacy Fallback:** Existing feeds still work after migration — integration test required
-- [ ] **CLI Integration:** New provider architecture powers `feed add/refresh` commands — end-to-end test
-- [ ] **Lifecycle:** Add plugin, remove plugin, restart app — no residual state
-- [ ] **Version Compatibility:** Load plugin with wrong API version — clear error, not silent
+- [ ] **uvloop installed:** App actually uses uvloop - verify with `asyncio.get_event_loop().__class__`
+- [ ] **AsyncClient lifecycle:** All clients properly closed on exit
+- [ ] **feedparser in executor:** Parsing does not block event loop - test with mock slow parse
+- [ ] **SQLite serialization:** Writes truly serial under concurrent load - stress test
+- [ ] **Provider crawl wrapped:** No sync HTTP calls in async context
+- [ ] **await on all async calls:** No coroutines left unawaited
+- [ ] **Error isolation:** One feed failure doesn't crash entire fetch
 
 ---
 
@@ -359,11 +357,11 @@ Phase 1 (Plugin Core Infrastructure) — version contract
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Circular import | MEDIUM | Move imports inside functions, add `TYPE_CHECKING` guard, restructure package |
-| Plugin crashes app | LOW | Add try/except wrapper, log error with plugin name, continue with others |
-| Hardcoded migration failure | HIGH | Revert to legacy path, fix plugin system in isolation, re-migrate |
-| Entry point not found | LOW | Verify `pyproject.toml`, reinstall in editable mode, check group name |
-| Version mismatch | LOW | Update plugin API version or core, log clearly what versions expected |
+| Coroutine never awaited | LOW | Add missing `await`, often caught by linter |
+| Database locked | LOW | Wait for timeout, retry serial operation |
+| Connection leak | MEDIUM | Restart app, fix client lifecycle |
+| Event loop blocked by feedparser | MEDIUM | Add executor wrapper, restart |
+| Click async not awaited | LOW | Wrap command in `asyncio.run()` |
 
 ---
 
@@ -371,25 +369,25 @@ Phase 1 (Plugin Core Infrastructure) — version contract
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Circular import | Phase 1: Plugin Core Infrastructure | App starts, all plugins load, no ImportError |
-| Interface drift | Phase 1: Define ProviderProtocol | `runtime_checkable` passes, plugin mismatch caught early |
-| No isolation | Phase 2: Provider Integration | Test plugin raising exception — app continues |
-| Hardcoded migration trap | Phase 1: Incremental migration plan | Existing feeds work via legacy wrapper, new feeds via plugin |
-| Entry point failures | Phase 1: Plugin discovery | `myapp plugin list` shows all installed plugins |
-| Version incompatibility | Phase 1: API versioning | Load wrong-version plugin — clear error, not silent |
+| uvloop in non-main thread | Phase 1: uvloop setup | Test in subprocess, IDE execution |
+| httpx client lifecycle | Phase 1: httpx async client | Check for unclosed warnings |
+| feedparser blocking | Phase 1: executor pool | Mock slow parse, verify concurrency |
+| Click async commands | Phase 1: CLI async wrapper | Commands with `--all` actually async |
+| Provider sync methods | Phase 2: Provider async wrapper | Wrap crawl() in executor, verify non-blocking |
+| SQLite write serialization | Phase 3: Serial DB writes | Stress test with concurrent writes |
+| Missing await | All phases | Enable Ruff await rule, run mypy |
 
 ---
 
 ## Sources
 
-- [Python importlib.metadata documentation](https://docs.python.org/3/library/importlib.metadata.html) (HIGH confidence)
-- [Python typing.Protocol documentation](https://docs.python.org/3/library/typing.html#typing.Protocol) (HIGH confidence)
-- [Click plugin architecture patterns](https://click.palletsprojects.com/en/8.1.x/) (HIGH confidence)
-- [Real Python: Python entry points](https://realpython.com/python-import-module-main/) (MEDIUM confidence)
-- [Stack Overflow: Circular import patterns](https://stackoverflow.com/questions/2217476/) (MEDIUM confidence)
-- [Python packaging user guide: entry points](https://packaging.python.org/en/latest/specifications/entry-points/) (HIGH confidence)
+- [uvloop GitHub - Known Limitations](https://github.com/MagicStack/uvloop) (MEDIUM confidence - known project limitation)
+- [httpx AsyncClient Documentation](https://www.python-httpx.org/async/) (MEDIUM confidence - official docs)
+- [Python asyncio best practices](https://docs.python.org/3/library/asyncio-dev.html) (HIGH confidence - official docs)
+- [SQLite threading considerations](https://docs.python.org/3/library/sqlite3.html#sqlite3.threadsafety) (HIGH confidence - official docs)
+- [Click issue: async support](https://github.com/pallets/click/issues/2065) (MEDIUM confidence - GitHub issue)
 
 ---
 
-*Pitfalls research for: Plugin-based Provider Architecture v1.3*
-*Researched: 2026-03-23*
+*Pitfalls research for: uvloop async concurrency feature*
+*Researched: 2026-03-25*

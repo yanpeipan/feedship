@@ -1,7 +1,7 @@
 # Technology Stack: Personal Information System
 
 **Project Type:** CLI tool for RSS subscription and website crawling
-**Researched:** 2026-03-22 (v1.0), 2026-03-23 (v1.1 additions), 2026-03-23 (v1.2 additions), 2026-03-23 (v1.3 plugin architecture)
+**Researched:** 2026-03-22 (v1.0), 2026-03-23 (v1.1 additions), 2026-03-23 (v1.2 additions), 2026-03-23 (v1.3 plugin architecture), 2026-03-25 (v1.5 uvloop concurrency)
 **Confidence:** HIGH
 
 ## Recommended Stack
@@ -519,12 +519,194 @@ src/
 ├── providers/              # NEW: Plugin architecture
 │   ├── __init__.py         # ProviderManager exports
 │   ├── hooks.py            # Hook specifications (pluggy)
-│   ├── manager.py         # Provider registry
+│   ├── manager.py          # Provider registry
 │   ├── rss_provider.py     # RSS/Atom provider (migrated from feeds.py)
 │   └── github_provider.py  # GitHub provider (migrated from github.py)
 ├── cli.py                  # Updated to use ProviderManager
 ├── feeds.py                # Deprecate after migration
 └── github.py              # Deprecate after migration
+```
+
+---
+
+## v1.5 Addition: uvloop Async Concurrency
+
+### Overview
+
+Adding async concurrency to the existing sync codebase requires **minimal stack changes**. uvloop and anyio are already installed. httpx has built-in async support. The primary work is architectural (converting sync to async patterns).
+
+### Current State
+
+| Package | Current Version | Status |
+|---------|----------------|--------|
+| uvloop | 0.22.1 | Already installed |
+| httpx | 0.28.1 | Sync only currently |
+| anyio | 4.7.0 | Already installed (httpx dependency) |
+| feedparser | 6.0.12 | No async version |
+| sqlite3 | built-in | Not async-safe |
+
+### Required Changes
+
+| Change | Purpose | Complexity |
+|--------|---------|------------|
+| `uvloop.install()` at app entry | Replace asyncio event loop with uvloop | Trivial (1 line) |
+| `httpx.AsyncClient` | Replace sync `httpx.get()` calls | Moderate (multiple call sites) |
+| `asyncio.Semaphore(10)` | Concurrency limit (default 10x) | Trivial |
+| `asyncio.Queue` for writes | Serialize SQLite writes | Moderate |
+
+### No New Dependencies
+
+**All necessary packages are already installed.** The changes are architectural, not dependency additions.
+
+### httpx Async Client Pattern
+
+**Current sync code:**
+```python
+import httpx
+response = httpx.get(url, headers=BROWSER_HEADERS, timeout=30.0, follow_redirects=True)
+```
+
+**Async replacement:**
+```python
+import httpx
+
+async def fetch_url(url: str) -> httpx.Response:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=BROWSER_HEADERS, timeout=30.0, follow_redirects=True)
+        return response
+```
+
+### Integration Points (src/providers/rss_provider.py)
+
+| Line | Current | Replace With |
+|------|---------|--------------|
+| 55 | `httpx.get(url, ...)` | `httpx.AsyncClient().get(url)` |
+| 135 | `httpx.head(url, ...)` | `httpx.AsyncClient().head(url)` |
+| 318 | `httpx.get(url, ...)` | `httpx.AsyncClient().get(url)` |
+
+### Integration Points (src/application/crawl.py)
+
+| Line | Current | Replace With |
+|------|---------|--------------|
+| 233 | `httpx.get(robots_url, ...)` | async client |
+| 263 | `httpx.get(robots_check_url, ...)` | async client |
+
+### Concurrency Control Pattern
+
+```python
+import asyncio
+import httpx
+
+# Semaphore limits concurrent requests (default 10x)
+concurrency_limit = asyncio.Semaphore(10)
+
+async def fetch_with_limit(url: str, client: httpx.AsyncClient) -> httpx.Response:
+    async with concurrency_limit:
+        return await client.get(url, timeout=30.0)
+
+async def fetch_feed_batch(urls: list[str]) -> list[httpx.Response]:
+    async with httpx.AsyncClient() as client:
+        tasks = [fetch_with_limit(url, client) for url in urls]
+        return await asyncio.gather(*tasks, return_exceptions=True)
+```
+
+### feedparser: Run in Thread Pool
+
+feedparser has no async version. Use `run_in_executor` to avoid blocking:
+
+```python
+import asyncio
+import feedparser
+from concurrent.futures import ThreadPoolExecutor
+
+executor = ThreadPoolExecutor(max_workers=10)
+
+async def parse_feed_async(content: bytes) -> list:
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, feedparser.parse, content)
+```
+
+### SQLite Write Serialization
+
+SQLite writes must remain serial per project requirements. Use an asyncio Queue:
+
+```python
+import asyncio
+import sqlite3
+from typing import Tuple
+
+write_queue: asyncio.Queue = asyncio.Queue()
+
+async def enqueue_write(sql: str, params: tuple):
+    """Queue a write operation for serial processing."""
+    await write_queue.put((sql, params))
+
+async def write_worker(db_path: str):
+    """Single writer processes queue serially."""
+    conn = sqlite3.connect(db_path)
+    while True:
+        sql, params = await write_queue.get()
+        conn.execute(sql, params)
+        conn.commit()
+        write_queue.task_done()
+
+async def init_write_worker(db_path: str):
+    """Start the serial write worker."""
+    asyncio.create_task(write_worker(db_path))
+```
+
+### CLI Integration with uvloop
+
+click 8.1.x supports `@click.async_command()`:
+
+```python
+import asyncio
+import click
+import uvloop
+
+@click.command()
+@click.argument('url')
+async def fetch(ctx: click.Context, url: str):
+    """Fetch a feed URL."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        click.echo(response.text[:200])
+
+def main():
+    uvloop.install()
+    asyncio.run(fetch())
+
+if __name__ == '__main__':
+    main()
+```
+
+However, for existing sync commands like `fetch --all`, wrap in `asyncio.run()`:
+
+```python
+# In src/cli/feed.py fetch command
+def fetch(ctx: click.Context, do_fetch_all: bool, urls: tuple):
+    if do_fetch_all:
+        uvloop.install()
+        asyncio.run(fetch_all_async())
+```
+
+### Recommended Architecture
+
+```
+src/
+├── async/                      # NEW: Async utilities
+│   ├── __init__.py
+│   ├── client.py              # httpx.AsyncClient wrapper
+│   ├── concurrency.py        # Semaphore, queue management
+│   └── executor.py           # Thread pool for feedparser
+├── providers/
+│   ├── rss_provider.py        # Convert crawl/feed_meta to async
+│   └── github_provider.py    # Convert to async if needed
+├── application/
+│   ├── feed.py                # fetch_all becomes async
+│   └── crawl.py              # crawl_url becomes async
+└── cli/
+    └── feed.py                # Wrap async calls with asyncio.run()
 ```
 
 ---
@@ -592,6 +774,7 @@ requires-python = ">=3.10"   # v1.1: Bumped from 3.6+ to 3.10+
 | Plugin Framework | pluggy | yapsy | yapsy is older with less active maintenance. pluggy is the pytest standard. |
 | Plugin Discovery | Entry points | Directory scanning | Entry points better for extensible plugins. Directory scanning OK for built-ins. |
 | Plugin Pattern | Hook spec | ABC inheritance | Hook pattern is more flexible, allows optional methods. ABC forces implementation. |
+| Async Runtime | uvloop | Default asyncio | uvloop is 2-4x faster. Already installed. No downside. |
 
 ---
 
@@ -610,6 +793,10 @@ requires-python = ">=3.10"   # v1.1: Bumped from 3.6+ to 3.10+
 | Plugin that mutates core state | Breaks isolation | Plugins only interact via hooks |
 | stevedore | More complex, designed for OpenStack | pluggy (simpler, already installed) |
 | yapsy | Older, less active maintenance | pluggy (pytest standard) |
+| aiohttp | Redundant HTTP client alongside httpx | httpx.AsyncClient (handles both sync/async) |
+| aiodns | Only for high-volume DNS resolution | uvloop handles DNS via libuv; not needed at RSS reader scale |
+| uvloop[dev] | Dev extras not needed | Just `uvloop` package |
+| anyio as direct dependency | httpx already depends on it transitively | It's already installed |
 
 ---
 
@@ -623,6 +810,9 @@ requires-python = ">=3.10"   # v1.1: Bumped from 3.6+ to 3.10+
 | rich 13.x | Python >=3.7 | Compatible with existing Python 3.10+ requirement. |
 | html2text 2024.x | Python >=3.8 | If needed. |
 | pluggy 1.5.0 | Python >=3.8 | Already installed. Standard for plugin systems. |
+| **uvloop 0.22.1** | Python >=3.9, specifically 3.13.5 | Already installed. Full support for Python 3.13.5. |
+| **httpx 0.28.1** | Python >=3.10 | Built-in AsyncClient. Already installed. |
+| **anyio 4.7.0** | Python >=3.9 | httpx dependency. Already installed. |
 
 ---
 
@@ -637,12 +827,13 @@ requires-python = ">=3.10"   # v1.1: Bumped from 3.6+ to 3.10+
 - [Click Documentation](https://click.palletsprojects.com/en/8.1.x/) (HIGH confidence)
 - [Typer Documentation](https://typer.tiangolo.com/) (HIGH confidence)
 - [argparse Documentation](https://docs.python.org/3/library/argparse.html) (HIGH confidence)
-- [PyPI: scrapling](https://pypi.org/project/scrapling/) — Version 0.4.2, Python >=3.10 (HIGH confidence)
-- [PyPI: PyGithub](https://pypi.org/project/PyGithub/) — Version 2.8.1, Python >=3.8 (HIGH confidence)
-- [GitHub REST API: Releases](https://docs.github.com/en/rest/releases/releases) — Endpoint specs, auth headers (HIGH confidence)
-- [GitHub REST API: Contents](https://docs.github.com/en/rest/repos/contents) — File content endpoint (HIGH confidence)
-- [rich documentation](https://rich.readthedocs.io/) — Terminal formatting (MEDIUM confidence - training data)
-- [html2text PyPI](https://pypi.org/project/html2text/) — HTML to markdown (MEDIUM confidence - training data)
-- [pluggy GitHub](https://github.com/pytest-dev/pluggy) — Plugin framework (HIGH confidence - verified installed)
-- [Python importlib.metadata docs](https://docs.python.org/3/library/importlib.metadata.html) — Entry points (HIGH confidence - built-in)
-- [packaging.python.org plugin guide](https://packaging.python.org/en/latest/guides/creating-and-discovering-plugins/) — Plugin discovery best practices (HIGH confidence)
+- [PyPI: scrapling](https://pypi.org/project/scrapling/) - Version 0.4.2, Python >=3.10 (HIGH confidence)
+- [PyPI: PyGithub](https://pypi.org/project/PyGithub/) - Version 2.8.1, Python >=3.8 (HIGH confidence)
+- [GitHub REST API: Releases](https://docs.github.com/en/rest/releases/releases) - Endpoint specs, auth headers (HIGH confidence)
+- [GitHub REST API: Contents](https://docs.github.com/en/rest/repos/contents) - File content endpoint (HIGH confidence)
+- [rich documentation](https://rich.readthedocs.io/) - Terminal formatting (MEDIUM confidence - training data)
+- [html2text PyPI](https://pypi.org/project/html2text/) - HTML to markdown (MEDIUM confidence - training data)
+- [pluggy GitHub](https://github.com/pytest-dev/pluggy) - Plugin framework (HIGH confidence - verified installed)
+- [Python importlib.metadata docs](https://docs.python.org/3/library/importlib.metadata.html) - Entry points (HIGH confidence - built-in)
+- [packaging.python.org plugin guide](https://packaging.python.org/en/latest/guides/creating-and-discovering-plugins/) - Plugin discovery best practices (HIGH confidence)
+- **PyPI JSON API (curl)** - uvloop 0.22.1, httpx 0.28.1, anyio 4.7.0 confirmed (HIGH confidence)
