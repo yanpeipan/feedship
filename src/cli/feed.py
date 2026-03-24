@@ -160,39 +160,79 @@ def feed_refresh(ctx: click.Context, feed_id: str) -> None:
 
 
 @cli.command("fetch")
-@click.option("--all", "fetch_all", is_flag=True, help="Fetch all feeds")
+@click.option("--all", "do_fetch_all", is_flag=True, help="Fetch all feeds")
+@click.argument("urls", nargs=-1, required=False)
 @click.pass_context
-def fetch(ctx: click.Context, fetch_all: bool) -> None:
-    """Fetch new articles from feeds."""
+def fetch(ctx: click.Context, do_fetch_all: bool, urls: tuple) -> None:
+    """Fetch new articles from feeds or crawl specific URLs.
+
+    Examples:
+
+      rss-reader fetch --all              Fetch all subscribed feeds
+
+      rss-reader fetch https://example.com  Crawl a single URL
+
+      rss-reader fetch https://ex.com https://py.com  Crawl multiple URLs
+    """
     verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
 
-    if not fetch_all:
-        click.secho("Use --all to fetch all feeds: feed fetch --all")
-        click.secho("Or use 'feed refresh <id>' to refresh a specific feed")
+    # Case 1: URL arguments provided
+    if urls:
+        from src.application.crawl import crawl_url
+        from src.storage.sqlite import store_article
+
+        success_count = 0
+        fail_count = 0
+        for url in urls:
+            try:
+                result = crawl_url(url)
+                if result:
+                    title = result.get("title", "Untitled")
+                    click.secho(f"Fetched: {title} ({url})", fg="green")
+                    success_count += 1
+                else:
+                    click.secho(f"Failed to fetch {url}: No content", fg="red")
+                    fail_count += 1
+            except Exception as e:
+                click.secho(f"Failed to fetch {url}: {e}", fg="red")
+                fail_count += 1
+
+        if fail_count > 0:
+            click.secho(f"Completed: {success_count} succeeded, {fail_count} failed", fg="yellow")
+            sys.exit(1)
+        else:
+            click.secho(f"Completed: {success_count} URL(s) fetched", fg="green")
         return
 
-    try:
-        result = fetch_all()
-        total_new = result["total_new"]
-        success_count = result["success_count"]
-        error_count = result["error_count"]
-        errors = result["errors"]
+    # Case 2: --all flag
+    if do_fetch_all:
+        try:
+            result = fetch_all()
+            total_new = result["total_new"]
+            success_count = result["success_count"]
+            error_count = result["error_count"]
+            errors = result["errors"]
 
-        if error_count == 0:
-            click.secho(
-                f"Fetched {total_new} articles from {success_count} feeds",
-                fg="green",
-            )
-        else:
-            click.secho(
-                f"Fetched {total_new} articles from {success_count} feeds. {error_count} errors",
-                fg="yellow",
-            )
-            if verbose and errors:
-                for err in errors:
-                    click.secho(f"  - {err}", fg="red")
+            if error_count == 0:
+                click.secho(
+                    f"Fetched {total_new} articles from {success_count} feeds",
+                    fg="green",
+                )
+            else:
+                click.secho(
+                    f"Fetched {total_new} articles from {success_count} feeds. {error_count} errors",
+                    fg="yellow",
+                )
+                if verbose and errors:
+                    for err in errors:
+                        click.secho(f"  - {err}", fg="red")
 
-    except Exception as e:
-        click.secho(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
-        logger.exception("Failed to fetch feeds")
-        sys.exit(1)
+        except Exception as e:
+            click.secho(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
+            logger.exception("Failed to fetch feeds")
+            sys.exit(1)
+        return
+
+    # Case 3: No arguments
+    click.secho("Use --all to fetch all feeds: rss-reader fetch --all")
+    click.secho("Or specify URLs to crawl: rss-reader fetch <url> [url ...]")

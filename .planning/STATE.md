@@ -106,8 +106,9 @@ Next action: `/gsd:new-milestone` to archive v1.4 and start v1.5 planning
 
 ## Quick Tasks Completed
 
-| Date | Task | Files | Notes |
-|------|------|-------|-------|
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260325-2am | src.cli fetch支持指定一个或多个链接 | 2026-03-24 | (pending) | Gaps | [260325-2am-src-cli-fetch](./quick/260325-2am-src-cli-fetch/) |
 | 2026-03-25 | 260325-0a9 | db.py → src/storage/sqlite.py | Moved db.py to storage/, made _get_connection private, updated all imports, removed broken get_release_detail code |
 | 2026-03-25 | 260325-035 | ai_tagging.py, tag_rules.py → src/tags/ | Moved to src/tags/, updated imports in default_tag_parser, feed, article, tag, test |
 | 2026-03-24 | 260324-xau | github_utils.py → utils/github.py | Merged parse_github_url into utils/github.py, updated imports, deleted github_utils.py |
