@@ -3,6 +3,16 @@
 **Defined:** 2026-03-25
 **Core Value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
 
+## v1.6 Requirements
+
+Requirements for nanoid ID generation milestone.
+
+### nanoid ID生成
+
+- [ ] **NANO-01**: store_article()使用nanoid.generate()替代uuid.uuid4()生成article id
+- [ ] **NANO-02**: 生成迁移脚本，修复~2479条URL-like ID的历史数据
+- [ ] **NANO-03**: 验证所有article相关操作（CRUD、tagging、search）正常
+
 ## v1.5 Requirements
 
 Requirements for uvloop async concurrency milestone.
@@ -30,6 +40,9 @@ Requirements for uvloop async concurrency milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| NANO-01 | TBD | Pending |
+| NANO-02 | TBD | Pending |
+| NANO-03 | TBD | Pending |
 | UVLP-01 | Phase 19 | Complete |
 | UVLP-02 | Phase 19 | Complete |
 | UVLP-03 | Phase 20 | Complete |
@@ -39,10 +52,11 @@ Requirements for uvloop async concurrency milestone.
 | UVLP-07 | Phase 22 | Complete |
 
 **Coverage:**
+- v1.6 requirements: 3 total
+- Mapped to phases: 0 ⚠️
 - v1.5 requirements: 7 total
-- Mapped to phases: 7
-- Unmapped: 0 ✓
+- Mapped to phases: 7 ✓
 
 ---
 *Requirements defined: 2026-03-25*
-*Last updated: 2026-03-25 after roadmap created*
+*Last updated: 2026-03-25 after v1.6 milestone research*
