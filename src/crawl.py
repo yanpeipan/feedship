@@ -23,7 +23,7 @@ from bs4 import BeautifulSoup
 from readability import Document
 from robotexclusionrulesparser import RobotExclusionRulesParser
 
-from src.db import get_connection
+from src.db import get_db
 from src.models import Article
 
 logger = logging.getLogger(__name__)
@@ -182,8 +182,7 @@ def ensure_crawled_feed() -> None:
     Creates feed with id='crawled', name='Crawled Pages', url=''.
     This is the system feed for storing crawled web pages.
     """
-    conn = get_connection()
-    try:
+    with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM feeds WHERE id = 'crawled'")
         if cursor.fetchone() is None:
@@ -194,8 +193,6 @@ def ensure_crawled_feed() -> None:
                 (now,)
             )
             conn.commit()
-    finally:
-        conn.close()
 
 
 def crawl_url(url: str, ignore_robots: bool = False) -> Optional[dict]:
