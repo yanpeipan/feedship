@@ -8,7 +8,7 @@
 - [x] **v1.3 Provider Architecture** — Phases 12-15 (shipped 2026-03-23)
 - [x] **v1.4 Storage Layer Enforcement** — Phases 16-18 (shipped 2026-03-25)
 - [x] **v1.5 uvloop并发支持** — Phases 19-22 (shipped 2026-03-25)
-- [ ] **v1.6 nanoid ID生成** — Phases 23-25 (in progress)
+- [ ] **v1.7 pytest测试框架** — Phases 26-29 (in progress)
 
 ## Phases
 
@@ -76,6 +76,13 @@
 
 > **Note:** Phase 24 (Migration Script) deferred — historical URL-like IDs will be addressed in future milestone when needed.
 
+### 🚧 v1.7 pytest测试框架 (Phases 26-29)
+
+- [ ] **Phase 26: pytest框架搭建** - conftest.py fixtures, pytest configuration, testing conventions
+- [ ] **Phase 27: Provider单元测试** - RSSProvider, GitHubReleaseProvider, ProviderRegistry tests
+- [ ] **Phase 28: Storage层单元测试** - SQLite storage CRUD operation tests
+- [ ] **Phase 29: CLI集成测试** - CLI command integration tests with CliRunner
+
 ## Phase Details
 
 ### Phase 23: nanoid Code Changes
@@ -96,6 +103,7 @@
 **Goal**: All article-related operations work correctly with nanoid format
 **Depends on**: Phase 23
 **Requirements**: NANO-03
+**Status**: In progress
 **Success Criteria** (what must be TRUE):
   1. New articles have nanoid-format IDs (21 chars)
   2. article list command works with new articles
@@ -105,6 +113,59 @@
   6. Search returns new articles correctly
 **Plans**: 1 plan
   - [ ] 25-PLAN.md - Verify nanoid article operations
+
+### Phase 26: pytest框架搭建
+**Goal**: Install pytest packages, configure pyproject.toml, create root conftest.py with fixtures
+**Depends on**: Nothing
+**Requirements**: TEST-01
+**Status**: In progress (1/1 plans)
+**Success Criteria** (what must be TRUE):
+  1. pytest 9.0.2+ installed with pytest-asyncio, pytest-cov, pytest-mock, pytest-click, pytest-httpx
+  2. `asyncio_mode = "auto"` configured in pyproject.toml
+  3. `tests/conftest.py` created with fixtures: temp_db_path, initialized_db, sample_feed, sample_article, cli_runner
+  4. Test conventions established: no private function testing, real DB via tmp_path
+**Plans**: 1 plan
+  - [x] 26-PLAN.md - pytest框架搭建
+
+### Phase 27: Provider单元测试
+**Goal**: Write unit tests for Provider plugin architecture
+**Depends on**: Phase 26
+**Requirements**: TEST-02
+**Status**: Not started
+**Success Criteria** (what must be TRUE):
+  1. test_providers.py covers RSSProvider.match(), crawl(), crawl_async(), parse()
+  2. test_providers.py covers GitHubReleaseProvider.match(), priority(), crawl(), parse()
+  3. ProviderRegistry discover() and discover_or_default() tested
+  4. HTTP mocked via httpx_mock fixture (no real network calls)
+**Plans**: 1 plan
+  - [ ] 27-PLAN.md - Provider单元测试
+
+### Phase 28: Storage层单元测试
+**Goal**: Write unit tests for SQLite storage layer
+**Depends on**: Phase 26
+**Requirements**: TEST-03
+**Status**: Not started
+**Success Criteria** (what must be TRUE):
+  1. test_storage.py covers store_article(), list_articles(), search_articles()
+  2. test_storage.py covers feed CRUD (add_feed, list_feeds, etc.)
+  3. test_storage.py covers tag operations (add_tag, tag_article, get_article_tags)
+  4. All tests use real SQLite via tmp_path fixture (no mocking sqlite3)
+**Plans**: 1 plan
+  - [ ] 28-PLAN.md - Storage层单元测试
+
+### Phase 29: CLI集成测试
+**Goal**: Write integration tests for CLI commands
+**Depends on**: Phase 26, Phase 28
+**Requirements**: TEST-04
+**Status**: Not started
+**Success Criteria** (what must be TRUE):
+  1. test_cli.py covers feed add/list commands
+  2. test_cli.py covers article list/detail commands
+  3. test_cli.py covers tag commands
+  4. All tests use CliRunner.invoke() with isolated_filesystem()
+  5. Error cases tested (invalid URL, duplicate feed, not found)
+**Plans**: 1 plan
+  - [ ] 29-PLAN.md - CLI集成测试
 
 ## Progress
 
@@ -132,6 +193,10 @@
 | 23. nanoid Code Changes | 1/1 | ✅ Complete | 2026-03-25 |
 | 24. Migration Script | 0/1 | Deferred | - |
 | 25. Verification | 0/1 | In progress | - |
+| 26. pytest框架搭建 | 1/1 | In progress | - |
+| 27. Provider单元测试 | 0/1 | Not started | - |
+| 28. Storage层单元测试 | 0/1 | Not started | - |
+| 29. CLI集成测试 | 0/1 | Not started | - |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_
