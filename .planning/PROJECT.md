@@ -61,10 +61,12 @@
 
 ### Active (v1.5)
 
-- [ ] UVLP-01: uvloop作为asyncio事件循环，提升I/O性能
-- [ ] UVLP-02: httpx异步客户端支持并发请求
-- [ ] UVLP-03: 可配置并发数（默认10x）
-- [ ] UVLP-04: SQLite写入保持串行，避免锁冲突
+- [x] UVLP-01: uvloop作为asyncio事件循环，提升I/O性能
+- [x] UVLP-02: httpx异步客户端支持并发请求
+- [x] UVLP-03: 可配置并发数（默认10x）
+- [x] UVLP-04: SQLite写入保持串行，避免锁冲突
+- [x] UVLP-06: `fetch --all`使用uvloop.run()执行异步抓取
+- [x] UVLP-07: CLI --concurrency参数可配置并发限制（默认10，范围1-100）
 
 ### Validated (v1.0 MVP)
 
@@ -124,6 +126,10 @@
 | cli.py → src/cli/ | 包结构拆分，单一职责，便于维护和测试 | ✅ Good (v1.4) |
 | Storage layer enforcement | get_db() internal to src/storage/ only，所有模块调用 storage functions | ✅ Good (v1.4) |
 | feed_meta() httpx优化 | 使用 httpx.get + feedparser 替代 crawl()，5s timeout | ✅ Good (v1.4) |
+| asyncio.Semaphore并发限制 | fetch_all_async() uses Semaphore(default 10) to limit concurrent crawls | ✅ Good (v1.5) |
+| asyncio.Lock + to_thread | SQLite writes serialized via asyncio.Lock + asyncio.to_thread() — prevents "database is locked" | ✅ Good (v1.5) |
+| uvloop.run() in CLI | `fetch --all` wraps async fetch with uvloop.run() for event loop optimization | ✅ Good (v1.5) |
+| --concurrency CLI参数 | Click IntRange(1, 100) validation, passed to fetch_all_async() Semaphore | ✅ Good (v1.5) |
 
 ## Tech Stack
 
@@ -150,4 +156,4 @@
 
 ---
 
-*Last updated: 2026-03-25 after v1.5 milestone started*
+*Last updated: 2026-03-25 after Phase 22 complete (UVLP-06, UVLP-07) — v1.5 milestone shipped*

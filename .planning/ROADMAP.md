@@ -7,7 +7,7 @@
 - [x] **v1.2 Article List Enhancements** — Phases 8.1-11 (shipped 2026-03-23)
 - [x] **v1.3 Provider Architecture** — Phases 12-15 (shipped 2026-03-23)
 - [x] **v1.4 Storage Layer Enforcement** — Phases 16-18 (shipped 2026-03-25)
-- [ ] **v1.5 uvloop并发支持** — Phases 19-22 (in progress)
+- [x] **v1.5 uvloop并发支持** — Phases 19-22 (shipped 2026-03-25)
 
 ## Phases
 
@@ -112,11 +112,12 @@
 **Depends on**: Phase 21
 **Requirements**: UVLP-06, UVLP-07
 **Success Criteria** (what must be TRUE):
-  1. `fetch --all` command uses uvloop.run() to execute async fetch logic
-  2. `fetch --all --concurrency N` overrides default concurrency limit
-  3. `fetch --concurrency 5 --all` works correctly
-  4. Error aggregation provides summary output without crashing on individual feed failures
-**Plans**: TBD
+  1. `fetch --all` command uses uvloop.run() to execute async fetch logic ✅
+  2. `fetch --all --concurrency N` overrides default concurrency limit ✅
+  3. `fetch --concurrency 5 --all` works correctly ✅
+  4. Error aggregation provides summary output without crashing on individual feed failures ✅
+**Plans**: 1 plan
+  - [x] 22-01-PLAN.md — CLI integration (completed 2026-03-24)
 
 ## Progress
 
@@ -141,10 +142,10 @@
 | 16. GitHubReleaseProvider | 1/1 | Complete | 2026-03-24 |
 | 17. Anti-屎山 Refactoring | 2/2 | Complete | 2026-03-24 |
 | 18. Storage Layer Enforcement | 1/1 | Complete | 2026-03-24 |
-| 19. uvloop Setup + crawl_async Protocol | 0/2 | Not started | - |
+| 19. uvloop Setup + crawl_async Protocol | 2/2 | ✅ Complete | 2026-03-25 |
 | 20. RSSProvider Async HTTP | 1/1 | Complete    | 2026-03-24 |
 | 21. Concurrent Fetch + SQLite Serialization | 1/1 | Complete    | 2026-03-25 |
-| 22. CLI Integration | 1/1 | Complete   | 2026-03-24 |
+| 22. CLI Integration | 1/1 | ✅ Complete | 2026-03-25 |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_

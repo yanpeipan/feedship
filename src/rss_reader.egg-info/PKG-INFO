@@ -17,6 +17,7 @@ Requires-Dist: platformdirs>=4.9.4
 Requires-Dist: numpy>=2.2.6
 Requires-Dist: scikit-learn>=1.7.2
 Requires-Dist: pyyaml>=6.0.3
+Requires-Dist: uvloop>=0.22.0
 Provides-Extra: test
 Requires-Dist: pytest>=7.0.0; extra == "test"
 Provides-Extra: ml
@@ -26,5 +27,7 @@ Requires-Dist: safetensors>=0.4.3; extra == "ml"
 Requires-Dist: transformers>=4.40.0; extra == "ml"
 Provides-Extra: cloudflare
 Requires-Dist: scrapling>=0.4.0; extra == "cloudflare"
+Requires-Dist: playwright>=1.49.0; extra == "cloudflare"
 Requires-Dist: curl-cffi>=0.14.0; extra == "cloudflare"
+Requires-Dist: socksio>=1.0.0; extra == "cloudflare"
 Requires-Dist: browserforge>=1.2.0; extra == "cloudflare"

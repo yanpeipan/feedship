@@ -5,7 +5,7 @@ import logging
 from typing import Optional
 
 import click
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
 
 from src.application.feed import (
     FeedNotFoundError,
@@ -216,27 +216,66 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, urls: tuple)
                 click.secho("No feeds subscribed. Use 'feed add <url>' to add one.", fg="yellow")
                 return
 
-            result = uvloop.run(fetch_all_async(concurrency=concurrency))
+            async def run_fetch_with_progress():
+                """Run async fetch with Rich progress bar."""
+                total_new = 0
+                success_count = 0
+                error_count = 0
+                errors = []
 
-            if result["total_new"] > 0:
-                click.secho(f"  + {result['total_new']} new articles", fg="green")
-            else:
-                click.secho("  No new articles", fg="blue")
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TaskProgressColumn(),
+                    TimeRemainingColumn(),
+                ) as progress:
+                    task = progress.add_task(f"[cyan]Fetching {len(feeds)} feeds...", total=len(feeds))
 
-            if result["error_count"] > 0:
-                click.secho(f"  {result['error_count']} errors occurred:", fg="yellow")
-                for err in result["errors"]:
-                    click.secho(f"    - {err}", fg="red")
+                    async for result in fetch_all_async(concurrency=concurrency):
+                        if result["new_articles"] > 0:
+                            total_new += result["new_articles"]
+                            success_count += 1
+                            progress.update(
+                                task,
+                                advance=1,
+                                description=f"[green]{result['feed_name']}: +{result['new_articles']}",
+                            )
+                        elif result["error"]:
+                            error_count += 1
+                            errors.append(f"{result['feed_name']}: {result['error']}")
+                            progress.update(
+                                task,
+                                advance=1,
+                                description=f"[red]{result['feed_name']}: error",
+                            )
+                        else:
+                            success_count += 1
+                            progress.update(
+                                task,
+                                advance=1,
+                                description=f"[blue]{result['feed_name']}: up to date",
+                            )
+
+                return total_new, success_count, error_count, errors
+
+            total_new, success_count, error_count, errors = uvloop.run(run_fetch_with_progress())
+
+            # Summary
+            click.secho("")
+            if error_count == 0:
                 click.secho(
-                    f"Fetched {result['total_new']} articles from {result['success_count']} feeds, "
-                    f"{result['error_count']} errors",
-                    fg="yellow",
-                )
-            else:
-                click.secho(
-                    f"Fetched {result['total_new']} articles from {result['success_count']} feeds",
+                    f"✓ Fetched {total_new} articles from {success_count} feeds",
                     fg="green",
                 )
+            else:
+                click.secho(
+                    f"✓ Fetched {total_new} articles from {success_count} feeds, {error_count} errors",
+                    fg="yellow",
+                )
+                for err in errors:
+                    click.secho(f"  - {err}", fg="red")
+
         except Exception as e:
             click.secho(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
             logger.exception("Failed to fetch feeds")

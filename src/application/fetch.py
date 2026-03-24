@@ -88,59 +88,43 @@ async def fetch_one_async(feed: Feed) -> dict:
     return {"new_articles": new_count}
 
 
-async def fetch_all_async(concurrency: int = 10) -> dict:
+async def fetch_all_async(concurrency: int = 10):
     """Fetch new articles from all subscribed feeds concurrently.
 
     Uses asyncio.Semaphore to limit concurrent HTTP requests to `concurrency`
     (default 10). SQLite writes are serialized via asyncio.Lock + asyncio.to_thread()
     to prevent 'database is locked' errors.
 
+    This is an async generator that yields results as each feed completes,
+    enabling real-time progress tracking via asyncio.as_completed().
+
     Args:
         concurrency: Maximum number of concurrent feed crawls. Default is 10.
 
-    Returns:
-        Dict with total_new, success_count, error_count, errors.
+    Yields:
+        Dict with feed_id, feed_name, new_articles, error (if any).
     """
     feeds = storage_list_feeds()
     if not feeds:
-        return {"total_new": 0, "success_count": 0, "error_count": 0, "errors": []}
+        return
 
     semaphore = asyncio.Semaphore(concurrency)
 
-    async def process_feed_with_semaphore(feed: Feed) -> dict:
+    async def process_feed_with_semaphore(feed: Feed, index: int) -> tuple:
         """Process a single feed within the semaphore limit."""
         async with semaphore:
-            return await fetch_one_async(feed)
+            result = await fetch_one_async(feed)
+            return index, feed, result
 
     # Create tasks for all feeds - semaphore limits actual concurrency
-    tasks = [process_feed_with_semaphore(feed) for feed in feeds]
+    tasks = [process_feed_with_semaphore(feed, i) for i, feed in enumerate(feeds)]
 
-    # gather with return_exceptions=True so one failure doesn't cancel others
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    # Aggregate results
-    total_new = 0
-    success_count = 0
-    error_count = 0
-    errors = []
-
-    for i, result in enumerate(results):
-        if isinstance(result, Exception):
-            error_count += 1
-            errors.append(f"{feeds[i].name}: {result}")
-        else:
-            if result.get("new_articles", 0) > 0:
-                total_new += result["new_articles"]
-            if "error" in result and result.get("new_articles", 0) == 0:
-                # Error but no articles
-                error_count += 1
-                errors.append(f"{feeds[i].name}: {result.get('error')}")
-            else:
-                success_count += 1
-
-    return {
-        "total_new": total_new,
-        "success_count": success_count,
-        "error_count": error_count,
-        "errors": errors,
-    }
+    # Use as_completed to yield results as they complete
+    for coro in asyncio.as_completed(tasks):
+        index, feed, result = await coro
+        yield {
+            "feed_id": feed.id,
+            "feed_name": feed.name,
+            "new_articles": result.get("new_articles", 0),
+            "error": result.get("error") if result.get("new_articles", 0) == 0 else None,
+        }

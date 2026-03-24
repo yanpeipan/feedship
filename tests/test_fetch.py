@@ -42,20 +42,35 @@ async def test_fetch_all_async_returns_dict():
 @pytest.mark.asyncio
 async def test_semaphore_default_value():
     """Verify default concurrency is 10."""
-    with patch("src.application.fetch.storage_list_feeds", return_value=[]):
+    from src.models import Feed
+
+    fake_feed = Feed(
+        id="fake-1", name="Fake", url="https://fake.example/feed.xml",
+        etag=None, last_modified=None, last_fetched=None,
+        created_at="2024-01-01T00:00:00+00:00",
+    )
+    with patch("src.application.fetch.storage_list_feeds", return_value=[fake_feed]):
         with patch("src.application.fetch.asyncio.Semaphore") as mock_semaphore:
-            mock_semaphore.return_value = MagicMock()
+            mock_semaphore.return_value.__aenter__ = AsyncMock()
+            mock_semaphore.return_value.__aexit__ = AsyncMock()
             await fetch_all_async()
-            # Check Semaphore was called with 10
             mock_semaphore.assert_called_once_with(10)
 
 
 @pytest.mark.asyncio
 async def test_semaphore_custom_concurrency():
     """Verify custom concurrency parameter is passed to Semaphore."""
-    with patch("src.application.fetch.storage_list_feeds", return_value=[]):
+    from src.models import Feed
+
+    fake_feed = Feed(
+        id="fake-1", name="Fake", url="https://fake.example/feed.xml",
+        etag=None, last_modified=None, last_fetched=None,
+        created_at="2024-01-01T00:00:00+00:00",
+    )
+    with patch("src.application.fetch.storage_list_feeds", return_value=[fake_feed]):
         with patch("src.application.fetch.asyncio.Semaphore") as mock_semaphore:
-            mock_semaphore.return_value = MagicMock()
+            mock_semaphore.return_value.__aenter__ = AsyncMock()
+            mock_semaphore.return_value.__aexit__ = AsyncMock()
             await fetch_all_async(concurrency=5)
             mock_semaphore.assert_called_once_with(5)
 
