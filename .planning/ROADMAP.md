@@ -88,7 +88,8 @@
   3. tag_article() uses nanoid.generate() for article_tag entries instead of uuid.uuid4()
   4. New articles created during migration window have nanoid format (21 chars, URL-safe)
   5. nanoid package is installed and importable (nanoid>=2.0.0)
-**Plans**: TBD
+**Plans**: 1 plan
+  - [ ] 23-01-PLAN.md - Replace uuid.uuid4() with nanoid.generate() in storage functions
 
 ### Phase 25: Verification
 **Goal**: All article-related operations work correctly with nanoid format
