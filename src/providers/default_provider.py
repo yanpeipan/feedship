@@ -88,6 +88,22 @@ class DefaultProvider:
         """
         return []
 
+    async def crawl_async(self, url: str) -> List[Raw]:
+        """Not implemented - should not be called.
+
+        DefaultProvider is fallback only. crawl_async() raises the same
+        NotImplementedError as crawl() to maintain consistency.
+
+        Args:
+            url: URL to crawl (ignored).
+
+        Returns:
+            Never returns - raises NotImplementedError.
+        """
+        raise NotImplementedError(
+            "DefaultProvider is fallback only and should not be called"
+        )
+
     def feed_meta(self, url: str) -> "Feed":
         """Not implemented - DefaultProvider is fallback only.
 
