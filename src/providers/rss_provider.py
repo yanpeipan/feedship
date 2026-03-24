@@ -298,34 +298,52 @@ class RSSProvider:
         return []
 
     def feed_meta(self, url: str) -> "Feed":
-        """Fetch feed metadata via crawl (reuses crawl to get feed title).
+        """Fetch feed metadata via lightweight GET request.
 
         Args:
             url: URL of the feed to get metadata for.
 
         Returns:
-            Feed object with name and url populated.
+            Feed object with name populated from feed title.
+
+        Raises:
+            ValueError: If feed cannot be fetched or parsed.
         """
         from src.models import Feed
         from src.config import get_timezone
         from datetime import datetime
 
-        # crawl() already parses feed and sets _feed_title_var
-        entries = self.crawl(url)
-        if not entries:
-            raise ValueError(f"No entries in feed {url}")
+        try:
+            # Lightweight fetch with short timeout - just need title
+            response = httpx.get(
+                url,
+                headers=BROWSER_HEADERS,
+                timeout=5.0,
+                follow_redirects=True
+            )
+            response.raise_for_status()
 
-        now = datetime.now(get_timezone()).isoformat()
+            # Parse just enough to get feed title
+            parsed = feedparser.parse(response.content)
+            title = parsed.feed.get("title") if parsed.feed else url
 
-        return Feed(
-            id="",  # ID not assigned - this is metadata only
-            name=_feed_title_var.get() or url,
-            url=url,
-            etag=None,
-            last_modified=None,
-            last_fetched=now,
-            created_at=now,
-        )
+            # Get headers for future conditional requests
+            etag = response.headers.get("etag")
+            last_modified = response.headers.get("last-modified")
+
+            now = datetime.now(get_timezone()).isoformat()
+
+            return Feed(
+                id="",
+                name=title,
+                url=url,
+                etag=etag,
+                last_modified=last_modified,
+                last_fetched=now,
+                created_at=now,
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to fetch feed metadata: {e}")
 
     def parse_tags(self, article: Article) -> List[str]:
         """Parse tags for an article using all loaded tag parsers.
