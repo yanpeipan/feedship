@@ -112,3 +112,4 @@ Next action: `/gsd:plan-phase 16` to plan GitHubReleaseProvider
 | 2026-03-24 | fast | Added OpenAI RSS feed | ✅ |
 | Phase 16-github-release-provider P01 | 180 | 3 tasks | 2 files |
 | 2026-03-24 | 260324-x3k | articles.py, config.py, crawl.py | Moved to application module, imports updated across codebase |
+| 2026-03-25 | 260324-x78 | 删除无用的文件 | Deleted 9 orphaned .pyc files from deleted modules |
