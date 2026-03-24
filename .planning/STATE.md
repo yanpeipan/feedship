@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: nanoid ID生成
-status: Milestone started — roadmap defined
-stopped_at: Roadmap created for v1.6
-last_updated: "2026-03-25T01:30:00.000Z"
+status: Phase 23 complete — Phase 25 (verification) next
+stopped_at: Phase 23 complete, Phase 25 ready to plan
+last_updated: "2026-03-25T02:00:00.000Z"
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
 ---
 
 # Project State
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (v1.6 milestone started)
 
 ## Current Position
 
-Phase: 23 (next to start)
-Plan: None (roadmap just created)
+Phase: 23 (complete) → Phase 25 (next to plan/execute)
+Phase 24 (Migration Script) deferred — not needed during development
 
 ## v1.6 Phase Structure
 

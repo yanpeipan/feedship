@@ -9,7 +9,7 @@ Requirements for nanoid ID generation milestone.
 
 ### nanoid ID生成
 
-- [ ] **NANO-01**: store_article()使用nanoid.generate()替代uuid.uuid4()生成article id
+- [x] **NANO-01**: store_article()使用nanoid.generate()替代uuid.uuid4()生成article id
 - [ ] **NANO-02**: 生成迁移脚本，修复~2479条URL-like ID的历史数据
 - [ ] **NANO-03**: 验证所有article相关操作（CRUD、tagging、search）正常
 
@@ -40,7 +40,7 @@ Requirements for uvloop async concurrency milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| NANO-01 | Phase 23 | Pending |
+| NANO-01 | Phase 23 | Complete |
 | NANO-02 | Phase 24 | Deferred |
 | NANO-03 | Phase 25 | Pending |
 | UVLP-01 | Phase 19 | Complete |
