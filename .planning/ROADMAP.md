@@ -65,8 +65,8 @@
 
 - [x] **Phase 19: uvloop Setup + crawl_async Protocol** - Foundation for async crawling ✅ 2026-03-25
 - [x] **Phase 20: RSSProvider Async HTTP** - httpx.AsyncClient for RSS feeds (completed 2026-03-24)
-- [x] **Phase 21: Concurrent Fetch + SQLite Serialization** - Semaphore + asyncio.to_thread (completed 2026-03-24)
-- [ ] **Phase 22: CLI Integration** - uvloop.run() + --concurrency parameter
+- [x] **Phase 21: Concurrent Fetch + SQLite Serialization** - Semaphore + asyncio.to_thread (completed 2026-03-25)
+- [x] **Phase 22: CLI Integration** - uvloop.run() + --concurrency parameter (completed 2026-03-24)
 
 ## Phase Details
 
@@ -143,8 +143,8 @@
 | 18. Storage Layer Enforcement | 1/1 | Complete | 2026-03-24 |
 | 19. uvloop Setup + crawl_async Protocol | 0/2 | Not started | - |
 | 20. RSSProvider Async HTTP | 1/1 | Complete    | 2026-03-24 |
-| 21. Concurrent Fetch + SQLite Serialization | 1/1 | Complete    | 2026-03-24 |
-| 22. CLI Integration | 0/1 | Not started | - |
+| 21. Concurrent Fetch + SQLite Serialization | 1/1 | Complete    | 2026-03-25 |
+| 22. CLI Integration | 1/1 | Complete   | 2026-03-24 |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_
