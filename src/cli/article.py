@@ -246,15 +246,8 @@ def article_tag(ctx: click.Context, article_id: Optional[str], tag_name: Optiona
     elif apply_rules:
         # Apply keyword/regex rules to all untagged articles
         try:
-            from src.storage.sqlite import get_db
-            with get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT a.id, a.title, a.description FROM articles a
-                    LEFT JOIN article_tags at ON a.id = at.article_id
-                    WHERE at.article_id IS NULL
-                """)
-                untagged = cursor.fetchall()
+            from src.storage import get_untagged_articles
+            untagged = get_untagged_articles()
 
             if not untagged:
                 click.secho("No untagged articles found.", fg="yellow")
