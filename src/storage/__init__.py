@@ -27,4 +27,6 @@ from src.storage.sqlite import (
     get_articles_with_tags,
     ensure_crawled_feed,
     get_untagged_articles,
+    get_all_embeddings,
+    get_articles_without_embeddings,
 )
