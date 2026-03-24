@@ -162,21 +162,27 @@ def add_feed(url: str) -> Feed:
     Raises:
         ValueError: If the feed already exists, cannot be fetched, or has no entries.
     """
-    # Discover provider and fetch metadata via feed_meta
+    # Discover matching providers and try each until one succeeds
     providers = discover_or_default(url)
-    provider = providers[0]
 
-    # Get feed metadata (title, etag, last_modified)
-    try:
-        feed_meta = provider.feed_meta(url)
-    except Exception as e:
-        raise ValueError(f"Failed to fetch feed metadata: {e}") from e
+    feed_meta = None
+    entries = None
+    last_error = None
 
-    # Validate by crawling - ensure entries exist
-    try:
-        entries = provider.crawl(url)
-    except Exception as e:
-        raise ValueError(f"Failed to crawl feed: {e}") from e
+    for provider in providers:
+        try:
+            feed_meta = provider.feed_meta(url)
+            entries = provider.crawl(url)
+            if entries:
+                break  # Success
+        except Exception as e:
+            last_error = e
+            continue  # Try next provider
+
+    if feed_meta is None or entries is None:
+        if last_error:
+            raise ValueError(f"All providers failed: {last_error}")
+        raise ValueError("No provider could fetch feed metadata")
 
     if not entries:
         raise ValueError("No entries found in feed")
