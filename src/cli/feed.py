@@ -15,6 +15,8 @@ from src.application.feed import (
     fetch_one,
     fetch_all,
 )
+from src.application.fetch import fetch_all_async
+import uvloop
 
 logger = logging.getLogger(__name__)
 
@@ -162,9 +164,10 @@ def feed_refresh(ctx: click.Context, feed_id: str) -> None:
 
 @cli.command("fetch")
 @click.option("--all", "do_fetch_all", is_flag=True, help="Fetch all feeds")
+@click.option("--concurrency", default=10, type=click.IntRange(1, 100), help="Max concurrent fetches (default: 10)")
 @click.argument("urls", nargs=-1, required=False)
 @click.pass_context
-def fetch(ctx: click.Context, do_fetch_all: bool, urls: tuple) -> None:
+def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, urls: tuple) -> None:
     """Fetch new articles from feeds or crawl specific URLs.
 
     Examples:
@@ -208,56 +211,32 @@ def fetch(ctx: click.Context, do_fetch_all: bool, urls: tuple) -> None:
     # Case 2: --all flag
     if do_fetch_all:
         try:
-            from src.application.feed import fetch_one, list_feeds
-
             feeds = list_feeds()
             if not feeds:
                 click.secho("No feeds subscribed. Use 'feed add <url>' to add one.", fg="yellow")
                 return
 
-            total_new = 0
-            success_count = 0
-            error_count = 0
-            errors = []
+            result = uvloop.run(fetch_all_async(concurrency=concurrency))
 
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-            ) as progress:
-                task = progress.add_task(f"[cyan]Fetching {len(feeds)} feeds...", total=len(feeds))
+            if result["total_new"] > 0:
+                click.secho(f"  + {result['total_new']} new articles", fg="green")
+            else:
+                click.secho("  No new articles", fg="blue")
 
-                for feed_obj in feeds:
-                    progress.update(task, description=f"[cyan]Fetching {feed_obj.name}...")
-                    try:
-                        result = fetch_one(feed_obj)
-                        new_articles = result.get("new_articles", 0)
-                        if new_articles > 0:
-                            click.secho(f"  ✓ {feed_obj.name}: +{new_articles} articles", fg="green")
-                        else:
-                            click.secho(f"  ✓ {feed_obj.name}: up to date", fg="blue")
-                        total_new += new_articles
-                        success_count += 1
-                    except Exception as e:
-                        error_count += 1
-                        errors.append(f"{feed_obj.name}: {e}")
-                        click.secho(f"  ✗ {feed_obj.name}: {e}", fg="red")
-                    progress.advance(task)
-
-            # Summary
-            click.secho("")
-            if error_count == 0:
+            if result["error_count"] > 0:
+                click.secho(f"  {result['error_count']} errors occurred:", fg="yellow")
+                for err in result["errors"]:
+                    click.secho(f"    - {err}", fg="red")
                 click.secho(
-                    f"✓ Fetched {total_new} articles from {success_count} feeds",
-                    fg="green",
+                    f"Fetched {result['total_new']} articles from {result['success_count']} feeds, "
+                    f"{result['error_count']} errors",
+                    fg="yellow",
                 )
             else:
                 click.secho(
-                    f"✓ Fetched {total_new} articles from {success_count} feeds, {error_count} errors",
-                    fg="yellow",
+                    f"Fetched {result['total_new']} articles from {result['success_count']} feeds",
+                    fg="green",
                 )
-
         except Exception as e:
             click.secho(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
             logger.exception("Failed to fetch feeds")
