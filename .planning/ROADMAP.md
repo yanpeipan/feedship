@@ -131,20 +131,20 @@
 **Goal**: Write unit tests for Provider plugin architecture
 **Depends on**: Phase 26
 **Requirements**: TEST-02
-**Status**: Not started
+**Status**: In progress (1/1 plans)
 **Success Criteria** (what must be TRUE):
   1. test_providers.py covers RSSProvider.match(), crawl(), crawl_async(), parse()
   2. test_providers.py covers GitHubReleaseProvider.match(), priority(), crawl(), parse()
   3. ProviderRegistry discover() and discover_or_default() tested
   4. HTTP mocked via httpx_mock fixture (no real network calls)
 **Plans**: 1 plan
-  - [ ] 27-PLAN.md - Provider单元测试
+  - [x] 27-01-PLAN.md - Provider单元测试
 
 ### Phase 28: Storage层单元测试
 **Goal**: Write unit tests for SQLite storage layer
 **Depends on**: Phase 26
 **Requirements**: TEST-03
-**Status**: Not started
+**Status**: In progress (1/1 plans)
 **Success Criteria** (what must be TRUE):
   1. test_storage.py covers store_article(), list_articles(), search_articles()
   2. test_storage.py covers feed CRUD (add_feed, list_feeds, etc.)
@@ -157,7 +157,7 @@
 **Goal**: Write integration tests for CLI commands
 **Depends on**: Phase 26, Phase 28
 **Requirements**: TEST-04
-**Status**: Not started
+**Status**: In progress (1/1 plans)
 **Success Criteria** (what must be TRUE):
   1. test_cli.py covers feed add/list commands
   2. test_cli.py covers article list/detail commands
