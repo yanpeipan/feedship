@@ -14,7 +14,7 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-from src.db import get_connection, add_tag, tag_article
+from src.db import get_db, add_tag, tag_article
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +90,7 @@ def _load_vec_extension(conn: sqlite3.Connection) -> None:
 
 def _ensure_embeddings_table() -> None:
     """Create article_embeddings table if not exists."""
-    conn = get_connection()
-    try:
+    with get_db() as conn:
         _load_vec_extension(conn)
         cursor = conn.cursor()
         cursor.execute("""
@@ -101,14 +100,11 @@ def _ensure_embeddings_table() -> None:
             )
         """)
         conn.commit()
-    finally:
-        conn.close()
 
 def store_embedding(article_id: str, embedding: np.ndarray) -> None:
     """Store article embedding in sqlite-vec (D-11)."""
     _ensure_embeddings_table()
-    conn = get_connection()
-    try:
+    with get_db() as conn:
         _load_vec_extension(conn)
         cursor = conn.cursor()
         embedding_bytes = embedding.tobytes()
@@ -117,14 +113,11 @@ def store_embedding(article_id: str, embedding: np.ndarray) -> None:
             VALUES (?, ?)
         """, (article_id, embedding_bytes))
         conn.commit()
-    finally:
-        conn.close()
 
 
 def get_article_embedding(article_id: str) -> Optional[np.ndarray]:
     """Retrieve stored embedding for an article."""
-    conn = get_connection()
-    try:
+    with get_db() as conn:
         _load_vec_extension(conn)
         cursor = conn.cursor()
         cursor.execute("SELECT embedding FROM article_embeddings WHERE article_id = ?", (article_id,))
@@ -132,8 +125,6 @@ def get_article_embedding(article_id: str) -> Optional[np.ndarray]:
         if row:
             return np.frombuffer(row["embedding"], dtype=np.float32)
         return None
-    finally:
-        conn.close()
 
 
 def _get_article_by_id(article_id: str) -> Optional[Any]:
@@ -185,8 +176,7 @@ def discover_clusters(
     Returns:
         Dict of {cluster_label: [article_ids]}. Label -1 is noise/outliers.
     """
-    conn = get_connection()
-    try:
+    with get_db() as conn:
         _load_vec_extension(conn)
         cursor = conn.cursor()
 
@@ -211,8 +201,6 @@ def discover_clusters(
             clusters.setdefault(label, []).append(article_id)
 
         return clusters
-    finally:
-        conn.close()
 
 
 def suggest_tag_name_from_articles(article_ids: list[str]) -> str:
@@ -263,8 +251,7 @@ def run_auto_tagging(eps: float = 0.3, min_samples: int = 3, create_tags: bool =
         Dict of {tag_name: [article_ids]} for discovered clusters.
     """
     # Step 1: Get all articles without embeddings
-    conn = get_connection()
-    try:
+    with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT a.id FROM articles a
@@ -272,8 +259,6 @@ def run_auto_tagging(eps: float = 0.3, min_samples: int = 3, create_tags: bool =
             WHERE ae.article_id IS NULL
         """)
         article_ids = [row["id"] for row in cursor.fetchall()]
-    finally:
-        conn.close()
 
     if article_ids:
         generate_embeddings_for_articles(article_ids)
