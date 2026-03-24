@@ -2,8 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: uvloop并发支持
-status: v1.5 milestone started
-last_updated: "2026-03-25"
+status: Ready to execute
+stopped_at: Completed 19-01-PLAN.md (uvloop setup + crawl_async protocol)
+last_updated: "2026-03-24T18:54:57.845Z"
+progress:
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -13,12 +19,21 @@ last_updated: "2026-03-25"
 See: .planning/PROJECT.md (v1.5 milestone started)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** v1.5 uvloop并发支持
+**Current focus:** Phase 19 — uvloop Setup + crawl_async Protocol
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
+Phase: 19 (uvloop Setup + crawl_async Protocol) — EXECUTING
+Plan: 2 of 2
+
+## v1.5 Phase Structure
+
+| Phase | Goal | Requirements |
+|-------|------|--------------|
+| 19 | uvloop Setup + crawl_async Protocol | UVLP-01, UVLP-02 |
+| 20 | RSSProvider Async HTTP | UVLP-03 |
+| 21 | Concurrent Fetch + SQLite Serialization | UVLP-04, UVLP-05 |
+| 22 | CLI Integration | UVLP-06, UVLP-07 |
 
 ## Performance Metrics
 
@@ -40,6 +55,10 @@ Plan: —
 - Phase 16: GitHubReleaseProvider + ReleaseTagParser
 - Phase 17: CLI package split + DB context manager
 - Phase 18: Storage layer enforcement (16 new storage functions)
+
+**v1.5 estimated:**
+
+- 4 phases, ~4 plans (coarse granularity)
 
 ## Accumulated Context
 
@@ -80,14 +99,25 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Default RSS: match() returns False, only used as fallback
 - Database: feeds.metadata JSON field for provider-specific data
 
+**v1.5 Async Architecture:**
+
+- uvloop replaces asyncio event loop for 2-4x I/O improvement
+- ContentProvider protocol extends with crawl_async() method
+- Default crawl_async() uses run_in_executor to wrap sync crawl()
+- RSSProvider.crawl_async() uses httpx.AsyncClient directly
+- fetch_all_async() uses asyncio.Semaphore (default 10 concurrent)
+- SQLite writes serialized via asyncio.to_thread() to avoid "database is locked"
+- CLI wraps async code with uvloop.run()
+
 ### Blockers/Concerns
 
-None identified.
+- uvloop cannot run in non-main thread (certain Click invocations, IDE integrations)
+- feedparser.parse() blocks event loop - must run in thread pool
 
 ## Session Continuity
 
-Last session: 2026-03-25T00:00:00.000Z
-Stopped at: v1.5 milestone started
+Last session: 2026-03-24T18:54:57.840Z
+Stopped at: Completed 19-01-PLAN.md (uvloop setup + crawl_async protocol)
 
 ## Quick Tasks Completed
 
@@ -112,3 +142,4 @@ Stopped at: v1.5 milestone started
 | 2026-03-24 | 260324-x3k | articles.py, config.py, crawl.py | Moved to application module, imports updated across codebase |
 | 2026-03-25 | 260324-x78 | 删除无用的文件 | Deleted 9 orphaned .pyc files from deleted modules |
 | 2026-03-25 | milestone-v1.4 | MILESTONE_SUMMARY-v1.4.md | Generated milestone summary to .planning/reports/ |
+| Phase 19 P19-01 | 53 | 3 tasks | 3 files |
