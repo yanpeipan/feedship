@@ -15,7 +15,7 @@
 **Target features:**
 - nanoid替代uuid生成article id（更短：21字符 vs 36字符）
 - 迁移脚本修复历史数据（~2479条URL-like IDs）
-- nanoid已安装（v3.16.0），无需新增依赖
+- nanoid需安装（v3.16.0）
 
 ---
 
