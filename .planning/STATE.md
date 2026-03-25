@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: uvloop并发支持
 status: Phase complete — ready for verification
-stopped_at: Completed 27-provider-unit-tests 27-01 plan
-last_updated: "2026-03-24T21:42:28.081Z"
+stopped_at: Completed 28-storage-unit-tests 28-01 plan
+last_updated: "2026-03-25T05:32:27.564Z"
 progress:
-  total_phases: 28
-  completed_phases: 27
-  total_plans: 48
-  completed_plans: 47
+  total_phases: 29
+  completed_phases: 28
+  total_plans: 49
+  completed_plans: 48
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (v1.7 milestone started)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Phase 27 — provider-unit-tests
+**Current focus:** Phase 28 — storage-unit-tests
 
 ## Current Position
 
-Phase: 27 (provider-unit-tests) — EXECUTING
+Phase: 28 (storage-unit-tests) — EXECUTING
 Plan: 1 of 1
 
 ## v1.7 Phase Structure
@@ -105,6 +105,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 23]: store_article() line 334 and add_tag() line 181 need uuid->nanoid replacement
 - [Phase 27-01]: Used unittest.mock.patch for httpx mocking at module level (src.providers.rss_provider.httpx.head)
 - [Phase 27-01]: Async mocking via async function returning coroutine for httpx.AsyncClient.get()
+- [Phase 28-storage-unit-tests]: Used real SQLite via initialized_db fixture (tmp_path) for all storage tests - no mocking
 
 ### Technical Notes
 
@@ -144,8 +145,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-24T21:42:28.075Z
-Stopped at: Completed 27-provider-unit-tests 27-01 plan
+Last session: 2026-03-25T05:32:27.558Z
+Stopped at: Completed 28-storage-unit-tests 28-01 plan
 
 ## Quick Tasks Completed
 
@@ -177,3 +178,4 @@ Stopped at: Completed 27-provider-unit-tests 27-01 plan
 | Phase 20 P01 | 72 | 3 tasks | 1 files |
 | Phase 21 P01 | <1 | 4 tasks | 4 files |
 | Phase 27-provider-unit-tests P01 | 200 | 3 tasks | 1 files |
+| Phase 28-storage-unit-tests P28-01 | 3min | 3 tasks | 1 files |

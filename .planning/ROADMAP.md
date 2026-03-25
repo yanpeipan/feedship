@@ -80,7 +80,7 @@
 
 - [x] **Phase 26: pytest框架搭建** - conftest.py fixtures, pytest configuration, testing conventions (completed 2026-03-24)
 - [x] **Phase 27: Provider单元测试** - RSSProvider, GitHubReleaseProvider, ProviderRegistry tests (completed 2026-03-24)
-- [ ] **Phase 28: Storage层单元测试** - SQLite storage CRUD operation tests
+- [x] **Phase 28: Storage层单元测试** - SQLite storage CRUD operation tests (completed 2026-03-25)
 - [ ] **Phase 29: CLI集成测试** - CLI command integration tests with CliRunner
 
 ## Phase Details
@@ -151,7 +151,7 @@
   3. test_storage.py covers tag operations (add_tag, tag_article, get_article_tags)
   4. All tests use real SQLite via tmp_path fixture (no mocking sqlite3)
 **Plans**: 1 plan
-  - [ ] 28-01-PLAN.md - Storage层单元测试
+  - [x] 28-01-PLAN.md - Storage层单元测试
 
 ### Phase 29: CLI集成测试
 **Goal**: Write integration tests for CLI commands
@@ -195,7 +195,7 @@
 | 25. Verification | 0/1 | In progress | - |
 | 26. pytest框架搭建 | 1/1 | Complete    | 2026-03-24 |
 | 27. Provider单元测试 | 1/1 | Complete    | 2026-03-24 |
-| 28. Storage层单元测试 | 0/1 | Not started | - |
+| 28. Storage层单元测试 | 1/1 | Complete   | 2026-03-25 |
 | 29. CLI集成测试 | 0/1 | Not started | - |
 
 ---
