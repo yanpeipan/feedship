@@ -151,7 +151,7 @@
   3. test_storage.py covers tag operations (add_tag, tag_article, get_article_tags)
   4. All tests use real SQLite via tmp_path fixture (no mocking sqlite3)
 **Plans**: 1 plan
-  - [ ] 28-PLAN.md - Storage层单元测试
+  - [ ] 28-01-PLAN.md - Storage层单元测试
 
 ### Phase 29: CLI集成测试
 **Goal**: Write integration tests for CLI commands
@@ -194,7 +194,7 @@
 | 24. Migration Script | 0/1 | Deferred | - |
 | 25. Verification | 0/1 | In progress | - |
 | 26. pytest框架搭建 | 1/1 | Complete    | 2026-03-24 |
-| 27. Provider单元测试 | 1/1 | Complete   | 2026-03-24 |
+| 27. Provider单元测试 | 1/1 | Complete    | 2026-03-24 |
 | 28. Storage层单元测试 | 0/1 | Not started | - |
 | 29. CLI集成测试 | 0/1 | Not started | - |
 
