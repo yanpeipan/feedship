@@ -84,3 +84,35 @@ def get_chroma_collection():
         metadata={"description": "Article embeddings for semantic search"},
         embedding_function=embedding_fn,
     )
+
+
+def add_article_embedding(article_id: str, title: str, content: str, url: str) -> None:
+    """Add an article embedding to ChromaDB.
+
+    Args:
+        article_id: Unique article identifier (used as ChromaDB id)
+        title: Article title (stored as metadata)
+        content: Article content text (used for embedding, or fallback text)
+        url: Article URL (stored as metadata)
+    """
+    collection = get_chroma_collection()
+
+    # Determine embedding text
+    if content and len(content) >= 50:
+        embedding_text = content
+    else:
+        # Short content - supplement with title
+        embedding_text = f"{title} {content}".strip()
+
+    if not embedding_text:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("Skipping embedding for article %s: no useful text", article_id)
+        return
+
+    metadata = {"title": title, "url": url}
+    collection.add(
+        ids=[article_id],
+        documents=[embedding_text],
+        metadatas=[metadata],
+    )

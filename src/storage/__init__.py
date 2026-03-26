@@ -1,6 +1,7 @@
 """Storage package for SQLite database operations."""
 
 from src.storage.vector import (
+    add_article_embedding,
     get_chroma_collection,
     _get_embedding_function,
 )
