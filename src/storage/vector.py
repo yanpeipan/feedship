@@ -14,6 +14,7 @@ from sentence_transformers import SentenceTransformer
 
 # Module-level singleton client
 _chroma_client: PersistentClient | None = None
+_embedding_function: SentenceTransformer | None = None
 
 
 def _get_chroma_client() -> PersistentClient:
@@ -37,16 +38,31 @@ def _get_chroma_client() -> PersistentClient:
     return _chroma_client
 
 
-def _get_embedding_function():
+def get_embedding_function() -> SentenceTransformer:
     """Get the SentenceTransformer embedding function.
 
-    Uses 'all-MiniLM-L6-v2' model which produces 384-dimensional vectors.
-    This is the same model used in src/tags/ai_tagging.py.
+    Uses 'all-MiniLM-L6-v2' model which produces 384-dimensional vectors
+    with normalize_embeddings=True for cosine similarity.
+
+    This is the same model used in src/tags/ai_tagging.py (D-03).
 
     Returns:
         SentenceTransformer: The embedding function instance.
     """
-    return SentenceTransformer("all-MiniLM-L6-v2")
+    global _embedding_function
+    if _embedding_function is None:
+        _embedding_function = SentenceTransformer("all-MiniLM-L6-v2")
+    return _embedding_function
+
+
+def preload_embedding_model() -> None:
+    """Pre-download and cache the embedding model at CLI startup (D-04).
+
+    Downloads the 'all-MiniLM-L6-v2' model if not already cached.
+    Should be called during CLI initialization before any embedding
+    operations to avoid delays on first use.
+    """
+    SentenceTransformer("all-MiniLM-L6-v2")
 
 
 def get_chroma_collection():
@@ -62,7 +78,9 @@ def get_chroma_collection():
         Collection: The ChromaDB collection for articles.
     """
     client = _get_chroma_client()
+    embedding_fn = get_embedding_function()
     return client.get_or_create_collection(
         name="articles",
         metadata={"description": "Article embeddings for semantic search"},
+        embedding_function=embedding_fn,
     )

@@ -28,6 +28,10 @@ def cli(ctx: click.Context, verbose: bool) -> None:
     from src.storage.sqlite import init_db
     init_db()
 
+    # Pre-download embedding model for ChromaDB (SEM-03, D-04)
+    from src.storage.vector import preload_embedding_model
+    preload_embedding_model()
+
 
 # Import submodules to trigger @cli.command decorators
 from src.cli import feed  # noqa: F401
