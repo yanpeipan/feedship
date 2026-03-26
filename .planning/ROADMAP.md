@@ -105,8 +105,8 @@
 **Plans**: 3 plans
 Plans:
 - [x] 30-01-PLAN.md — ChromaDB Client Infrastructure (PersistentClient singleton, collection setup)
-- [ ] 30-02-PLAN.md — Embedding Function + Model Pre-download (sentence-transformers integration)
-- [ ] 30-03-PLAN.md — Integration Verification (verify all components work together)
+- [x] 30-02-PLAN.md — Embedding Function + Model Pre-download (sentence-transformers integration)
+- [x] 30-03-PLAN.md — Integration Verification (verify all components work together)
 
 ### Phase 31: Write Path - Incremental Embedding
 **Goal**: New articles are automatically embedded and stored in ChromaDB during fetch
@@ -117,7 +117,10 @@ Plans:
   2. Embedding generation does not block article storage (async or background)
   3. Existing articles without embeddings can be backfilled via reindex command
   4. Articles are deduplicated by ID before embedding (no duplicate vectors)
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 31-01-PLAN.md — Add add_article_embedding() to vector.py and export from __init__.py
+- [ ] 31-02-PLAN.md — Integrate add_article_embedding in fetch.py after store_article_async()
 
 ### Phase 32: Query Path - Semantic Search CLI
 **Goal**: Users can discover articles using natural language queries
@@ -175,8 +178,8 @@ Plans:
 | 27. Provider单元测试 | 1/1 | ✅ Complete | 2026-03-24 |
 | 28. Storage层单元测试 | 1/1 | ✅ Complete | 2026-03-25 |
 | 29. CLI集成测试 | 1/1 | ✅ Complete | 2026-03-25 |
-| 30. Semantic Search Infrastructure | 1/3 | In Progress|  |
-| 31. Write Path - Incremental Embedding | 0/1 | Not started | - |
+| 30. Semantic Search Infrastructure | 3/3 | ✅ Complete | 2026-03-27 |
+| 31. Write Path - Incremental Embedding | 2/2 | In progress | - |
 | 32. Query Path - Semantic Search CLI | 0/1 | Not started | - |
 | 33. Polish - Error Handling | 0/1 | Not started | - |
 
