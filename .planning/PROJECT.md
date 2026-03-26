@@ -8,21 +8,31 @@
 
 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
 
-## Current Milestone: v1.7 pytest测试框架
+## Current Milestone: v1.8 ChromaDB 语义搜索
 
-**Goal:** 引入pytest测试框架，为核心模块构建完整的单元测试覆盖
+**Goal:** 用向量嵌入实现语义相似度搜索，自动发现相关文章
 
 **Target features:**
-- pytest测试框架引入（conftest.py、fixture设计）
-- Provider插件架构的单元测试（RSSProvider、GitHubReleaseProvider等）
-- Storage层SQLite操作的单元测试
-- CLI命令的集成测试
+- ChromaDB 向量数据库集成（存储文章 embedding）
+- sentence-transformers 生成文章向量
+- 语义搜索 CLI：`search --semantic "query"`
+- 相关文章推荐：`article related <id>`
+- 增量 embedding：新文章自动生成并存入 ChromaDB
 
-**Status:** ✅ COMPLETE (2026-03-25)
-- Phase 26: pytest框架搭建 — conftest.py fixtures (2026-03-24)
-- Phase 27: Provider单元测试 — 24 tests for RSS/GitHub providers (2026-03-24)
-- Phase 28: Storage层单元测试 — 42 tests for SQLite storage (2026-03-25)
-- Phase 29: CLI集成测试 — 19 tests for feed/article/tag commands (2026-03-25)
+**Status:** ⏳ Started (2026-03-26)
+
+---
+
+## Current State
+
+**Shipped: v1.7 pytest测试框架** (2026-03-25)
+- Phase 26-29 complete: 85 total tests across all phases
+- `tests/conftest.py` with 5 fixtures (temp_db_path, initialized_db, sample_feed, sample_article, cli_runner)
+- `tests/test_providers.py` — 24 provider tests (RSSProvider, GitHubReleaseProvider, ProviderRegistry)
+- `tests/test_storage.py` — 42 storage tests (Article, Feed, Tag CRUD)
+- `tests/test_cli.py` — 19 CLI integration tests (Feed, Article, Tag commands)
+
+**Shipped: v1.6 uvloop并发支持** (2026-03-25)
 
 ---
 
@@ -182,4 +192,4 @@
 
 ---
 
-*Last updated: 2026-03-25 — v1.7 pytest测试框架 milestone started*
+*Last updated: 2026-03-26 — v1.8 ChromaDB 语义搜索 milestone started*

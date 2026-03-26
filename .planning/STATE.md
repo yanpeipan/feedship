@@ -1,30 +1,32 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: uvloop并发支持
-status: Milestone complete
-stopped_at: Milestone v1.7 pytest测试框架 summary generated
-last_updated: "2026-03-25T05:58:29.352Z"
+milestone: v1.8
+milestone_name: ChromaDB 语义搜索
+status: Defining requirements
+stopped_at: Milestone v1.8 started
+last_updated: "2026-03-26T13:00:00.000Z"
 progress:
-  total_phases: 30
-  completed_phases: 29
-  total_plans: 50
-  completed_plans: 49
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (v1.7 milestone started)
+See: .planning/PROJECT.md (v1.8 milestone started)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Phase 28 — storage-unit-tests
+**Current focus:** Defining requirements
 
 ## Current Position
 
-Phase: 29
-Plan: Not started
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-26 — Milestone v1.8 started
 
 ## v1.7 Phase Structure
 
