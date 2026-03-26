@@ -31,7 +31,7 @@ Requirements for nanoid ID generation milestone.
 
 - [x] **NANO-01**: store_article()使用nanoid.generate()替代uuid.uuid4()生成article id
 - [ ] **NANO-02**: 生成迁移脚本，修复~2479条URL-like ID的历史数据
-- [ ] **NANO-03**: 验证所有article相关操作（CRUD、tagging、search）正常
+- [x] **NANO-03**: 验证所有article相关操作（CRUD、tagging、search）正常
 
 ## v1.5 Requirements
 
@@ -60,9 +60,16 @@ Requirements for uvloop async concurrency milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| SEM-01 | Phase 30 | Pending |
+| SEM-02 | Phase 30 | Pending |
+| SEM-03 | Phase 30 | Pending |
+| SEM-04 | Phase 32 | Pending |
+| SEM-05 | Phase 32 | Pending |
+| SEM-06 | Phase 31 | Pending |
+| SEM-07 | Phase 33 | Pending |
 | NANO-01 | Phase 23 | Complete |
 | NANO-02 | Phase 24 | Deferred |
-| NANO-03 | Phase 25 | Pending |
+| NANO-03 | Phase 25 | Complete |
 | UVLP-01 | Phase 19 | Complete |
 | UVLP-02 | Phase 19 | Complete |
 | UVLP-03 | Phase 20 | Complete |
@@ -73,7 +80,7 @@ Requirements for uvloop async concurrency milestone.
 
 **Coverage:**
 - v1.8 requirements: 7 total
-- Mapped to phases: pending (roadmap TBD)
+- Mapped to phases: 7 ✓
 - v1.6 requirements: 3 total
 - Mapped to phases: 3 ✓
 - v1.5 requirements: 7 total
@@ -81,4 +88,4 @@ Requirements for uvloop async concurrency milestone.
 
 ---
 *Requirements defined: 2026-03-26*
-*Last updated: 2026-03-26 after v1.8 requirements defined*
+*Last updated: 2026-03-26 after v1.8 roadmap defined*

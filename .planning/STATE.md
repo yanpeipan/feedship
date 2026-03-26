@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: ChromaDB 语义搜索
-status: Defining requirements
-stopped_at: Milestone v1.8 started
+status: Roadmap defined
+stopped_at: Roadmap v1.8 phases defined
 last_updated: "2026-03-26T13:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,16 +19,23 @@ progress:
 See: .planning/PROJECT.md (v1.8 milestone started)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Defining requirements
+**Current focus:** Roadmap defined - ready for planning
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started (roadmap defined)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-03-26 — Milestone v1.8 started
+Status: Roadmap defined
+Last activity: 2026-03-26 — v1.8 roadmap created
 
-## v1.7 Phase Structure
+## v1.8 Phase Structure
+
+| Phase | Goal | Requirements |
+|-------|------|--------------|
+| 30 | Semantic Search Infrastructure | SEM-01, SEM-02, SEM-03 |
+| 31 | Write Path - Incremental Embedding | SEM-06 |
+| 32 | Query Path - Semantic Search CLI | SEM-04, SEM-05 |
+| 33 | Polish - Error Handling | SEM-07 |
 
 | Phase | Goal | Requirements |
 |-------|------|--------------|
@@ -36,13 +43,6 @@ Last activity: 2026-03-26 — Milestone v1.8 started
 | 27 | Provider单元测试 | TEST-02 |
 | 28 | Storage层单元测试 | TEST-03 |
 | 29 | CLI集成测试 | TEST-04 |
-
-| Phase | Goal | Requirements |
-|-------|------|--------------|
-| 19 | uvloop Setup + crawl_async Protocol | UVLP-01, UVLP-02 |
-| 20 | RSSProvider Async HTTP | UVLP-03 |
-| 21 | Concurrent Fetch + SQLite Serialization | UVLP-04, UVLP-05 |
-| 22 | CLI Integration | UVLP-06, UVLP-07 |
 
 ## Performance Metrics
 
@@ -69,9 +69,9 @@ Last activity: 2026-03-26 — Milestone v1.8 started
 
 - 4 phases, 4 plans
 
-**v1.6 estimated:**
+**v1.7 velocity:**
 
-- 3 phases, 3 plans (coarse granularity, small focused changes)
+- 4 phases, 4 plans (shipped 2026-03-25)
 
 ## Accumulated Context
 
@@ -108,6 +108,13 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 27-01]: Used unittest.mock.patch for httpx mocking at module level (src.providers.rss_provider.httpx.head)
 - [Phase 27-01]: Async mocking via async function returning coroutine for httpx.AsyncClient.get()
 - [Phase 28-storage-unit-tests]: Used real SQLite via initialized_db fixture (tmp_path) for all storage tests - no mocking
+- [Phase 30]: ChromaDB PersistentClient for local vector storage alongside SQLite
+- [Phase 30]: sentence-transformers all-MiniLM-L6-v2 for 384-dim article embeddings
+- [Phase 30]: Embedding model pre-downloaded at startup (not on first query)
+- [Phase 31]: Incremental embedding on fetch - new articles automatically embedded
+- [Phase 32]: search --semantic CLI using ChromaDB similarity search
+- [Phase 32]: article related <id> using ChromaDB query_by_ids for similar articles
+- [Phase 33]: Graceful error handling for articles without embeddings (pre-v1.8)
 
 ### Technical Notes
 
@@ -132,23 +139,26 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - SQLite writes serialized via asyncio.to_thread() to avoid "database is locked"
 - CLI wraps async code with uvloop.run()
 
-**v1.6 nanoid Migration Architecture:**
+**v1.8 ChromaDB Semantic Search Architecture:**
 
-- nanoid package: separate from uuid, use `nanoid.generate()` not `nanoid`
-- FTS5 virtual table uses SQLite rowid (not article.id) for linkage
-- Migration: UPDATE not DELETE+INSERT to preserve FTS rowid
-- FK order: update article_tags.article_id BEFORE articles.id
-- Deterministic ID: seed nanoid with hash of old ID for idempotent migration
+- ChromaDB PersistentClient with local directory storage
+- sentence-transformers all-MiniLM-L6-v2 model (384-dim embeddings)
+- Model pre-downloaded at startup via sentence_transformers pretrained
+- ChromaDB collection: "articles" with id, content, title, url metadata
+- Incremental embedding during fetch (async, non-blocking)
+- Semantic search via ChromaDB query() with cosine similarity
+- Related articles via query_by_ids() for similarity search
 
 ### Blockers/Concerns
 
 - uvloop cannot run in non-main thread (certain Click invocations, IDE integrations)
 - feedparser.parse() blocks event loop - must run in thread pool
+- ChromaDB model download may block CLI startup (mitigate with background download)
 
 ## Session Continuity
 
-Last session: 2026-03-25T05:58:29.340Z
-Stopped at: Milestone v1.7 pytest测试框架 summary generated
+Last session: 2026-03-26T05:58:29.340Z
+Stopped at: Milestone v1.8 roadmap created
 
 ## Quick Tasks Completed
 
