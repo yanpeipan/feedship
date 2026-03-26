@@ -9,7 +9,7 @@ Requirements for ChromaDB semantic search milestone.
 
 ### Semantic Search
 
-- [ ] **SEM-01**: ChromaDB integration — PersistentClient for local vector storage alongside SQLite
+- [x] **SEM-01**: ChromaDB integration — PersistentClient for local vector storage alongside SQLite
 - [ ] **SEM-02**: Embedding service — sentence-transformers `all-MiniLM-L6-v2` generating 384-dim vectors for article content
 - [ ] **SEM-03**: Model pre-download — Embedding model downloaded at startup (not on first query)
 - [ ] **SEM-04**: `search --semantic "query"` — Semantic search CLI using ChromaDB query
@@ -60,7 +60,7 @@ Requirements for uvloop async concurrency milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEM-01 | Phase 30 | Pending |
+| SEM-01 | Phase 30 | Complete |
 | SEM-02 | Phase 30 | Pending |
 | SEM-03 | Phase 30 | Pending |
 | SEM-04 | Phase 32 | Pending |
