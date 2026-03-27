@@ -1,5 +1,21 @@
 # Milestones
 
+## v1.9 Automatic Discovery Feed (Shipped: 2026-03-27)
+
+**Phases completed:** 7 phases, 10 plans, 17 tasks
+
+**Key accomplishments:**
+
+- Discovery Core Module (`src/discovery/`) with HTML `<link>` tag parsing, well-known path fallback, URL resolution, and feed validation
+- `discover <url>` CLI command with `--discover-deep [n]` for feed discovery without subscription
+- `feed add <url> --discover --automatic` integration for discovery during subscription
+- BFS crawler with visited-set deduplication, 2s/host rate limiting, and CSS selector-based link discovery
+- robots.txt compliance via robotexclusionrulesparser in lazy mode
+- Multi-factor ranking: `final_score = 0.5*norm_similarity + 0.3*norm_freshness + 0.2*source_weight`
+- Documentation: `docs/Automatic Discovery Feed.md`
+
+---
+
 ## v1.4 Storage Layer Enforcement (Shipped: 2026-03-24)
 
 **Phases completed:** 20 phases, 39 plans, 99 tasks

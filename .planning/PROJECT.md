@@ -8,22 +8,37 @@
 
 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
 
-## Current Milestone: v1.9 Automatic Discovery Feed
+## Current Milestone: v2.0 (Next)
 
-**Goal:** 给定网站 URL，自动发现其 RSS/Atom 订阅源
+**Goal:** TBD — start with `/gsd:new-milestone`
 
-**Target features:**
-- `feed add <url> --discover` (默认开启)：自动发现 URL 的 RSS/Atom/RDF feed，默认 1 层，可配置多层深度
-- `discover <url>` 新命令：仅发现 feed，不订阅，列出所有发现的 feeds
-- `--automatic` 参数 (默认关闭)：on=直接订阅所有，off=列出确认
-- 全量 feed 类型支持：RSS 0.90-2.0、Atom 0.3/1.0、CDF、RDF
-- 文档化：`docs/Automatic Discovery Feed.md`
-
-**Status:** ⏳ In Progress — Phase 36 complete, Phase 37 pending
+**Status:** ⏳ Planning
 
 ---
 
 ## Current State
+
+**Shipped: v1.11 Comprehensive uvloop Audit** (2026-03-28)
+- Phase 40 complete: Zero `asyncio.run()` calls in `src/`
+- All 5 `uvloop.run()` calls at correct CLI boundaries (feed.py ×4, discover.py ×1)
+- No blocking I/O outside `asyncio.to_thread()`
+- 5 anti-patterns identified and fixed
+
+**Shipped: v1.10 uvloop Best Practices Review** (2026-03-28)
+- Phase 39 complete: Simplified `install_uvloop()` to just `uvloop.install()`
+- Removed dead code: `_default_executor`, `_get_default_executor()`, `run_in_executor_crawl()`, `_main_loop`
+- `asyncio_utils.py` reduced from 93 lines to 44 lines
+
+**Shipped: v1.9 Automatic Discovery Feed** (2026-03-27)
+- Phase 34-37 complete: Discovery Core Module, CLI, Integration, Deep Crawling
+- `discover <url>` command with `--discover-deep` support
+- BFS crawler with robots.txt compliance and rate limiting (2s/host)
+- Multi-factor ranking: `final_score = 0.5*norm_similarity + 0.3*norm_freshness + 0.2*source_weight`
+
+**Shipped: v1.8 ChromaDB 语义搜索** (2026-03-27)
+- Phase 30-33 complete: ChromaDB infrastructure, embedding write path, semantic search CLI
+- `search --semantic` and `article related` commands
+- Embedding model pre-downloaded on startup
 
 **Shipped: v1.7 pytest测试框架** (2026-03-25)
 - Phase 26-29 complete: 85 total tests across all phases
@@ -36,57 +51,31 @@
 
 ---
 
-## Current State
-
-**Shipped: v1.7 pytest测试框架** (2026-03-25)
-- Phase 26-29 complete: 85 total tests across all phases
-- `tests/conftest.py` with 5 fixtures (temp_db_path, initialized_db, sample_feed, sample_article, cli_runner)
-- `tests/test_providers.py` — 24 provider tests (RSSProvider, GitHubReleaseProvider, ProviderRegistry)
-- `tests/test_storage.py` — 42 storage tests (Article, Feed, Tag CRUD)
-- `tests/test_cli.py` — 19 CLI integration tests (Feed, Article, Tag commands)
-
-**Shipped: v1.4 Storage Layer Enforcement** (2026-03-25)
-- Phase 17 complete: Anti-屎山 refactoring — cli.py (798 lines) split into `src/cli/` package with 5 modules; DB context manager adopted
-- Phase 18 complete: All database operations centralized in `src/storage/sqlite.py`
-  - `get_db()` is now internal to storage layer only
-  - AI tagging, feed, article, crawl, and CLI modules all delegate to storage functions
-  - 16 new storage functions added covering all database operations
-
-**Shipped: v1.4 GitHubReleaseProvider** (2026-03-24)
-- Phase 16 complete: GitHubReleaseProvider (priority=200) using PyGithub repo.get_latest_release()
-  - Separate from GitHubProvider — coexists with different focus
-  - ReleaseTagParser extracts owner/version/release-type tags with semantic versioning
-  - Provider runs first for all GitHub URLs (priority 200 > GitHubProvider 100)
-
-**Shipped: v1.3 Provider Architecture** (2026-03-24)
-- Phase 12 complete: Provider plugin architecture foundation + DB migrations
-  - ContentProvider & TagParser Protocols with @runtime_checkable
-  - ProviderRegistry with dynamic provider loading
-  - feeds.metadata column migration + github_repos data migration
-- Phase 13 complete: RSS/GitHub providers + Tag parser chaining
-  - RSSProvider (priority=50) and GitHubProvider (priority=100) wrapping feeds/github.py
-  - TagParser registry with chain_tag_parsers() and DefaultTagParser
-- Phase 14 complete: CLI wired to ProviderRegistry (fetch --all, feed add/list via discover_or_default, repo commands deleted)
-- Phase 15 complete: PyGithub Refactor — custom GitHub API replaced with PyGithub library
-  - src/github.py deleted, src/github_utils.py + src/github_ops.py created
-  - GitHubProvider and crawl.py now use PyGithub for all GitHub API calls
-
-**Shipped: v1.2 Article List Enhancements** (2026-03-23)
-- CLI 工具，支持 feed 订阅、网页抓取、GitHub 仓库监控
-- GitHub Releases 和 Changelog 统一展示
-- Rich table formatting for article list with ID and tags columns
-- Article detail view and open-in-browser commands
-- GitHub release tagging with unified tagging commands
-- SQLite 本地存储，FTS5 全文搜索
-- ~10 个 Python 源文件，约 2,800 行代码
-
 ## Requirements
+
+### Validated (v1.11)
+
+- [x] UVLOOP-AUDIT-01: Zero `asyncio.run()` calls in `src/` — Phase 40 complete
+- [x] UVLOOP-AUDIT-02: No blocking I/O outside `asyncio.to_thread()` — Phase 40 complete
+- [x] UVLOOP-AUDIT-03: All async providers use true async patterns — Phase 40 complete
+
+### Validated (v1.10)
+
+- [x] UVLOOP-BEST-01: `install_uvloop()` simplified to `uvloop.install()` — Phase 39 complete
+- [x] UVLOOP-BEST-02: Dead code removed from `asyncio_utils.py` — Phase 39 complete
 
 ### Validated (v1.9)
 
-- [x] DISC-06: `feed add <url> --discover --automatic` integration — Phase 36 complete
-- [x] DISC-05: `discover <url>` CLI command — Phase 35 complete
-- [x] DISC-01, DISC-02, DISC-03, DISC-04: Discovery Core Module — Phase 34 complete
+- [x] DISC-01: HTML `<link>` tag 解析 — Phase 34 complete
+- [x] DISC-02: 常见路径探测 fallback — Phase 34 complete
+- [x] DISC-03: 相对 URL 解析 — Phase 34 complete
+- [x] DISC-04: Feed 验证 (HEAD + Content-Type) — Phase 34 complete
+- [x] DISC-05: `discover <url>` CLI 命令 — Phase 35 complete
+- [x] DISC-06: `feed add --discover --automatic` 集成 — Phase 36 complete
+- [x] DISC-07: Depth > 1 BFS 爬取 — Phase 37 complete
+- [x] DISC-08: robots.txt 遵守 — Phase 37 complete
+- [x] DISC-09: `docs/Automatic Discovery Feed.md` 文档 — Phase 37 complete
+- [x] RANK-01: Multi-factor ranking algorithm — Phase 38 complete
 
 ### Validated (v1.7)
 
@@ -129,6 +118,7 @@
 - [x] GitHub releases 可以通过 article tag 命令打标签 — v1.2
 
 ### Backlog
+
 - [ ] OPML 导入/导出
 - [ ] 标记已读/未读状态
 - [ ] 文章书签功能
@@ -136,6 +126,7 @@
 - [ ] 多输出格式（JSON、CSV）
 
 ### Deferred (v1.6)
+
 - [ ] NANO-01: store_article()使用nanoid.generate()替代uuid.uuid4() — deferred to v1.8
 - [ ] NANO-02: 生成迁移脚本，修复~2479条URL-like ID的历史数据 — deferred to v1.8
 - [ ] NANO-03: 验证所有article相关操作（CRUD、tagging、search）正常 — deferred to v1.8
@@ -172,6 +163,12 @@
 | uvloop.run() in CLI | `fetch --all` wraps async fetch with uvloop.run() for event loop optimization | ✅ Good (v1.5) |
 | --concurrency CLI参数 | Click IntRange(1, 100) validation, passed to fetch_all_async() Semaphore | ✅ Good (v1.5) |
 | nanoid替代uuid | 使用nanoid.generate()替代uuid.uuid4()生成更短（21字符）URL-safe的article ID | ✅ Good (v1.6) |
+| Discovery 独立模块 | `src/discovery/` 作为 service 模块而非 Provider 插件 | ✅ Good (v1.9) |
+| Scrapling 替代 BeautifulSoup | Adaptive parsing + JS 支持，更好的 HTML 解析 | ✅ Good (v1.9) |
+| CSS selector link discovery | 动态发现站内链接而非硬编码子目录名 | ✅ Good (v1.9) |
+| Multi-factor ranking | `0.5*sim + 0.3*fresh + 0.2*weight` 公式可配置 | ✅ Good (v1.9) |
+| uvloop.install() 简化 | 只调用 `uvloop.install()`，platform check + error handling | ✅ Good (v1.10) |
+| uvloop.run() at CLI boundaries | 所有 CLI 入口点使用 uvloop.run()，async 代码通过 to_thread 调用 | ✅ Good (v1.11) |
 
 ## Tech Stack
 
@@ -183,6 +180,8 @@
 - **网页抓取**: Scrapling (adaptive, JS 支持)
 - **数据库**: sqlite3 (内置)
 - **GitHub API**: PyGithub 2.x
+- **Semantic Search**: ChromaDB + sentence-transformers (all-MiniLM-L6-v2)
+- **Vector DB**: ChromaDB persistent client
 
 ## Context
 
@@ -215,4 +214,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-*Last updated: 2026-03-27 — v1.9 Automatic Discovery Feed milestone started*
+*Last updated: 2026-03-28 — v1.9/v1.10/v1.11 milestone chain completed*

@@ -43,6 +43,61 @@
 
 ---
 
+## Milestone: v1.9 — Automatic Discovery Feed + v1.10/v1.11 uvloop
+
+**Shipped:** 2026-03-28
+**Phases:** 10 (34-40) | **Plans:** 10 | **Sessions:** ~3
+
+### What Was Built
+
+**v1.9 Automatic Discovery Feed:**
+- Discovery Core Module (`src/discovery/`): HTML `<link>` tag parsing, well-known path fallback, URL resolution with `<base href>` override, feed validation via HEAD+Content-Type
+- `discover <url>` CLI command with `--discover-deep [n]` for feed discovery
+- `feed add <url> --discover --automatic` integration
+- BFS crawler: visited-set deduplication, 2s/host rate limiting, CSS selector-based link discovery
+- robots.txt compliance via robotexclusionrulesparser (lazy mode)
+- Multi-factor ranking: `final_score = 0.5*norm_similarity + 0.3*norm_freshness + 0.2*source_weight`
+
+**v1.10 uvloop Best Practices:**
+- Simplified `install_uvloop()` to just `uvloop.install()` with platform check
+- Removed dead code: `_default_executor`, `_get_default_executor()`, `run_in_executor_crawl()`, `_main_loop`
+- `asyncio_utils.py`: 93 lines → 44 lines
+
+**v1.11 Comprehensive uvloop Audit:**
+- Verified zero `asyncio.run()` calls in `src/`
+- 5 `uvloop.run()` calls at correct CLI boundaries (feed.py ×4, discover.py ×1)
+- All async providers use true async patterns
+- No blocking I/O outside `asyncio.to_thread()`
+
+### What Worked
+- Scrapling for HTML parsing proved better than BeautifulSoup (adaptive parsing + JS support)
+- CSS selector-based link discovery replaced brittle hardcoded subdirectory names
+- Discovery as separate service module (not Provider plugin) kept concerns clean
+- `uvloop.install()` is idempotent — no need to track whether already called
+
+### What Was Inefficient
+- CLI `gsd-tools milestone complete` had a bug: wrote entire ROADMAP.md into archive instead of extracting just v1.9 phases — manually fixed
+- Phase 32 plan reference was wrong in ROADMAP.md (pointed to 40-01-PLAN.md instead of proper plan)
+- MILESTONES.md accomplishments got garbled by `summary-extract` splitting on "Plan:" / "Phase:" delimiters
+
+### Patterns Established
+- Discovery module: `src/discovery/` as service module, NOT a Provider plugin
+- BFS crawler: visited-set + rate-limit + robots.txt = professional-grade crawler
+- Multi-factor ranking: configurable weights for similarity/freshness/source priority
+- `uvloop.run()` ONLY at CLI boundaries, all async code flows through it
+
+### Key Lessons
+1. `summary-extract` tool breaks on multi-line descriptions with Chinese content — manually craft accomplishments strings
+2. `gsd-tools milestone complete` CLI needs verification before trusting — inspects archive files after running
+3. Inline phase entries in ROADMAP.md accumulate cruft — collapse milestones into `<details>` blocks immediately
+
+### Cost Observations
+- Model mix: sonnet for planning, haiku for execution, opus for verification
+- Sessions: ~3 sessions for milestone chain (v1.9 → v1.10 → v1.11)
+- Notable: uvloop phases (39-40) were quick audits, not full implementations
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution

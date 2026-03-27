@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.9
-milestone_name: Automatic Discovery Feed
-status: executing
-stopped_at: "Completed quick task 260328-2v6: unified article list formatting"
-last_updated: "2026-03-27T18:22:04.624Z"
-last_activity: 2026-03-27
+milestone: v2.0
+milestone_name: TBD
+status: planning
+stopped_at: "Milestone v1.9/v1.10/v1.11 completed — all phases verified"
+last_updated: "2026-03-28T00:00:00.000Z"
+last_activity: 2026-03-28
 progress:
   total_phases: 7
   completed_phases: 7
@@ -17,17 +17,10 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (v1.9 milestone started)
+See: .planning/PROJECT.md (v1.9/v1.10/v1.11 milestone chain completed)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Phase 37 — deep-crawling
-
-## Current Position
-
-Phase: 40
-Plan: Not started
-Status: Executing Phase 37 Plan 37-02 just completed
-Last activity: 2026-03-27
+**Current focus:** Planning next milestone — `/gsd:new-milestone`
 
 ## v1.9 Phase Structure
 
