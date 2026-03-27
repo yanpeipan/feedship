@@ -17,42 +17,65 @@ logger = logging.getLogger(__name__)
 
 
 def print_articles(items: list[ArticleListItem], verbose: bool = False) -> None:
-    """Print formatted articles to console.
+    """Print formatted articles to console using Rich Table.
 
     Args:
         items: List of ArticleListItem objects.
-        verbose: If True, show detailed output with full fields
+        verbose: If True, show detailed output with rich panel for each article
     """
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+
+    console = Console()
+
     if not items:
         click.secho("No articles found.")
         return
 
-    click.secho("ID | Title | Source | Date | Score\n" + "-" * 80)
+    if verbose:
+        for item in items:
+            fields = []
+            if item.title:
+                fields.append(f"[bold]Title:[/bold] {item.title}")
+            if item.id:
+                fields.append(f"[bold]ID:[/bold] {item.id}")
+            if item.feed_name:
+                fields.append(f"[bold]Source:[/bold] {item.feed_name}")
+            if item.pub_date:
+                fields.append(f"[bold]Date:[/bold] {item.pub_date}")
+            if item.score:
+                fields.append(f"[bold]Score:[/bold] {item.score}")
+            if item.link:
+                fields.append(f"[bold]Link:[/bold] {item.link}")
+            if item.description:
+                preview = item.description[:200] + "..." if len(item.description) > 200 else item.description
+                fields.append(f"[bold]Description:[/bold] {preview}")
+
+            if fields:
+                console.print(Panel("\n".join(fields), title=item.title or "Article"))
+            else:
+                console.print(Panel("[dim]No details available[/dim]", title=item.title or "Article"))
+        return
+
+    # Normal table view
+    table = Table(show_header=True, header_style="bold magenta", expand=False)
+    table.add_column("ID", style="dim", width=8, no_wrap=True, overflow="ellipsis")
+    table.add_column("Title", style="cyan", min_width=20, max_width=50, overflow="ellipsis")
+    table.add_column("Source", style="green", width=12, no_wrap=True, overflow="ellipsis")
+    table.add_column("Date", style="yellow", width=10, no_wrap=True, overflow="ellipsis")
+    table.add_column("Score", justify="right", width=5, no_wrap=True)
 
     for item in items:
-        article_id = item.id
-        title = item.title
-        source = item.feed_name
-        date = item.pub_date
-        score = item.score
-        link = item.link
-        description = item.description
+        table.add_row(
+            (item.id[:8] if item.id else "-"),
+            (item.title[:60] if item.title else "-"),
+            (item.feed_name[:15] if item.feed_name else "-"),
+            (item.pub_date[:10] if item.pub_date else "-"),
+            (str(item.score)[:4] if item.score else "-"),
+        )
 
-        if verbose:
-            click.secho(f"\nTitle: {title}")
-            if article_id:
-                click.secho(f"ID: {article_id}")
-            if source:
-                click.secho(f"Source: {source}")
-            if date:
-                click.secho(f"Date: {date}")
-            if link:
-                click.secho(f"Link: {link}")
-            if description:
-                preview = description[:100] + "..." if len(description) > 100 else description
-                click.secho(f"Description: {preview}")
-        else:
-            click.secho(f"{article_id[:8]} | {title[:60] if title else '-'} | {source[:15] if source else '-'} | {date[:10] if date else '-'} | {str(score)[:4]}")
+    console.print(table)
 
 
 def open_in_browser(url: str) -> None:
