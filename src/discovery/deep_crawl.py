@@ -6,8 +6,7 @@ import time
 from collections import deque
 from urllib.parse import urljoin, urlparse
 
-import httpx
-from scrapling import Selector
+from scrapling import Fetcher, Selector
 from robotexclusionrulesparser import RobotExclusionRulesParser
 
 from src.discovery.common_paths import matches_feed_path_pattern, generate_feed_candidates
@@ -117,16 +116,13 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> list[DiscoveredFeed]
     if max_depth <= 1:
         # Single-page discovery: fetch and discover
         try:
-            async with httpx.AsyncClient(
-                headers=BROWSER_HEADERS,
-                follow_redirects=True,
-                timeout=10.0,
-            ) as client:
-                response = await client.get(start_url)
-                if response.status_code == 200:
-                    html = response.text
-                    page_url = str(response.url)
-                    return await _discover_feeds_on_page(html, page_url)
+            response = await asyncio.to_thread(
+                Fetcher.get, start_url, headers=BROWSER_HEADERS
+            )
+            if response.status == 200:
+                html = response.text
+                page_url = response.url
+                return await _discover_feeds_on_page(html, page_url)
                 # Non-200: fall through to well-known path probing
         except Exception:
             pass
@@ -181,15 +177,12 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> list[DiscoveredFeed]
             last_request_time[host] = time.time()
 
             try:
-                async with httpx.AsyncClient(
-                    headers=BROWSER_HEADERS,
-                    follow_redirects=True,
-                    timeout=10.0,
-                ) as client:
-                    response = await client.get(url)
-                    if response.status_code != 200:
-                        return None, url
-                    return response.text, str(response.url)
+                response = await asyncio.to_thread(
+                    Fetcher.get, url, headers=BROWSER_HEADERS
+                )
+                if response.status != 200:
+                    return None, url
+                return response.text, response.url
             except Exception:
                 return None, url
 
@@ -216,13 +209,12 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> list[DiscoveredFeed]
             robots_url = f"{urlparse(url).scheme.lower()}://{host}/robots.txt"
             parser = RobotExclusionRulesParser()
             try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    response = await client.get(robots_url)
-                    if response.status_code == 200:
-                        parser.parse(response.text.splitlines())
-                    else:
-                        # No robots.txt - permissive
-                        parser = None
+                response = await asyncio.to_thread(Fetcher.get, robots_url)
+                if response.status == 200:
+                    parser.parse(response.text.splitlines())
+                else:
+                    # No robots.txt - permissive
+                    parser = None
             except Exception:
                 parser = None
             robots_cache[host] = parser
