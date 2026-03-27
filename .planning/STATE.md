@@ -171,7 +171,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-27T02:41:22.010Z
-Stopped at: Completed quick task 260327-hmk
+Stopped at: Completed quick task 260327-jju
 
 ## Quick Tasks Completed
 
@@ -223,3 +223,4 @@ Stopped at: Completed quick task 260327-hmk
 | 260327-ghv | src/cli/article.py 保持代码行数少于200，cli层不做业务逻辑 | 2026-03-27 | e535741 | Verified | [260327-ghv-src-cli-article-py-200-cli-application](./quick/260327-ghv-src-cli-article-py-200-cli-application/) |
 | 260327-h4z | Refactor CLI fetch command to use fetch_ids_async from application layer | 2026-03-27 | a844ee4 | Verified | [260327-h4z-src-cli-feed-py-200-cli-application](./quick/260327-h4z-src-cli-feed-py-200-cli-application/) |
 | 260327-hmk | 删除 feed_refresh 命令，和 fetch <id> 功能重叠 | 2026-03-27 | fc212a8 | Verified | [260327-hmk-feed-refresh-fetch-ids](./quick/260327-hmk-feed-refresh-fetch-ids/) |
+| 260327-jju | 优化 fetch <feed_id> 响应速度，使用 async-native 路径 | 2026-03-27 | bd03fef | Verified | [260327-jju-python-m-src-cli-fetch-feed-id](./quick/260327-jju-python-m-src-cli-fetch-feed-id/) |
