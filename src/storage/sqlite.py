@@ -108,7 +108,8 @@ def init_db() -> None:
                 etag TEXT,
                 last_modified TEXT,
                 last_fetched TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                weight REAL DEFAULT 0.3
             )
         """)
 
@@ -145,13 +146,6 @@ def init_db() -> None:
                 tokenize='porter ascii'
             )
         """)
-
-        # Add weight column to feeds table (v1.9+)
-        try:
-            cursor.execute("ALTER TABLE feeds ADD COLUMN weight REAL DEFAULT 0.3")
-        except sqlite3.OperationalError as e:
-            if "duplicate column name" not in str(e).lower():
-                raise
 
         conn.commit()
 
