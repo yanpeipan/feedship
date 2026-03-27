@@ -21,6 +21,7 @@ dependencies = [
     "uvloop>=0.22.0",  # async event loop
     "nanoid>=2.0.0",  # URL-safe ID generation
     "scrapling>=0.4.0",  # CSS-selector HTML parsing
+    "msgspec>=0.20.0",  # Required by scrapling browser engine
 ]
 
 [project.optional-dependencies]
