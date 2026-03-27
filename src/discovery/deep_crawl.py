@@ -10,15 +10,11 @@ import httpx
 from bs4 import BeautifulSoup
 from robotexclusionrulesparser import RobotExclusionRulesParser
 
-from src.discovery.common_paths import WELL_KNOWN_PATHS, _COMMON_FEED_SUBDIRS
+from src.discovery.common_paths import matches_feed_path_pattern, generate_feed_candidates
 from src.discovery.fetcher import validate_feed
 from src.discovery.models import DiscoveredFeed
 from src.discovery.parser import parse_link_elements, resolve_url
 from src.providers.rss_provider import BROWSER_HEADERS
-
-# Well-known feed paths for probing
-_FEED_PATH_PROBES = list(WELL_KNOWN_PATHS)
-
 
 def normalize_url_for_visit(url: str) -> str:
     """Normalize URL for visited-set tracking.
@@ -56,16 +52,12 @@ async def _probe_well_known_paths(page_url: str) -> list[DiscoveredFeed]:
     Returns:
         List of DiscoveredFeed found via well-known path probing.
     """
-    parsed = urlparse(page_url)
-    base = f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
-    if parsed.port:
-        base += f":{parsed.port}"
-
     results = []
 
-    # Root-level well-known paths
-    for path in _FEED_PATH_PROBES:
-        candidate = base + path
+    # Generate candidates using pattern-based approach
+    candidates = generate_feed_candidates(page_url)
+
+    for candidate in candidates:
         is_valid, feed_type = await validate_feed(candidate)
         if is_valid:
             results.append(DiscoveredFeed(
@@ -75,20 +67,6 @@ async def _probe_well_known_paths(page_url: str) -> list[DiscoveredFeed]:
                 source='well_known_path',
                 page_url=page_url,
             ))
-
-    # Common sub-directory paths with feed suffixes
-    for subdir in _COMMON_FEED_SUBDIRS:
-        for suffix in ("/rss.xml", "/atom.xml", "/feed.xml"):
-            candidate = base + subdir + suffix
-            is_valid, feed_type = await validate_feed(candidate)
-            if is_valid:
-                results.append(DiscoveredFeed(
-                    url=candidate,
-                    title=None,
-                    feed_type=feed_type,
-                    source='well_known_path',
-                    page_url=page_url,
-                ))
 
     return results
 
@@ -184,10 +162,6 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> list[DiscoveredFeed]
 
     # All discovered feeds
     all_feeds: list[DiscoveredFeed] = []
-
-    # Parse initial URL to get host
-    parsed_start = urlparse(start_url)
-    start_host = parsed_start.netloc.lower()
 
     def get_host(url: str) -> str:
         """Extract host from URL."""
@@ -309,6 +283,10 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> list[DiscoveredFeed]
             # Skip non-HTML resources (simple heuristic)
             path = parsed.path.lower()
             if any(path.endswith(ext) for ext in ('.jpg', '.jpeg', '.png', '.gif', '.css', '.js', '.ico', '.svg', '.woff', '.pdf', '.zip', '.mp3', '.mp4')):
+                continue
+
+            # Only follow links that match feed path patterns (BFS focused on feed discovery)
+            if not matches_feed_path_pattern(path):
                 continue
 
             links.append(absolute)
