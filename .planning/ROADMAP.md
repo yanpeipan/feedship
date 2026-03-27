@@ -9,7 +9,8 @@
 - [x] **v1.4 Storage Layer Enforcement** — Phases 16-18 (shipped 2026-03-25)
 - [x] **v1.5 uvloop并发支持** — Phases 19-22 (shipped 2026-03-25)
 - [x] **v1.7 pytest测试框架** — Phases 26-29 (shipped 2026-03-25)
-- [ ] **v1.8 ChromaDB 语义搜索** — Phases 30-33 (in progress)
+- [x] **v1.8 ChromaDB 语义搜索** — Phases 30-33 (shipped 2026-03-27)
+- [ ] **v1.9 Automatic Discovery Feed** — Phases 34-37 (in progress)
 
 ## Phases
 
@@ -83,7 +84,14 @@
 
 </details>
 
-### 🚧 v1.8 ChromaDB 语义搜索 (Phases 30-33)
+### 🚧 v1.9 Automatic Discovery Feed (Phases 34-37)
+
+- [ ] **Phase 34: Discovery Core Module** — HTML parsing, path probing, URL resolution, feed validation
+- [ ] **Phase 35: Discovery CLI Command** — `discover <url>` command
+- [ ] **Phase 36: Feed Add Integration** — `--discover` and `--automatic` flags
+- [ ] **Phase 37: Deep Crawling** — BFS crawler, robots.txt, documentation
+
+### v1.8 ChromaDB 语义搜索 (Phases 30-33)
 
 - [ ] **Phase 30: Semantic Search Infrastructure** - ChromaDB setup, embedding service, model pre-download
 - [x] **Phase 31: Write Path - Incremental Embedding** - Embed articles during fetch, reindex command (completed 2026-03-26)
@@ -181,9 +189,13 @@ Plans:
 | 28. Storage层单元测试 | 1/1 | ✅ Complete | 2026-03-25 |
 | 29. CLI集成测试 | 1/1 | ✅ Complete | 2026-03-25 |
 | 30. Semantic Search Infrastructure | 3/3 | ✅ Complete | 2026-03-27 |
-| 31. Write Path - Incremental Embedding | 2/2 | Complete   | 2026-03-26 |
-| 32. Query Path - Semantic Search CLI | 0/1 | Not started | - |
-| 33. Polish - Error Handling | 1/1 | Planned | - |
+| 31. Write Path - Incremental Embedding | 2/2 | ✅ Complete | 2026-03-26 |
+| 32. Query Path - Semantic Search CLI | — | ✅ Complete | 2026-03-27 |
+| 33. Polish - Error Handling | — | ✅ Complete | 2026-03-27 |
+| 34. Discovery Core Module | — | Not started | - |
+| 35. Discovery CLI Command | — | Not started | - |
+| 36. Feed Add Integration | — | Not started | - |
+| 37. Deep Crawling | — | Not started | - |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_
