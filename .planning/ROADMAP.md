@@ -129,7 +129,9 @@ Plans:
   2. User can run `feed add <url> --automatic on` to enable automatic feed addition from discovered feeds
   3. User can run `feed add <url> --discover-deep 2` to set deep crawl depth for discovery
   4. Default behavior: `--discover on`, `--automatic off` (discovery enabled but not automatic)
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 36-01-PLAN.md — Feed Add Integration (discovery options, selection prompt)
 
 ### Phase 37: Deep Crawling
 **Goal**: Users can discover feeds across an entire website with BFS crawling, respecting robots.txt
