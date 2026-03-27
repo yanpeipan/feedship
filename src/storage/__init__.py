@@ -17,11 +17,11 @@ from src.storage.sqlite.impl import (
     get_feed,
     remove_feed,
     update_feed,
+    upsert_feed,
     list_articles,
     get_article,
     get_article_detail,
     search_articles,
-    ensure_crawled_feed,
     get_articles_by_ids,
 )
 

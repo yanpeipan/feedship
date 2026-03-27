@@ -16,20 +16,22 @@ class FetchProgress:
     """Context manager for feed fetch operations with Rich progress bar.
 
     Usage:
-        with FetchProgress(total, description) as fp:
+        with FetchProgress(total, description, concurrency) as fp:
             async for result in async_gen:
                 fp.update(result)
         print(fp.total_new, fp.success_count, fp.elapsed_time)
     """
 
-    def __init__(self, total: int, description: str):
+    def __init__(self, total: int, description: str, concurrency: int = 10):
         """Initialize fetch progress tracker.
 
         Args:
             total: Total number of feeds to fetch.
             description: Initial progress bar description.
+            concurrency: Max concurrent fetches (shown in description).
         """
         self._total = total
+        self._concurrency = concurrency
         self._description = description
         self._progress: Progress | None = None
         self._task = None
@@ -214,7 +216,7 @@ def print_summary(
     else:
         click.secho(
             f"{prefix}Fetched {total_new} articles from {success_count} feed(s), "
-            f"{error_count} errors(elapsed_str)",
+            f"{error_count} errors{elapsed_str}",
             fg="yellow",
         )
         for err in errors:

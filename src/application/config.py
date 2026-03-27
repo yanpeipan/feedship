@@ -22,3 +22,8 @@ def get_timezone() -> ZoneInfo:
     """Return the configured timezone as a ZoneInfo object."""
     tz_name = _get_settings().get("timezone", "Asia/Shanghai")
     return ZoneInfo(tz_name)
+
+
+def get_default_feed_weight() -> float:
+    """Return the default feed weight for semantic search ranking."""
+    return _get_settings().get("feed.default.weight", 0.3)

@@ -6,10 +6,10 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from src.application.config import get_timezone
+from src.application.config import get_timezone, get_default_feed_weight
 from src.models import Feed
 from src.providers import discover_or_default
-from src.storage import feed_exists, add_feed as storage_add_feed, list_feeds as storage_list_feeds, get_feed as storage_get_feed, remove_feed as storage_remove_feed, update_feed as storage_update_feed
+from src.storage import list_feeds as storage_list_feeds, get_feed as storage_get_feed, remove_feed as storage_remove_feed, update_feed as storage_update_feed, upsert_feed
 from src.utils import generate_article_id, generate_feed_id
 
 logger = logging.getLogger(__name__)
@@ -18,16 +18,15 @@ logger = logging.getLogger(__name__)
 class FeedNotFoundError(Exception):
     """Raised when a feed is not found in the database."""
 
-    pass
 
-
-def add_feed(url: str) -> Feed:
+def add_feed(url: str, weight: float | None = None) -> Feed:
     """Add a new feed by URL.
 
     Uses provider.feed_meta to fetch metadata and provider.crawl to validate.
 
     Args:
         url: The URL of the feed to add.
+        weight: Optional feed weight for semantic search ranking. Defaults to config value.
 
     Returns:
         The created Feed object.
@@ -61,14 +60,11 @@ def add_feed(url: str) -> Feed:
         raise ValueError("No entries found in feed")
 
     # Check if feed already exists using storage function
-    if feed_exists(url):
-        raise ValueError(f"Feed already exists: {url}")
-
-    # Create new feed
+    # Create new feed (or update existing)
     feed_id = generate_feed_id()
     now = datetime.now(get_timezone()).isoformat()
 
-    # Use storage function to add feed
+    # Use upsert to insert or update
     feed = Feed(
         id=feed_id,
         name=feed_meta.name,
@@ -77,8 +73,9 @@ def add_feed(url: str) -> Feed:
         last_modified=feed_meta.last_modified,
         last_fetched=now,
         created_at=now,
+        weight=weight if weight is not None else get_default_feed_weight(),
     )
-    return storage_add_feed(feed)
+    return upsert_feed(feed)
 
 
 def list_feeds() -> list[Feed]:
@@ -133,10 +130,6 @@ def fetch_one(feed_or_id: str | Feed) -> dict:
         if not feed:
             raise FeedNotFoundError(f"Feed not found: {feed_or_id}")
 
-    # Skip 'crawled' system feed - it has no URL to refresh
-    if feed.id == "crawled":
-        return {"new_articles": 0}
-
     # Use discover_or_default to find provider for this feed URL
     providers = discover_or_default(feed.url)
     if not providers:
@@ -162,7 +155,7 @@ def fetch_one(feed_or_id: str | Feed) -> dict:
     for raw in raw_items:
         article = provider.parse(raw)
         article_guid = article.get("guid") or generate_article_id(article)
-        stored_id = store_article(
+        store_article(
             guid=article_guid,
             title=article.get("title") or "",
             content=article.get("content") or article.get("description") or "",

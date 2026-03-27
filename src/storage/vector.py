@@ -15,6 +15,7 @@ os.environ["TRANSFORMERS_OFFLINE"] = "1"
 import chromadb
 from chromadb import PersistentClient
 from chromadb.config import Settings
+from datetime import datetime, timezone
 import platformdirs
 from sentence_transformers import SentenceTransformer
 import threading
@@ -242,7 +243,6 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
         freshness = 0.0
         if pub_date:
             try:
-                from datetime import datetime, timezone
                 pub_dt = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
                 if pub_dt.tzinfo is None:
                     pub_dt = pub_dt.replace(tzinfo=timezone.utc)

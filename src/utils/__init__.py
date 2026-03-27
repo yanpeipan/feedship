@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import hashlib
-import uuid
+from nanoid import generate
 
 
 def generate_feed_id() -> str:
-    """Generate a unique ID for a new feed.
+    """Generate a unique ID for a new feed (nanoid, same as articles).
 
     Returns:
-        A new UUID string.
+        A new nanoid string.
     """
-    return str(uuid.uuid4())
+    return generate()
 
 
 def generate_article_id(entry) -> str:

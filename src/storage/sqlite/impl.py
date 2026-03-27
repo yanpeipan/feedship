@@ -12,6 +12,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from src.models import Feed
+
 from nanoid import generate
 
 # Asyncio lock for serializing database writes from async context
@@ -101,6 +103,44 @@ def init_db() -> None:
     DatabaseInitializer().init_db()
 
 
+def _normalize_pub_date(pub_date: str | None, tz) -> str:
+    """Normalize pub_date to YYYY-MM-DD in the configured timezone.
+
+    Handles RFC-2822 ("Wed, 31 Oct 2024 12:00:00 GMT") and ISO
+    ("2024-10-31T12:00:00Z") formats. Falls back to current time.
+    """
+    from datetime import datetime
+    from email.utils import parsedate_to_datetime
+
+    if not pub_date:
+        return datetime.now(tz).strftime("%Y-%m-%d")
+
+    try:
+        # Try RFC-2822 first (feedparser standard)
+        dt = parsedate_to_datetime(pub_date)
+        dt = dt.astimezone(tz)
+        return dt.strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        pass
+
+    try:
+        # Try ISO format
+        dt = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=tz)
+        else:
+            dt = dt.astimezone(tz)
+        return dt.strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        pass
+
+    # Fallback: try YYYY-MM-DD direct
+    if len(pub_date) >= 10 and pub_date[4:5] == "-":
+        return pub_date[:10]
+
+    return datetime.now(tz).strftime("%Y-%m-%d")
+
+
 def store_article(
     guid: str,
     title: str,
@@ -120,12 +160,14 @@ def store_article(
         pub_date: Publication date (optional).
 
     Returns:
-        Article ID (existing if updated, new if inserted).
+        article_id: The ID of the stored article.
     """
     from datetime import datetime
     from src.application.config import get_timezone
 
-    now = datetime.now(get_timezone()).isoformat()
+    tz = get_timezone()
+    now = datetime.now(tz).isoformat()
+    normalized_pub_date = _normalize_pub_date(pub_date, tz)
 
     with get_db() as conn:
         cursor = conn.cursor()
@@ -140,7 +182,7 @@ def store_article(
             cursor.execute(
                 """UPDATE articles SET title = ?, content = ?, link = ?, pub_date = ?
                    WHERE guid = ?""",
-                (title, content, link, pub_date or now, guid),
+                (title, content, link, normalized_pub_date, guid),
             )
         else:
             # INSERT new article
@@ -154,7 +196,7 @@ def store_article(
                     title,
                     link,
                     guid,
-                    pub_date or now,
+                    normalized_pub_date,
                     content,
                     now,
                 ),
@@ -188,7 +230,7 @@ async def store_article_async(
         Same as store_article()
 
     Returns:
-        Same as store_article()
+        Same as store_article(): article_id
     """
     lock = _get_db_write_lock()
     async with lock:
@@ -315,6 +357,53 @@ def remove_feed(feed_id: str) -> bool:
         deleted = cursor.rowcount > 0
         conn.commit()
         return deleted
+
+
+def upsert_feed(feed) -> Feed:
+    """Insert or update a feed by URL, returning the Feed object.
+
+    If feed with same URL exists, preserves existing id and updates other fields.
+    If not exists, inserts new feed.
+
+    Args:
+        feed: Feed object with all fields to save.
+
+    Returns:
+        The saved Feed object (new or updated).
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM feeds WHERE url = ?", (feed.url,))
+        existing = cursor.fetchone()
+
+        if existing:
+            # UPDATE existing feed, preserving original id
+            cursor.execute(
+                """UPDATE feeds SET name = ?, etag = ?, last_modified = ?, last_fetched = ?, weight = ?
+                   WHERE url = ?""",
+                (feed.name, feed.etag, feed.last_modified, feed.last_fetched, feed.weight, feed.url),
+            )
+            conn.commit()
+            # Return Feed with preserved id
+            return Feed(
+                id=existing["id"],
+                name=feed.name,
+                url=feed.url,
+                etag=feed.etag,
+                last_modified=feed.last_modified,
+                last_fetched=feed.last_fetched,
+                created_at=existing["created_at"],
+                weight=feed.weight,
+            )
+        else:
+            # INSERT new feed
+            cursor.execute(
+                """INSERT INTO feeds (id, name, url, etag, last_modified, last_fetched, created_at, weight)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (feed.id, feed.name, feed.url, feed.etag, feed.last_modified, feed.last_fetched, feed.created_at, feed.weight),
+            )
+            conn.commit()
+            return feed
 
 
 def list_articles(limit: int = 20, feed_id: Optional[str] = None, since: Optional[str] = None, until: Optional[str] = None, on: Optional[list[str]] = None) -> list:
@@ -608,20 +697,3 @@ def update_feed(feed_id: str, last_fetched: str, etag: Optional[str] = None, las
         updated = cursor.rowcount > 0
         conn.commit()
         return updated
-
-
-def ensure_crawled_feed() -> None:
-    """Create 'crawled' system feed if it doesn't exist."""
-    from src.application.config import get_timezone
-    from datetime import datetime
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM feeds WHERE id = 'crawled'")
-        if cursor.fetchone() is None:
-            now = datetime.now(get_timezone()).isoformat()
-            cursor.execute(
-                """INSERT INTO feeds (id, name, url, created_at)
-                   VALUES ('crawled', 'Crawled Pages', '', ?)""",
-                (now,)
-            )
-            conn.commit()

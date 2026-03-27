@@ -14,13 +14,6 @@ from src.application.articles import get_article_detail, list_articles, search_a
 logger = logging.getLogger(__name__)
 
 
-_MONTH_MAP = {
-    "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
-    "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
-    "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12",
-}
-
-
 def _format_date(pub_date: str | None) -> str:
     """Format pub_date as 'YYYY-MM-DD' or return '-'."""
     if not pub_date:
@@ -31,8 +24,11 @@ def _format_date(pub_date: str | None) -> str:
         segs = parts[1].strip().split()
         if len(segs) >= 3:
             day, mon, year = segs[0], segs[1], segs[2]
-            if mon in _MONTH_MAP and year.isdigit() and len(year) == 4:
-                return f"{year}-{_MONTH_MAP[mon]}-{day.zfill(2)}"
+            month_map = {"Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
+                         "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
+                         "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12"}
+            if mon in month_map and year.isdigit() and len(year) == 4:
+                return f"{year}-{month_map[mon]}-{day.zfill(2)}"
     # ISO format: "2024-10-31T..." or "2024-10-31"
     if len(pub_date) >= 10 and pub_date[4:5] == "-":
         return pub_date[:10]

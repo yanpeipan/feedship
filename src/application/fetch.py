@@ -30,10 +30,6 @@ async def fetch_one_async(feed: Feed) -> dict:
     Returns:
         Dict with new_articles count and optional error.
     """
-    # Skip 'crawled' system feed - it has no URL to refresh
-    if feed.id == "crawled":
-        return {"new_articles": 0}
-
     # Use discover_or_default to find provider for this feed URL
     providers = discover_or_default(feed.url)
     if not providers:
@@ -60,7 +56,7 @@ async def fetch_one_async(feed: Feed) -> dict:
 
         # Use async store that serializes writes via asyncio.Lock + to_thread
         try:
-            article_id = await store_article_async(
+            await store_article_async(
                 guid=article_guid,
                 title=article.get("title") or "",
                 content=article.get("content") or article.get("description") or "",
@@ -96,79 +92,6 @@ async def fetch_one_async(feed: Feed) -> dict:
         storage_update_feed(feed.id, now)
 
     return {"new_articles": new_count}
-
-
-async def fetch_url_async(url: str) -> dict:
-    """Fetch articles from a raw URL using discovered provider.
-
-    Uses provider's crawl_async to fetch and parse articles, then stores
-    them with embeddings applied (same as feed fetch).
-
-    Args:
-        url: URL to crawl.
-
-    Returns:
-        Dict with new_articles count, url, and optional error.
-    """
-    # Ensure system feed exists for crawled articles
-    from src.storage import ensure_crawled_feed
-    ensure_crawled_feed()
-
-    # Use discover_or_default to find provider for this URL
-    providers = discover_or_default(url)
-    if not providers:
-        return {"new_articles": 0, "url": url, "error": f"No provider for {url}"}
-
-    provider = providers[0]  # highest priority match
-
-    # Crawl using the discovered provider's async method
-    try:
-        raw_items = await provider.crawl_async(url)
-    except Exception as e:
-        logger.error("Failed to crawl_async %s: %s", url, e)
-        return {"new_articles": 0, "url": url, "error": str(e)}
-
-    if not raw_items:
-        return {"new_articles": 0, "url": url}
-
-    # Parse and store each item (store_article_async serializes DB writes)
-    new_count = 0
-
-    for raw in raw_items:
-        article = provider.parse(raw)
-        article_guid = article.get("guid") or generate_article_id(article)
-
-        # Use async store that serializes writes via asyncio.Lock + to_thread
-        try:
-            await store_article_async(
-                guid=article_guid,
-                title=article.get("title") or "",
-                content=article.get("content") or article.get("description") or "",
-                link=article.get("link") or "",
-                feed_id="crawled",  # System feed for crawled pages
-                pub_date=article.get("pub_date"),
-            )
-            new_count += 1
-
-            # Generate embedding for semantic search
-            try:
-                # Lazy import to avoid torch dependency when embeddings are not needed
-                from src.storage.vector import add_article_embedding
-                await asyncio.to_thread(
-                    add_article_embedding,
-                    article_id=article_guid,
-                    title=article.get("title") or "",
-                    content=article.get("content") or article.get("description") or "",
-                    url=article.get("link") or "",
-                )
-            except Exception as e:
-                logger.warning("Failed to add embedding for article %s: %s", article_guid, e)
-                # Don't re-raise - embedding failure should not fail the fetch
-        except Exception as e:
-            logger.warning("Failed to store article %s: %s", article_guid, e)
-            continue
-
-    return {"new_articles": new_count, "url": url}
 
 
 async def fetch_all_async(concurrency: int = 10):

@@ -27,9 +27,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-async def _fetch_with_progress(async_gen, total, description: str):
+async def _fetch_with_progress(async_gen, total, description: str, concurrency: int = 10):
     """Run async fetch with Rich progress bar. Returns (total_new, success_count, error_count, errors, elapsed_time)."""
-    with FetchProgress(total, description) as fp:
+    with FetchProgress(total, description, concurrency) as fp:
         async for result in async_gen:
             fp.update(result)
     return fp.total_new, fp.success_count, fp.error_count, fp.errors, fp.elapsed_time
@@ -116,8 +116,14 @@ def feed(ctx: click.Context) -> None:
     type=click.IntRange(1, 10),
     help="Discovery crawl depth (default: 1)",
 )
+@click.option(
+    "--weight",
+    default=None,
+    type=float,
+    help=f"Feed weight for semantic search (default: 0.3)",
+)
 @click.pass_context
-def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discover_depth: int) -> None:
+def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discover_depth: int, weight: float | None) -> None:
     """Add a new feed by URL (auto-detects provider type).
 
     Examples:
@@ -152,7 +158,7 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
             added_count = 0
             for feed in feeds:
                 try:
-                    add_feed(feed.url)
+                    add_feed(feed.url, weight)
                     added_count += 1
                 except ValueError as e:
                     # Feed already exists or failed
@@ -164,7 +170,7 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
         if len(feeds) == 1:
             feed = feeds[0]
             try:
-                add_feed(feed.url)
+                add_feed(feed.url, weight)
                 click.secho(f"Added feed: {feed.url}", fg="green")
             except ValueError as e:
                 click.secho(f"  Skipped {feed.url}: {e}", fg="yellow")
@@ -182,7 +188,7 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
         for idx in selected:
             feed = feeds[idx]
             try:
-                add_feed(feed.url)
+                add_feed(feed.url, weight)
                 added_count += 1
             except ValueError as e:
                 click.secho(f"  Skipped {feed.url}: {e}", fg="yellow")
@@ -191,7 +197,7 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
 
     # Original behavior when --discover off
     try:
-        feed_obj = add_feed(url)
+        feed_obj = add_feed(url, weight)
 
         # Determine provider type for display
         from src.providers import discover_or_default
@@ -338,7 +344,7 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, ids: tuple) 
             else:
                 # Multiple IDs: use semaphore concurrency
                 total_new, success_count, error_count, errors, elapsed = uvloop.run(
-                    _fetch_with_progress(fetch_ids_async(ids, concurrency), len(ids), f"[cyan]Fetching {len(ids)} feeds by ID...")
+                    _fetch_with_progress(fetch_ids_async(ids, concurrency), len(ids), f"[cyan]Fetching {len(ids)} feeds by ID (concurrency:{concurrency})...", concurrency),
                 )
                 print_summary(total_new, success_count, error_count, errors, elapsed)
         except Exception as e:
@@ -355,7 +361,7 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, ids: tuple) 
                 click.secho("No feeds subscribed. Use 'feed add <url>' to add one.", fg="yellow")
                 return
             total_new, success_count, error_count, errors, elapsed = uvloop.run(
-                _fetch_with_progress(fetch_all_async(concurrency=concurrency), len(feeds), f"[cyan]Fetching {len(feeds)} feeds...")
+                _fetch_with_progress(fetch_all_async(concurrency=concurrency), len(feeds), f"[cyan]Fetching {len(feeds)} feeds (concurrency:{concurrency})...", concurrency),
             )
             print_summary(total_new, success_count, error_count, errors, elapsed, prefix="✓ ")
         except Exception as e:
