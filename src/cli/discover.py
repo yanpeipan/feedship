@@ -71,22 +71,22 @@ from src.cli import cli
 @cli.command("discover")
 @click.argument("url")
 @click.option(
-    "--discover-deep",
+    "--discover-depth",
     default=1,
     type=click.IntRange(1, 10),
     help="Crawl depth for feed discovery (default: 1)",
 )
 @click.pass_context
-def discover(ctx: click.Context, url: str, discover_deep: int) -> None:
+def discover(ctx: click.Context, url: str, discover_depth: int) -> None:
     """Discover RSS/Atom/RDF feeds from a website URL without subscribing.
 
     Examples:
 
       rss-reader discover example.com
-      rss-reader discover example.com --discover-deep 1
+      rss-reader discover example.com --discover-depth 1
     """
     try:
-        feeds = uvloop.run(_discover_async(url, discover_deep))
+        feeds = uvloop.run(_discover_async(url, discover_depth))
         _display_feeds(feeds)
     except Exception as e:
         click.secho(f"Error: {e}", err=True, fg="red")
