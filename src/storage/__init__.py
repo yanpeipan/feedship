@@ -4,6 +4,8 @@ from src.storage.vector import (
     add_article_embedding,
     get_chroma_collection,
     get_embedding_function,
+    search_articles_semantic,
+    get_related_articles,
 )
 from src.storage.sqlite import (
     get_db,

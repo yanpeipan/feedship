@@ -14,6 +14,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from src.application.articles import get_article_detail, list_articles, search_articles
+from src.storage import search_articles_semantic, get_related_articles
 
 logger = logging.getLogger(__name__)
 
@@ -286,43 +287,120 @@ def article_tag(ctx: click.Context, article_id: Optional[str], tag_name: Optiona
 @click.argument("query")
 @click.option("--limit", default=20, help="Maximum number of results")
 @click.option("--feed-id", default=None, help="Filter by feed ID")
+@click.option("--semantic", is_flag=True, help="Use semantic search instead of keyword search")
 @click.pass_context
-def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional[str]) -> None:
-    """Search articles by keyword using full-text search.
+def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional[str], semantic: bool) -> None:
+    """Search articles by keyword or semantic similarity.
 
-    Supports FTS5 query syntax:
+    Use --semantic for AI-powered similarity search. Without --semantic,
+    uses FTS5 full-text search.
+
+    FTS5 query syntax (without --semantic):
     - Multiple words default to AND (all must match)
     - Use quotes for exact phrase: "machine learning"
     - Use OR for either: python OR ruby
     """
     verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
     try:
-        articles = search_articles(query=query, limit=limit, feed_id=feed_id)
-        if not articles:
-            click.secho("No articles found matching your search.")
-            return
+        if semantic:
+            # Semantic search via ChromaDB
+            results = search_articles_semantic(query_text=query, limit=limit)
+            if not results:
+                click.secho("No articles found matching your semantic search.")
+                return
+            click.secho("Semantic search results (by similarity):")
+            click.secho("-" * 80)
+            for i, result in enumerate(results):
+                title = result.get("title") or "No title"
+                url = result.get("url") or ""
+                distance = result.get("distance")
+                # Convert L2 distance to cosine similarity for normalized embeddings:
+                # L2_dist = sqrt(2 - 2*cos_sim) => cos_sim = 1 - dist^2/2
+                if distance is not None:
+                    cos_sim = max(0.0, 1.0 - (distance * distance / 2.0))
+                    similarity = f"{round(cos_sim * 100, 1)}%"
+                else:
+                    similarity = "N/A"
+                if verbose:
+                    click.secho(f"\nTitle: {title}")
+                    click.secho(f"URL: {url}")
+                    click.secho(f"Similarity: {similarity}")
+                    doc = result.get("document") or ""
+                    if doc:
+                        preview = doc[:150] + "..." if len(doc) > 150 else doc
+                        click.secho(f"Content preview: {preview}")
+                else:
+                    click.secho(f"{title[:50]} | Similarity: {similarity}")
+        else:
+            # FTS5 keyword search
+            articles = search_articles(query=query, limit=limit, feed_id=feed_id)
+            if not articles:
+                click.secho("No articles found matching your search.")
+                return
 
-        click.secho("Title | Source | Date")
-        click.secho("-" * 80)
+            click.secho("Title | Source | Date")
+            click.secho("-" * 80)
 
-        for article in articles:
-            title = article.title or "No title"
-            pub_date = article.pub_date or "No date"
+            for article in articles:
+                title = article.title or "No title"
+                pub_date = article.pub_date or "No date"
 
-            source = article.feed_name or "Unknown"
+                source = article.feed_name or "Unknown"
 
-            if verbose:
-                click.secho(f"\nTitle: {title}")
-                click.secho(f"Source: {source}")
-                click.secho(f"Date: {pub_date}")
-                if article.link:
-                    click.secho(f"Link: {article.link}")
-                if article.description:
-                    desc_preview = article.description[:100] + "..." if len(article.description) > 100 else article.description
-                    click.secho(f"Description: {desc_preview}")
-            else:
-                click.secho(f"{title[:50]} | {source[:25]} | {pub_date[:10]}")
+                if verbose:
+                    click.secho(f"\nTitle: {title}")
+                    click.secho(f"Source: {source}")
+                    click.secho(f"Date: {pub_date}")
+                    if article.link:
+                        click.secho(f"Link: {article.link}")
+                    if article.description:
+                        desc_preview = article.description[:100] + "..." if len(article.description) > 100 else article.description
+                        click.secho(f"Description: {desc_preview}")
+                else:
+                    click.secho(f"{title[:50]} | {source[:25]} | {pub_date[:10]}")
     except Exception as e:
         click.secho(f"Error: Failed to search articles: {e}", err=True, fg="red")
         logger.exception("Failed to search articles")
+        sys.exit(1)
+
+
+@article.command("related")
+@click.argument("article-id")
+@click.option("--limit", default=5, help="Maximum number of related articles")
+@click.pass_context
+def article_related(ctx: click.Context, article_id: str, limit: int) -> None:
+    """Find articles semantically similar to the given article.
+
+    Uses ChromaDB similarity search to find related articles based on
+    content embeddings.
+    """
+    verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
+    try:
+        results = get_related_articles(article_id=article_id, limit=limit)
+        if not results:
+            click.secho("No related articles found.")
+            return
+
+        click.secho(f"Articles related to {article_id}:")
+        click.secho("-" * 80)
+
+        for result in results:
+            title = result.get("title") or "No title"
+            url = result.get("url") or ""
+            distance = result.get("distance")
+            similarity = f"{max(0, round((1 - distance) * 100, 1))}%" if distance is not None else "N/A"
+
+            if verbose:
+                click.secho(f"\nTitle: {title}")
+                click.secho(f"URL: {url}")
+                click.secho(f"Similarity: {similarity}")
+                doc = result.get("document") or ""
+                if doc:
+                    preview = doc[:150] + "..." if len(doc) > 150 else doc
+                    click.secho(f"Content preview: {preview}")
+            else:
+                click.secho(f"{title[:50]} | Similarity: {similarity}")
+    except Exception as e:
+        click.secho(f"Error: Failed to find related articles: {e}", err=True, fg="red")
+        logger.exception("Failed to find related articles")
         sys.exit(1)

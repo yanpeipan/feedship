@@ -134,3 +134,120 @@ def add_article_embedding(article_id: str, title: str, content: str, url: str) -
         except Exception as e:
             logger.error("ChromaDB add failed for %s: error=%s", article_id, e)
             raise
+
+
+def search_articles_semantic(query_text: str, limit: int = 10) -> list[dict]:
+    """Search articles by semantic similarity using ChromaDB.
+
+    Args:
+        query_text: Natural language query to search for
+        limit: Maximum number of results to return
+
+    Returns:
+        List of dicts with keys: article_id, title, url, distance, document
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    with _chroma_lock:
+        collection = get_chroma_collection()
+        embedding_fn = get_embedding_function()
+        try:
+            emb = embedding_fn.encode([query_text], convert_to_numpy=True)[0]
+        except Exception as e:
+            logger.error("Encoding failed for semantic query: %s", e)
+            raise
+        embedding_vector = emb.tolist()
+
+        try:
+            results = collection.query(
+                query_embeddings=[embedding_vector],
+                n_results=limit,
+                include=["documents", "metadatas", "distances"],
+            )
+        except Exception as e:
+            logger.error("ChromaDB query failed: %s", e)
+            raise
+
+    # Flatten and map results
+    articles = []
+    ids = results.get("ids", [[]])[0]
+    documents = results.get("documents", [[]])[0]
+    metadatas = results.get("metadatas", [[]])[0]
+    distances = results.get("distances", [[]])[0]
+
+    for i, article_id in enumerate(ids):
+        articles.append({
+            "article_id": article_id,
+            "title": metadatas[i].get("title") if metadatas[i] else None,
+            "url": metadatas[i].get("url") if metadatas[i] else None,
+            "distance": distances[i] if i < len(distances) else None,
+            "document": documents[i] if i < len(documents) else None,
+        })
+    return articles
+
+
+def get_related_articles(article_id: str, limit: int = 5) -> list[dict]:
+    """Find articles semantically similar to a given article.
+
+    Args:
+        article_id: The SQLite article ID to find related articles for
+        limit: Maximum number of related articles to return
+
+    Returns:
+        List of dicts with keys: article_id, title, url, distance, document
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Look up the article's guid (which is the ChromaDB ID)
+    from src.storage.sqlite import get_article
+    article = get_article(article_id)
+    if not article:
+        raise ValueError(f"Article {article_id} not found in database")
+    chroma_id = article.guid if article.guid else article_id
+
+    with _chroma_lock:
+        collection = get_chroma_collection()
+        # First get the embedding vector for the source article
+        try:
+            existing = collection.get(ids=[chroma_id], include=["embeddings"])
+        except Exception as e:
+            logger.error("ChromaDB get failed for %s (guid=%s): %s", article_id, chroma_id, e)
+            raise
+        embeddings = existing.get("embeddings", [[]])
+        if embeddings is None or len(embeddings) == 0 or len(embeddings[0]) == 0:
+            raise ValueError(f"No embedding found for article {article_id} (guid={chroma_id})")
+        source_embedding = embeddings[0]
+
+        # Now query for similar articles using the source embedding
+        try:
+            results = collection.query(
+                query_embeddings=[source_embedding],
+                n_results=limit + 1,  # +1 because the query article itself is included
+                include=["documents", "metadatas", "distances"],
+            )
+        except Exception as e:
+            logger.error("ChromaDB query failed for related articles: %s", e)
+            raise
+
+    # Flatten and map results, excluding the query article itself
+    articles = []
+    ids = results.get("ids", [[]])[0]
+    documents = results.get("documents", [[]])[0]
+    metadatas = results.get("metadatas", [[]])[0]
+    distances = results.get("distances", [[]])[0]
+
+    for i, related_id in enumerate(ids):
+        if related_id == chroma_id:
+            continue  # Skip the query article itself
+        articles.append({
+            "article_id": related_id,
+            "title": metadatas[i].get("title") if metadatas[i] else None,
+            "url": metadatas[i].get("url") if metadatas[i] else None,
+            "distance": distances[i] if i < len(distances) else None,
+            "document": documents[i] if i < len(documents) else None,
+        })
+        if len(articles) >= limit:
+            break
+    return articles
