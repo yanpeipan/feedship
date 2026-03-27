@@ -151,7 +151,7 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> list[DiscoveredFeed]
     last_request_time: dict[str, float] = {}
 
     # robots.txt cache: parsed robots per host
-    robots_cache: dict[str, RobotFileParser | None] = {}
+    robots_cache: dict[str, RobotExclusionRulesParser | None] = {}
 
     # Semaphore to limit concurrent requests (5 concurrent)
     semaphore = asyncio.Semaphore(5)
@@ -214,7 +214,7 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> list[DiscoveredFeed]
         if host not in robots_cache:
             # Fetch and parse robots.txt
             robots_url = f"{urlparse(url).scheme.lower()}://{host}/robots.txt"
-            parser = RobotFileParser()
+            parser = RobotExclusionRulesParser()
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     response = await client.get(robots_url)
