@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 260328-4vr: remove mode parameter from print_articles
-last_updated: "2026-03-27T19:35:54.719Z"
+stopped_at: Completed 260328-522: CLI simplified - xxx_articles returns formatted data
+last_updated: "2026-03-28T10:30:00.000Z"
 progress:
   total_phases: 40
   completed_phases: 39
@@ -253,3 +253,4 @@ Stopped at: Completed 260328-4vr-PLAN.md
 | 260327-vbz | Refactor Scrapling attrib API (attrib.get() → attrib[]) | 2026-03-27 | a78e185 | Verified | [260327-vbz-scrapling-attrib](./quick/260327-vbz-scrapling-attrib/) |
 | 2026-03-27 | fast | Remove _discover_feed_subdirs, use _FALLBACK_SUBDIR_NAMES | ✅ |
 | Phase 38 P38-01 | ~3min | 3 tasks | 3 files |
+| Phase quick-260328-522 P01 | 300 | 4 tasks | 4 files |
