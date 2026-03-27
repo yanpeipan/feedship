@@ -11,7 +11,7 @@ import asyncio
 import logging
 from typing import Optional
 
-from src.application.feed import FeedNotFoundError, fetch_one
+from src.application.feed import FeedNotFoundError, fetch_one, get_feed
 from src.models import Feed
 from src.providers import discover_or_default
 from src.storage import list_feeds as storage_list_feeds, store_article_async, add_article_embedding
@@ -199,6 +199,24 @@ async def fetch_all_async(concurrency: int = 10):
             "new_articles": result.get("new_articles", 0),
             "error": result.get("error") if result.get("new_articles", 0) == 0 else None,
         }
+
+
+async def fetch_one_async_by_id(feed_id: str) -> dict:
+    """Fetch one feed by ID using async-native path.
+
+    Uses provider.crawl_async() and store_article_async() for true async
+    HTTP and SQLite operations, avoiding asyncio.to_thread overhead.
+
+    Args:
+        feed_id: Feed ID to fetch.
+
+    Returns:
+        Dict with new_articles count and optional error.
+    """
+    feed = get_feed(feed_id)
+    if not feed:
+        raise FeedNotFoundError(f"Feed not found: {feed_id}")
+    return await fetch_one_async(feed)
 
 
 async def fetch_ids_async(ids: list[str], concurrency: int = 10):

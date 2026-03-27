@@ -9,11 +9,12 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from src.application.feed import (
     FeedNotFoundError,
     add_feed,
+    get_feed,
     list_feeds,
     remove_feed,
     fetch_one,
 )
-from src.application.fetch import fetch_all_async, fetch_ids_async
+from src.application.fetch import fetch_all_async, fetch_ids_async, fetch_one_async_by_id
 import uvloop
 
 logger = logging.getLogger(__name__)
@@ -186,10 +187,26 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, ids: tuple) 
     # Case 1: ID arguments provided
     if ids:
         try:
-            total_new, success_count, error_count, errors = uvloop.run(
-                _fetch_with_progress(fetch_ids_async(ids, concurrency), len(ids), f"[cyan]Fetching {len(ids)} feeds by ID...")
-            )
-            _print_fetch_summary(total_new, success_count, error_count, errors)
+            if len(ids) == 1:
+                # Single ID: use async-native path for better performance
+                feed_id = ids[0]
+                feed = get_feed(feed_id)
+                if not feed:
+                    click.secho(f"Feed not found: {feed_id}", fg="yellow")
+                    sys.exit(1)
+                result = uvloop.run(fetch_one_async_by_id(feed_id))
+                total_new = result.get("new_articles", 0)
+                error = result.get("error")
+                if error:
+                    click.secho(f"Error fetching {feed.name}: {error}", fg="red")
+                    sys.exit(1)
+                click.secho(f"Fetched {total_new} articles from {feed.name}", fg="green")
+            else:
+                # Multiple IDs: use semaphore concurrency
+                total_new, success_count, error_count, errors = uvloop.run(
+                    _fetch_with_progress(fetch_ids_async(ids, concurrency), len(ids), f"[cyan]Fetching {len(ids)} feeds by ID...")
+                )
+                _print_fetch_summary(total_new, success_count, error_count, errors)
         except Exception as e:
             click.secho(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
             logger.exception("Failed to fetch feeds")
