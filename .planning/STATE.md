@@ -2,11 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Automatic Discovery Feed
-status: active
-stopped_at: Milestone v1.9 roadmap defined
-last_updated: "2026-03-27T00:00:00.000Z"
-last_activity: "2026-03-27 — Milestone v1.9 roadmap created"
-progress: {}
+status: verifying
+stopped_at: Completed 35-01 plan - Discovery CLI Command
+last_updated: "2026-03-27T08:54:40.487Z"
+last_activity: 2026-03-27
+progress:
+  total_phases: 4
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State
@@ -16,23 +20,23 @@ progress: {}
 See: .planning/PROJECT.md (v1.9 milestone started)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Milestone v1.9 — Automatic Discovery Feed
+**Current focus:** Phase 35 — Discovery CLI Command
 
 ## Current Position
 
-Phase: 34 (ready to plan)
-Plan: —
-Status: Roadmap defined
-Last activity: 2026-03-27 — Milestone v1.9 roadmap created
+Phase: 35 (Discovery CLI Command) — EXECUTING
+Plan: 1 of 1
+Status: Phase complete — ready for verification
+Last activity: 2026-03-27
 
 ## v1.9 Phase Structure
 
-| Phase | Goal | Requirements |
-|-------|------|--------------|
-| 34. Discovery Core Module | Core discovery engine (HTML parsing, path probing, URL resolution, feed validation) | DISC-01, DISC-02, DISC-03, DISC-04 |
-| 35. Discovery CLI Command | `discover <url>` command | DISC-05 |
-| 36. Feed Add Integration | `--discover` and `--automatic` flags for `feed add` | DISC-06 |
-| 37. Deep Crawling | BFS crawler, robots.txt, documentation | DISC-07, DISC-08, DISC-09 |
+| Phase | Goal | Requirements | Status |
+|-------|------|--------------|--------|
+| 34. Discovery Core Module | Core discovery engine | DISC-01, DISC-02, DISC-03, DISC-04 | ✅ Complete |
+| 35. Discovery CLI Command | `discover <url>` command | DISC-05 | Pending |
+| 36. Feed Add Integration | `--discover` and `--automatic` flags | DISC-06 | Pending |
+| 37. Deep Crawling | BFS crawler, robots.txt, documentation | DISC-07, DISC-08, DISC-09 | Pending |
 
 ## Performance Metrics
 
@@ -123,6 +127,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase ?]: [260327-ef6]: Extracted search result formatting logic to src/application/search.py - format_semantic_results converts L2 distance to cosine similarity, format_fts_results truncates fields for display
 - [v1.9]: Discovery is a separate service module (src/discovery/), NOT a Provider plugin
 - [v1.9]: Phase order: Core module → CLI → Integration → Deep crawl
+- [Phase 35]: discover CLI uses uvloop.run() pattern consistent with feed.py fetch commands
 
 ### Technical Notes
 
@@ -172,8 +177,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-27T02:41:22.010Z
-Stopped at: Completed quick task 260327-jju
+Last session: 2026-03-27T08:54:40.479Z
+Stopped at: Completed 35-01 plan - Discovery CLI Command
 
 ## Quick Tasks Completed
 
@@ -227,3 +232,4 @@ Stopped at: Completed quick task 260327-jju
 | 260327-hmk | 删除 feed_refresh 命令，和 fetch <id> 功能重叠 | 2026-03-27 | fc212a8 | Verified | [260327-hmk-feed-refresh-fetch-ids](./quick/260327-hmk-feed-refresh-fetch-ids/) |
 | 260327-jju | 优化 fetch <feed_id> 响应速度，使用 async-native 路径 | 2026-03-27 | bd03fef | Verified | [260327-jju-python-m-src-cli-fetch-feed-id](./quick/260327-jju-python-m-src-cli-fetch-feed-id/) |
 | 260327-jt7 | 删除全部 tag 功能（CLI 命令、storage 函数、models、providers、tests） | 2026-03-27 | d75f37d | Verified | [260327-jt7-tag-dead-code](./quick/260327-jt7-tag-dead-code/) |
+| Phase 35 P35-01 | 3 | 3 tasks | 2 files |

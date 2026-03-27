@@ -16,7 +16,7 @@ Requirements for Automatic Discovery Feed milestone.
 
 ### CLI Commands
 
-- [ ] **DISC-05**: `discover <url> --discover-deep [n]` — 仅发现 feed，列出所有发现的 feeds（RSS/Atom/RDF），不订阅；默认 depth=1
+- [x] **DISC-05**: `discover <url> --discover-deep [n]` — 仅发现 feed，列出所有发现的 feeds（RSS/Atom/RDF），不订阅；默认 depth=1
 - [ ] **DISC-06**: `feed add <url> --discover [on/off] --automatic [on/off] --discover-deep [n]` — 发现并订阅；--discover 默认 on，--automatic 默认 off
 
 ### Deep Crawling
@@ -53,7 +53,7 @@ Requirements for Automatic Discovery Feed milestone.
 | DISC-02 | Phase 34 | Pending |
 | DISC-03 | Phase 34 | Pending |
 | DISC-04 | Phase 34 | Pending |
-| DISC-05 | Phase 35 | Pending |
+| DISC-05 | Phase 35 | Complete |
 | DISC-06 | Phase 36 | Pending |
 | DISC-07 | Phase 37 | Pending |
 | DISC-08 | Phase 37 | Pending |
