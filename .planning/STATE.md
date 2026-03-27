@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: "Completed quick task 260328-48x: refactor format_articles to remove mode branching"
-last_updated: "2026-03-27T19:08:09.825Z"
+stopped_at: "Completed quick task 260328-4l9: refactor article CLI to use unified print_articles"
+last_updated: "2026-03-27T19:24:57.435Z"
 progress:
   total_phases: 40
   completed_phases: 39
@@ -243,6 +243,7 @@ Stopped at: Completed quick task 260328-48x: refactor format_articles to remove 
 | 260328-3wa | Fix search display - empty ID, garbled format, date format | 2026-03-28 | 378de37 | Verified | [260328-3wa-fix-search-display-empty-id-garbled-form](./quick/260328-3wa-fix-search-display-empty-id-garbled-form/) |
 | 260328-3w1 | Unify ranking functions - vector search returns normalized 0-1 score, FTS/list return fixed 1.0, shared score field interface | 2026-03-28 | 5280658 | Verified | [260328-3w1-rank-semantic-results-rank-fts-results-r](./quick/260328-3w1-rank-semantic-results-rank-fts-results-r/) |
 | 260328-48x | Remove mode branching from format_articles, CLI calls rank_*_results before format | 2026-03-28 | 892e5e5 | Verified | [260328-48x-format-articles-if-elif-elif-articlelist](./quick/260328-48x-format-articles-if-elif-elif-articlelist/) |
+| 260328-4l9 | Refactor article CLI commands to use unified print_articles function | 2026-03-28 | 3cda776 | Verified | [260328-4l9-rank-list-results-search-articles-semant](./quick/260328-4l9-rank-list-results-search-articles-semant/) |
 | 260327-sp3 | Implement regex-based feed path matching with generate_feed_candidates() | 2026-03-27 | e5e38d9 | Verified | [260327-sp3-implement-regex-based-feed-path-matching](./quick/260327-sp3-implement-regex-based-feed-path-matching/) |
 | 260327-t7d | Refactor src/discovery HTML parsing from BeautifulSoup to Scrapling | 2026-03-27 | b12cf01 | Verified | [260327-t7d-scrapling-src-discovery](./quick/260327-t7d-scrapling-src-discovery/) |
 | 260327-tpu | Replace httpx with Scrapling Fetcher in deep_crawl | 2026-03-27 | bbe0da8 | Verified | [260327-tpu-replace-beautifulsoup-with-scrapling-in-](./quick/260327-tpu-replace-beautifulsoup-with-scrapling-in-/) |
