@@ -89,7 +89,7 @@
 - [x] **Phase 34: Discovery Core Module** — HTML parsing, path probing, URL resolution, feed validation
 - [x] **Phase 35: Discovery CLI Command** — `discover <url>` command (completed 2026-03-27)
 - [x] **Phase 36: Feed Add Integration** — `--discover` and `--automatic` flags (completed 2026-03-27)
-- [x] **Phase 37: Deep Crawling** — BFS crawler, robots.txt, documentation (completed 2026-03-27)
+- [x] **Phase 37: Deep Crawling** — BFS crawler, robots.txt, documentation (in progress)
 
 ### Phase 34: Discovery Core Module
 **Goal**: Users can programmatically discover RSS/Atom/RDF feeds from a website URL via the discovery service module
@@ -133,7 +133,7 @@ Plans:
 Plans:
 - [x] 36-01-PLAN.md — Feed Add Integration (discovery options, selection prompt)
 
-### ✅ Phase 37: Deep Crawling (SHIPPED 2026-03-27)
+### Phase 37: Deep Crawling
 **Goal**: Users can discover feeds across an entire website with BFS crawling, respecting robots.txt
 **Depends on**: Phase 34, Phase 35
 **Requirements**: DISC-07, DISC-08, DISC-09
@@ -142,9 +142,10 @@ Plans:
   2. Deep crawl respects rate limiting (2 seconds per host) to avoid overwhelming servers
   3. Deep crawl honors robots.txt using robotexclusionrulesparser for disallowed paths
   4. User can read `docs/Automatic Discovery Feed.md` which documents the discovery algorithm, URL resolution rules, and supported feed types
-**Plans**: 1 plan
+**Plans**: 2 plans
 Plans:
 - [x] 37-01-PLAN.md — Deep Crawling (BFS, rate limiting, robots.txt, docs)
+- [ ] 37-02-PLAN.md — Dynamic Subdirectory Discovery (CSS selector-based link discovery, remove hardcoded subdir names)
 
 ### v1.8 ChromaDB 语义搜索 (Phases 30-33)
 
@@ -248,9 +249,9 @@ Plans:
 | 32. Query Path - Semantic Search CLI | — | ✅ Complete | 2026-03-27 |
 | 33. Polish - Error Handling | — | ✅ Complete | 2026-03-27 |
 | 34. Discovery Core Module | 3/3 | ✅ Complete | 2026-03-27 |
-| 35. Discovery CLI Command | 1/1 | Complete    | 2026-03-27 |
+| 35. Discovery CLI Command | 1/1 | ✅ Complete | 2026-03-27 |
 | 36. Feed Add Integration | 1/1 | ✅ Complete | 2026-03-27 |
-| 37. Deep Crawling | 1/1 | Complete    | 2026-03-27 |
+| 37. Deep Crawling | 1/2 | In Progress | 2026-03-27 |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_
