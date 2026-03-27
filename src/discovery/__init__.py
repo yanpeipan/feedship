@@ -7,7 +7,7 @@ from urllib.parse import urljoin
 
 import httpx
 
-from src.discovery.common_paths import WELL_KNOWN_PATHS, _COMMON_FEED_SUBDIRS
+from src.discovery.common_paths import FEED_CONTENT_TYPES, generate_feed_candidates
 from src.discovery.deep_crawl import deep_crawl
 from src.discovery.fetcher import is_bozo_feed, validate_feed
 from src.discovery.models import DiscoveredFeed
@@ -35,7 +35,7 @@ def normalize_url(url: str) -> str:
 
 
 def probe_well_known_paths(page_url: str) -> list[str]:
-    """Generate candidate feed URLs from well-known paths.
+    """Generate candidate feed URLs from well-known root paths.
 
     Args:
         page_url: Base page URL to probe.
@@ -43,24 +43,7 @@ def probe_well_known_paths(page_url: str) -> list[str]:
     Returns:
         List of candidate feed URLs.
     """
-    # Get base URL (scheme + host)
-    parsed = httpx.URL(page_url)
-    base = f"{parsed.scheme}://{parsed.host}"
-    if parsed.port:
-        base += f":{parsed.port}"
-
-    candidates = []
-
-    # Root-level well-known paths (e.g., /feed, /rss.xml)
-    for path in WELL_KNOWN_PATHS:
-        candidates.append(base + path)
-
-    # Common sub-directory paths with feed suffixes (e.g., /news/rss.xml, /blog/atom.xml)
-    for subdir in _COMMON_FEED_SUBDIRS:
-        for suffix in ("/rss.xml", "/atom.xml", "/feed.xml"):
-            candidates.append(base + subdir + suffix)
-
-    return candidates
+    return generate_feed_candidates(page_url)
 
 
 async def validate_and_wrap(
@@ -103,65 +86,9 @@ async def discover_feeds(url: str, max_depth: int = 1) -> list[DiscoveredFeed]:
     if max_depth > 1:
         return await deep_crawl(url, max_depth)
 
-    try:
-        normalized = normalize_url(url)
-    except ValueError:
-        return []
-
-    # Fetch page HTML (try even if non-200, since autodiscovery may still find feeds)
-    html: str | None = None
-    page_url = normalized
-    try:
-        async with httpx.AsyncClient(
-            headers=BROWSER_HEADERS,
-            follow_redirects=True,
-            timeout=10.0,
-        ) as client:
-            response = await client.get(normalized)
-            if response.status_code == 200:
-                html = response.text
-                page_url = str(response.url)
-    except Exception as e:
-        logger.debug(f"Failed to fetch page {normalized}: {e}")
-
-    # Try autodiscovery first (only if we have HTML)
-    discovered = parse_link_elements(html, page_url) if html else []
-
-    if discovered:
-        # Validate and filter autodiscovery feeds concurrently
-        async def validate_one(feed: DiscoveredFeed) -> DiscoveredFeed | None:
-            # Skip bozo feeds for autodiscovery
-            is_bozo, _ = is_bozo_feed(feed.url)
-            if is_bozo:
-                return None
-            is_valid, feed_type = await validate_feed(feed.url)
-            if not is_valid:
-                return None
-            return DiscoveredFeed(
-                url=feed.url,
-                title=feed.title,
-                feed_type=feed_type,
-                source=feed.source,
-                page_url=feed.page_url,
-            )
-
-        results = await asyncio.gather(*[validate_one(f) for f in discovered])
-        valid_feeds = [f for f in results if f is not None]
-        if valid_feeds:
-            return valid_feeds
-
-    # Fallback to well-known paths
-    candidates = probe_well_known_paths(page_url)
-
-    # Validate all candidates concurrently
-    async def check_candidate(candidate: str) -> DiscoveredFeed | None:
-        return await validate_and_wrap(candidate, page_url, "well_known_path")
-
-    results = await asyncio.gather(*[check_candidate(c) for c in candidates])
-    valid_feeds = [f for f in results if f is not None]
-
-    return valid_feeds
+    # Single-page discovery: delegate to deep_crawl (handles subdirectory probing)
+    return await deep_crawl(url, max_depth)
 
 
 # Public exports
-__all__ = ["discover_feeds", "DiscoveredFeed", "WELL_KNOWN_PATHS", "deep_crawl"]
+__all__ = ["discover_feeds", "DiscoveredFeed", "deep_crawl"]
