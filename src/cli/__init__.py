@@ -21,7 +21,7 @@ def cli(ctx: click.Context, verbose: bool) -> None:
     ctx.obj["verbose"] = verbose
 
     # Initialize uvloop (graceful fallback on Windows)
-    from src.application.asyncio_utils import install_uvloop
+    from src.utils.asyncio_utils import install_uvloop
     install_uvloop()
 
     # Initialize database on every command
