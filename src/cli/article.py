@@ -132,13 +132,13 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional
             # Apply multi-factor ranking
             results = rank_semantic_results(results, top_k=limit)
             formatted = format_semantic_results(results, verbose=verbose)
-            click.secho("ID | Title | Source | Date | Score\n" + "-" * 80)
+            click.secho("ID | Title | Source | Date | Ranked\n" + "-" * 80)
             for item in formatted:
                 if verbose:
                     click.secho(f"\nTitle: {item['title']}")
                     if item.get('id'): click.secho(f"ID: {item['id']}")
                     if item.get('url'): click.secho(f"URL: {item['url']}")
-                    click.secho(f"Score: {item['score']}")
+                    click.secho(f"Ranked: {item['score']}")
                     if item.get('document_preview'): click.secho(f"Content preview: {item['document_preview']}")
                 else: click.secho(f"{item['id'][:8]} | {item['title'][:60]} | {item['source'][:15]} | {item['date'][:10]} | {item['score'][:4]}")
         else:
