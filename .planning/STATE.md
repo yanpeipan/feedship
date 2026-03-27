@@ -177,7 +177,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-28
-Stopped at: Completed quick task 260328-3bv: feed weight refactor for semantic search
+Stopped at: Completed quick task 260328-3wa: Fix search display - empty ID, garbled format, date format
 
 ## Quick Tasks Completed
 
@@ -240,6 +240,7 @@ Stopped at: Completed quick task 260328-3bv: feed weight refactor for semantic s
 | 260328-173 | Unified Rich progress bar and elapsed time UI for src.cli commands | 2026-03-28 | — | Verified | [260328-173-src-cli-ui](./quick/260328-173-src-cli-ui/) |
 | 260328-3og | Remove ALTER TABLE migration, add weight column directly to feeds CREATE TABLE | 2026-03-28 | 0dc9fb1 | Verified | [260328-3og-remove-migration-init-db](./quick/260328-3og-remove-migration-init-db/) |
 | 260328-3bv | Refactor source weight to use feed.weight from database, delete domain matching | 2026-03-28 | ff6f478 | Verified | [260328-3bv-feeds-weight](./quick/260328-3bv-feeds-weight/) |
+| 260328-3wa | Fix search display - empty ID, garbled format, date format | 2026-03-28 | 378de37 | Verified | [260328-3wa-fix-search-display-empty-id-garbled-form](./quick/260328-3wa-fix-search-display-empty-id-garbled-form/) |
 | 260327-sp3 | Implement regex-based feed path matching with generate_feed_candidates() | 2026-03-27 | e5e38d9 | Verified | [260327-sp3-implement-regex-based-feed-path-matching](./quick/260327-sp3-implement-regex-based-feed-path-matching/) |
 | 260327-t7d | Refactor src/discovery HTML parsing from BeautifulSoup to Scrapling | 2026-03-27 | b12cf01 | Verified | [260327-t7d-scrapling-src-discovery](./quick/260327-t7d-scrapling-src-discovery/) |
 | 260327-tpu | Replace httpx with Scrapling Fetcher in deep_crawl | 2026-03-27 | bbe0da8 | Verified | [260327-tpu-replace-beautifulsoup-with-scrapling-in-](./quick/260327-tpu-replace-beautifulsoup-with-scrapling-in-/) |
