@@ -171,7 +171,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-27T02:41:22.010Z
-Stopped at: Completed quick task 260327-h4z
+Stopped at: Completed quick task 260327-hmk
 
 ## Quick Tasks Completed
 
@@ -222,3 +222,4 @@ Stopped at: Completed quick task 260327-h4z
 | 260327-g38 | 删除 orphaned crawl module files (src/application/crawl.py, src/cli/crawl.py) | 2026-03-27 | c3da6d0 | Verified | [260327-g38-remove-src-application-crawl-py-and-src-](./quick/260327-g38-remove-src-application-crawl-py-and-src-/) |
 | 260327-ghv | src/cli/article.py 保持代码行数少于200，cli层不做业务逻辑 | 2026-03-27 | e535741 | Verified | [260327-ghv-src-cli-article-py-200-cli-application](./quick/260327-ghv-src-cli-article-py-200-cli-application/) |
 | 260327-h4z | Refactor CLI fetch command to use fetch_ids_async from application layer | 2026-03-27 | a844ee4 | Verified | [260327-h4z-src-cli-feed-py-200-cli-application](./quick/260327-h4z-src-cli-feed-py-200-cli-application/) |
+| 260327-hmk | 删除 feed_refresh 命令，和 fetch <id> 功能重叠 | 2026-03-27 | fc212a8 | Verified | [260327-hmk-feed-refresh-fetch-ids](./quick/260327-hmk-feed-refresh-fetch-ids/) |
