@@ -88,7 +88,7 @@
 
 - [x] **Phase 34: Discovery Core Module** — HTML parsing, path probing, URL resolution, feed validation
 - [x] **Phase 35: Discovery CLI Command** — `discover <url>` command (completed 2026-03-27)
-- [ ] **Phase 36: Feed Add Integration** — `--discover` and `--automatic` flags
+- [x] **Phase 36: Feed Add Integration** — `--discover` and `--automatic` flags (completed 2026-03-27)
 - [ ] **Phase 37: Deep Crawling** — BFS crawler, robots.txt, documentation
 
 ### Phase 34: Discovery Core Module
@@ -131,7 +131,7 @@ Plans:
   4. Default behavior: `--discover on`, `--automatic off` (discovery enabled but not automatic)
 **Plans**: 1 plan
 Plans:
-- [ ] 36-01-PLAN.md — Feed Add Integration (discovery options, selection prompt)
+- [x] 36-01-PLAN.md — Feed Add Integration (discovery options, selection prompt)
 
 ### Phase 37: Deep Crawling
 **Goal**: Users can discover feeds across an entire website with BFS crawling, respecting robots.txt
@@ -142,7 +142,9 @@ Plans:
   2. Deep crawl respects rate limiting (2 seconds per host) to avoid overwhelming servers
   3. Deep crawl honors robots.txt using robotexclusionrulesparser for disallowed paths
   4. User can read `docs/Automatic Discovery Feed.md` which documents the discovery algorithm, URL resolution rules, and supported feed types
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [x] 37-01-PLAN.md — Deep Crawling (BFS, rate limiting, robots.txt, docs)
 
 ### v1.8 ChromaDB 语义搜索 (Phases 30-33)
 
@@ -247,8 +249,8 @@ Plans:
 | 33. Polish - Error Handling | — | ✅ Complete | 2026-03-27 |
 | 34. Discovery Core Module | 3/3 | ✅ Complete | 2026-03-27 |
 | 35. Discovery CLI Command | 1/1 | Complete    | 2026-03-27 |
-| 36. Feed Add Integration | — | Not started | - |
-| 37. Deep Crawling | — | Not started | - |
+| 36. Feed Add Integration | 1/1 | ✅ Complete | 2026-03-27 |
+| 37. Deep Crawling | 1/1 | Planned | - |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_
