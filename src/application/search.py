@@ -15,132 +15,53 @@ from src.application.articles import ArticleListItem
 from src.storage.sqlite import get_article, get_feed
 
 
-def format_articles(items: list, mode: str = "list", verbose: bool = False) -> list[dict[str, Any]]:
-    """Unified article list formatter for all display modes.
+def format_articles(items: list[dict[str, Any]], verbose: bool = False) -> list[dict[str, Any]]:
+    """Format articles for display using unified score field interface.
+
+    Assumes items are dicts from rank_*_results with a score field (0-1 normalized).
+    No mode branching - all article types use the same formatting logic.
 
     Args:
-        items: List of articles (type depends on mode)
-        mode: 'list' for list_articles, 'fts' for search_articles, 'semantic' for rank_semantic_results
+        items: List of article dicts with score field from rank_*_results
         verbose: Include full details if True
 
     Returns:
         List of dicts with unified fields: id, title, source, date, score
     """
-    if mode == "list":
-        return _format_list_items(items, verbose)
-    elif mode == "fts":
-        return _format_fts_items(items, verbose)
-    elif mode == "semantic":
-        return _format_semantic_items(items, verbose)
-    else:
-        raise ValueError(f"Unknown mode: {mode}")
+    return _format_items(items, verbose)
 
 
-def _format_list_items(items: list[ArticleListItem], verbose: bool) -> list[dict[str, Any]]:
-    """Format list_articles output (ArticleListItem list or dict list)."""
+def _format_items(items: list[dict[str, Any]], verbose: bool) -> list[dict[str, Any]]:
+    """Format articles for display using unified score field interface.
+
+    Assumes items are dicts with score field from rank_*_results.
+    Handles all article types (list, FTS, semantic) through unified interface.
+
+    Args:
+        items: List of article dicts with score field from rank_*_results
+        verbose: Include full details if True
+
+    Returns:
+        List of dicts with unified fields: id, title, source, date, score
+    """
     formatted = []
-    for article in items:
-        # Handle both ArticleListItem objects and dicts (from rank_list_results)
-        if isinstance(article, dict):
-            title = _truncate(article.get("title") or "No title", 60)
-            source = _truncate(article.get("feed_name") or "Unknown", 15)
-            date = _format_date_for_display(article.get("pub_date"))
-            article_id = article.get("id") or ""
-            score_val = article.get("score")
-        else:
-            title = _truncate(article.title, 60) if article.title else "No title"
-            source = _truncate(article.feed_name, 15) if article.feed_name else "Unknown"
-            date = _format_date_for_display(article.pub_date)
-            article_id = article.id
-            score_val = None
+    for item in items:
+        title = _truncate(item.get("title") or "No title", 60)
+        date = _format_date_for_display(item.get("pub_date"))
+        score_val = item.get("score")
 
-        score = f"{int(score_val * 100)}%" if score_val is not None else "LIST"
-        if verbose:
-            formatted.append({
-                "id": article_id,
-                "title": title,
-                "source": source,
-                "date": date,
-                "score": score,
-            })
-        else:
-            formatted.append({
-                "id": article_id[:8] if article_id else "",
-                "title": title,
-                "source": source,
-                "date": date,
-                "score": score,
-            })
-    return formatted
-
-
-def _format_fts_items(items: list[ArticleListItem], verbose: bool) -> list[dict[str, Any]]:
-    """Format search_articles output (ArticleListItem list or dict list)."""
-    formatted = []
-    for article in items:
-        # Handle both ArticleListItem objects and dicts (from rank_fts_results)
-        if isinstance(article, dict):
-            title = _truncate(article.get("title") or "No title", 60)
-            source = _truncate(article.get("feed_name") or "Unknown", 15)
-            date = _format_date_for_display(article.get("pub_date"))
-            link = article.get("link") or ""
-            desc_preview = _truncate(article.get("description") or "", 100)
-            score_val = article.get("score")
-        else:
-            title = _truncate(article.title, 60) if article.title else "No title"
-            source = _truncate(article.feed_name, 15) if article.feed_name else "Unknown"
-            date = _format_date_for_display(article.pub_date)
-            link = article.link or ""
-            desc_preview = _truncate(article.description, 100) if article.description else ""
-            score_val = None
-
-        score = f"{int(score_val * 100)}%" if score_val is not None else "FTS"
-        if verbose:
-            formatted.append({
-                "id": "",
-                "title": title,
-                "source": source,
-                "date": date,
-                "score": score,
-                "link": link,
-                "description_preview": desc_preview,
-            })
-        else:
-            formatted.append({
-                "id": "",
-                "title": title,
-                "source": source,
-                "date": date,
-                "score": score,
-            })
-    return formatted
-
-
-def _format_semantic_items(items: list[dict[str, Any]], verbose: bool) -> list[dict[str, Any]]:
-    """Format rank_semantic_results output (dict list)."""
-    formatted = []
-    for result in items:
-        title = result.get("title") or "No title"
-        url = result.get("url") or ""
-        sqlite_id = result.get("sqlite_id")
-        norm_sim = result.get("norm_similarity")
-        distance = result.get("distance")
-
-        # Use score field if available (from rank_semantic_results with normalized 0-1 value),
-        # fall back to norm_similarity for backward compatibility
-        score_val = result.get("score")
+        # Format score as percentage (0-1 normalized from rank_*_results)
         if score_val is not None:
             score = f"{int(score_val * 100)}%"
-        elif norm_sim is not None:
-            score = f"{int(norm_sim * 100)}%"
-        elif distance is not None:
-            cos_sim = max(0.0, 1.0 - (distance * distance / 2.0))
-            score = f"{int(cos_sim * 100)}%"
         else:
             score = "N/A"
 
-        # Extract domain from URL for source field
-        if url:
+        # Extract source - prefer feed_name (list/FTS) or domain from url (semantic)
+        feed_name = item.get("feed_name")
+        url = item.get("url")
+        if feed_name:
+            source = _truncate(feed_name, 15)
+        elif url:
             try:
                 parsed = urlparse(url)
                 source = parsed.netloc[:15] if parsed.netloc else "-"
@@ -149,24 +70,33 @@ def _format_semantic_items(items: list[dict[str, Any]], verbose: bool) -> list[d
         else:
             source = "-"
 
+        # Extract article ID - prefer id, fall back to sqlite_id
+        article_id = item.get("id") or item.get("sqlite_id") or ""
+
+        # Base fields always present
+        base = {
+            "id": article_id[:8] if article_id and not verbose else article_id,
+            "title": title,
+            "source": source,
+            "date": date,
+            "score": score,
+        }
+
+        # Add verbose-only fields based on what's available
         if verbose:
-            formatted.append({
-                "id": sqlite_id[:8] if sqlite_id else "",
-                "title": title,
-                "source": source,
-                "date": "-",
-                "score": score,
-                "url": url,
-                "document_preview": _truncate(result.get("document"), 150) if result.get("document") else "",
-            })
-        else:
-            formatted.append({
-                "id": sqlite_id[:8] if sqlite_id else "",
-                "title": title,
-                "source": source,
-                "date": "-",
-                "score": score,
-            })
+            # Link from FTS results
+            if item.get("link"):
+                base["link"] = item["link"]
+            # Description from FTS results
+            if item.get("description"):
+                base["description_preview"] = _truncate(item["description"], 100)
+            # URL and document from semantic results
+            if item.get("url"):
+                base["url"] = url
+            if item.get("document"):
+                base["document_preview"] = _truncate(item["document"], 150)
+
+        formatted.append(base)
     return formatted
 
 
@@ -199,7 +129,7 @@ def format_semantic_results(results: list[dict[str, Any]], verbose: bool = False
         - url: full url (verbose only)
         - document_preview: truncated content (verbose only)
     """
-    return format_articles(results, mode="semantic", verbose=verbose)
+    return format_articles(results, verbose=verbose)
 
 
 def rank_semantic_results(results: list[dict[str, Any]], top_k: int = 10) -> list[dict[str, Any]]:
@@ -361,7 +291,7 @@ def format_fts_results(articles: list[ArticleListItem], verbose: bool = False) -
         - link: article link (verbose only)
         - description_preview: truncated description (verbose only)
     """
-    return format_articles(articles, mode="fts", verbose=verbose)
+    return format_articles(articles, verbose=verbose)
 
 
 def _truncate(text: str, max_length: int) -> str:
