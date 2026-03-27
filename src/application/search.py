@@ -37,58 +37,81 @@ def format_articles(items: list, mode: str = "list", verbose: bool = False) -> l
 
 
 def _format_list_items(items: list[ArticleListItem], verbose: bool) -> list[dict[str, Any]]:
-    """Format list_articles output (ArticleListItem list)."""
+    """Format list_articles output (ArticleListItem list or dict list)."""
     formatted = []
     for article in items:
-        title = _truncate(article.title, 60) if article.title else "No title"
-        source = _truncate(article.feed_name, 15) if article.feed_name else "Unknown"
-        date = _format_date_for_display(article.pub_date)
-        article_id = article.id
+        # Handle both ArticleListItem objects and dicts (from rank_list_results)
+        if isinstance(article, dict):
+            title = _truncate(article.get("title") or "No title", 60)
+            source = _truncate(article.get("feed_name") or "Unknown", 15)
+            date = _format_date_for_display(article.get("pub_date"))
+            article_id = article.get("id") or ""
+            score_val = article.get("score")
+        else:
+            title = _truncate(article.title, 60) if article.title else "No title"
+            source = _truncate(article.feed_name, 15) if article.feed_name else "Unknown"
+            date = _format_date_for_display(article.pub_date)
+            article_id = article.id
+            score_val = None
+
+        score = f"{int(score_val * 100)}%" if score_val is not None else "LIST"
         if verbose:
             formatted.append({
                 "id": article_id,
                 "title": title,
                 "source": source,
                 "date": date,
-                "score": "LIST",
+                "score": score,
             })
         else:
             formatted.append({
-                "id": article_id[:8],
+                "id": article_id[:8] if article_id else "",
                 "title": title,
                 "source": source,
                 "date": date,
-                "score": "LIST",
+                "score": score,
             })
     return formatted
 
 
 def _format_fts_items(items: list[ArticleListItem], verbose: bool) -> list[dict[str, Any]]:
-    """Format search_articles output (ArticleListItem list)."""
+    """Format search_articles output (ArticleListItem list or dict list)."""
     formatted = []
     for article in items:
-        title = _truncate(article.title, 60) if article.title else "No title"
-        source = _truncate(article.feed_name, 15) if article.feed_name else "Unknown"
-        date = _format_date_for_display(article.pub_date)
-        article_id = article.id
-        if verbose:
+        # Handle both ArticleListItem objects and dicts (from rank_fts_results)
+        if isinstance(article, dict):
+            title = _truncate(article.get("title") or "No title", 60)
+            source = _truncate(article.get("feed_name") or "Unknown", 15)
+            date = _format_date_for_display(article.get("pub_date"))
+            link = article.get("link") or ""
+            desc_preview = _truncate(article.get("description") or "", 100)
+            score_val = article.get("score")
+        else:
+            title = _truncate(article.title, 60) if article.title else "No title"
+            source = _truncate(article.feed_name, 15) if article.feed_name else "Unknown"
+            date = _format_date_for_display(article.pub_date)
+            link = article.link or ""
             desc_preview = _truncate(article.description, 100) if article.description else ""
+            score_val = None
+
+        score = f"{int(score_val * 100)}%" if score_val is not None else "FTS"
+        if verbose:
             formatted.append({
-                "id": article_id,
+                "id": "",
                 "title": title,
                 "source": source,
                 "date": date,
-                "score": "FTS",
-                "link": article.link or "",
+                "score": score,
+                "link": link,
                 "description_preview": desc_preview,
             })
         else:
             formatted.append({
-                "id": article_id[:8],
+                "id": "",
                 "title": title,
                 "source": source,
                 "date": date,
-                "score": "FTS",
+                "score": score,
             })
     return formatted
 
@@ -103,9 +126,12 @@ def _format_semantic_items(items: list[dict[str, Any]], verbose: bool) -> list[d
         norm_sim = result.get("norm_similarity")
         distance = result.get("distance")
 
-        # Use norm_similarity if available (from rank_semantic_results),
-        # otherwise compute from distance for fallback
-        if norm_sim is not None:
+        # Use score field if available (from rank_semantic_results with normalized 0-1 value),
+        # fall back to norm_similarity for backward compatibility
+        score_val = result.get("score")
+        if score_val is not None:
+            score = f"{int(score_val * 100)}%"
+        elif norm_sim is not None:
             score = f"{int(norm_sim * 100)}%"
         elif distance is not None:
             cos_sim = max(0.0, 1.0 - (distance * distance / 2.0))
@@ -267,10 +293,46 @@ def rank_semantic_results(results: list[dict[str, Any]], top_k: int = 10) -> lis
             + 0.3 * r["norm_freshness"]
             + 0.2 * r["source_weight"]
         )
+        # Add score field for unified interface (0-1 normalized value)
+        r["score"] = r["final_score"]
 
     # Sort by final_score descending, return top_k
     ranked.sort(key=lambda x: x["final_score"], reverse=True)
     return ranked[:top_k]
+
+
+def rank_fts_results(articles: list[ArticleListItem]) -> list[dict[str, Any]]:
+    """Rank FTS search results with fixed score.
+
+    FTS keyword search has no similarity metric, so all results get score=1.0.
+
+    Args:
+        articles: List of ArticleListItem from search_articles.
+
+    Returns:
+        List of dicts with all original article fields PLUS score=1.0.
+        Returns empty list if input is empty.
+    """
+    if not articles:
+        return []
+    return [{**vars(article), "score": 1.0} for article in articles]
+
+
+def rank_list_results(items: list[ArticleListItem]) -> list[dict[str, Any]]:
+    """Rank list results with fixed score.
+
+    List results have no similarity metric, so all results get score=1.0.
+
+    Args:
+        items: List of ArticleListItem from list_articles.
+
+    Returns:
+        List of dicts with all original item fields PLUS score=1.0.
+        Returns empty list if input is empty.
+    """
+    if not items:
+        return []
+    return [{**vars(item), "score": 1.0} for item in items]
 
 
 def format_fts_results(articles: list[ArticleListItem], verbose: bool = False) -> list[dict[str, Any]]:
