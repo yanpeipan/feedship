@@ -11,7 +11,7 @@ from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlparse
 
-from src.storage.sqlite import get_article, get_feed
+from src.storage.sqlite import get_article, get_feed, get_articles_by_ids, get_feeds_by_ids
 
 
 def format_articles(items: list[dict[str, Any]], verbose: bool = False) -> list[dict[str, Any]]:
@@ -156,25 +156,32 @@ def rank_semantic_results(results: list[dict[str, Any]], top_k: int = 10) -> lis
         Results sorted by final_score descending, limited to top_k.
         Results with sqlite_id=None (pre-v1.8) are excluded.
     """
-    # Filter pre-v1.8 articles (those without SQLite ID / no embedding)
-    ranked = []
-    for result in results:
-        sqlite_id = result.get("sqlite_id")
-        if sqlite_id is None:
-            continue  # Skip articles without embeddings (pre-v1.8)
+    # Filter pre-v1.8 articles and collect IDs for batch lookup
+    valid_results = [r for r in results if r.get("sqlite_id") is not None]
+    if not valid_results:
+        return []
 
-        # Look up pub_date from SQLite
-        article = get_article(sqlite_id)
-        pub_date = article.pub_date if article else None
+    # Batch fetch all articles and feeds to avoid N DB calls in loop
+    sqlite_ids = [r["sqlite_id"] for r in valid_results]
+    articles_data = get_articles_by_ids(sqlite_ids)
+    id_to_article = {a["id"]: a for a in articles_data}
+
+    feed_ids = list({a["feed_id"] for a in articles_data if a.get("feed_id")})
+    id_to_feed = get_feeds_by_ids(feed_ids) if feed_ids else {}
+
+    # Build ranked results with multi-factor scoring
+    ranked = []
+    for result in valid_results:
+        sqlite_id = result["sqlite_id"]
+        article = id_to_article.get(sqlite_id)
+        pub_date = article.get("pub_date") if article else None
 
         # Calculate cosine similarity from L2 distance
         distance = result.get("distance")
-        if distance is not None:
-            cos_sim = max(0.0, 1.0 - (distance * distance / 2.0))
-        else:
-            cos_sim = 0.0
+        cos_sim = max(0.0, 1.0 - (distance * distance / 2.0)) if distance is not None else 0.0
 
         # Calculate freshness score: max(0.0, 1 - days_ago / 30)
+        freshness = 0.0
         if pub_date:
             try:
                 pub_dt = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
@@ -183,22 +190,17 @@ def rank_semantic_results(results: list[dict[str, Any]], top_k: int = 10) -> lis
                 days_ago = (datetime.now(timezone.utc) - pub_dt).days
                 freshness = max(0.0, 1.0 - days_ago / 30)
             except (ValueError, TypeError):
-                freshness = 0.0
-        else:
-            freshness = 0.0
+                pass
 
         # Get source weight from feed's weight field
-        feed_id = article.feed_id if article else None
-        if feed_id:
-            feed = get_feed(feed_id)
-            source_weight = feed.weight if feed and feed.weight is not None else 0.3
-        else:
-            source_weight = 0.3
+        feed_id = article.get("feed_id") if article else None
+        feed = id_to_feed.get(feed_id) if feed_id else None
+        source_weight = feed.weight if feed and feed.weight is not None else 0.3
 
         # Build ranked result with all original keys plus computed scores
         ranked_result = {**result}
-        ranked_result["feed_id"] = article.feed_id if article else None
-        ranked_result["feed_name"] = article.feed_name if article else None
+        ranked_result["feed_id"] = article.get("feed_id") if article else None
+        ranked_result["feed_name"] = article.get("feed_name") if article else None
         ranked_result["cos_sim"] = cos_sim
         ranked_result["freshness"] = freshness
         ranked_result["source_weight"] = source_weight

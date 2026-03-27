@@ -9,7 +9,7 @@ from typing import Optional
 from src.application.config import get_timezone
 from src.models import Feed
 from src.providers import discover_or_default
-from src.storage import feed_exists, add_feed as storage_add_feed, list_feeds as storage_list_feeds, get_feed as storage_get_feed, remove_feed as storage_remove_feed
+from src.storage import feed_exists, add_feed as storage_add_feed, list_feeds as storage_list_feeds, get_feed as storage_get_feed, remove_feed as storage_remove_feed, update_feed as storage_update_feed
 from src.utils import generate_article_id, generate_feed_id
 
 logger = logging.getLogger(__name__)
@@ -171,6 +171,10 @@ def fetch_one(feed_or_id: str | Feed) -> dict:
             pub_date=article.get("pub_date"),
         )
         new_count += 1
+
+    # Update feed metadata after successful fetch
+    now = datetime.now(get_timezone()).isoformat()
+    storage_update_feed(feed.id, now)
 
     return {"new_articles": new_count}
 

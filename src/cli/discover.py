@@ -65,7 +65,6 @@ def _display_feeds(feeds: list[DiscoveredFeed], numbered: bool = False) -> None:
             table.add_row(type_display, title, feed.url)
 
     console.print(table)
-    click.secho(f"Discovered {len(feeds)} feed(s)", fg="green")
 
 
 from src.cli import cli

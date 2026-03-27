@@ -1,44 +1,38 @@
 """Feed management commands for RSS reader CLI."""
 
+from __future__ import annotations
+
 import sys
 import logging
 import time
+from typing import TYPE_CHECKING
 
 import click
-from src.cli.ui import FetchProgress, print_summary
+import uvloop
+from rich.console import Console
 
+from src.cli.ui import FetchProgress, print_summary
+from src.cli.discover import _display_feeds
+from src.discovery import discover_feeds, DiscoveredFeed
 from src.application.feed import (
-    FeedNotFoundError,
     add_feed,
     get_feed,
     list_feeds,
     remove_feed,
-    fetch_one,
 )
-import uvloop
-from src.discovery import discover_feeds, DiscoveredFeed
-from src.cli.discover import _display_feeds
+
+if TYPE_CHECKING:
+    from src.application.feed import Feed
 
 logger = logging.getLogger(__name__)
 
 
-async def _fetch_with_progress(async_gen, total, description):
+async def _fetch_with_progress(async_gen, total, description: str):
     """Run async fetch with Rich progress bar. Returns (total_new, success_count, error_count, errors, elapsed_time)."""
     with FetchProgress(total, description) as fp:
         async for result in async_gen:
             fp.update(result)
     return fp.total_new, fp.success_count, fp.error_count, fp.errors, fp.elapsed_time
-
-
-def _print_fetch_summary(total_new, success_count, error_count, errors, prefix=""):
-    """Print fetch result summary."""
-    click.secho("")
-    if error_count == 0:
-        click.secho(f"{prefix}Fetched {total_new} articles from {success_count} feed(s)", fg="green")
-    else:
-        click.secho(f"{prefix}Fetched {total_new} articles from {success_count} feed(s), {error_count} errors", fg="yellow")
-        for err in errors:
-            click.secho(f"  - {err}", fg="red")
 
 
 def _get_provider_type(url: str) -> str:
@@ -48,7 +42,6 @@ def _get_provider_type(url: str) -> str:
 
 def _prompt_selection(feeds: list[DiscoveredFeed]) -> list[int]:
     """Prompt user to select feeds. Returns list of selected indices."""
-    from rich.console import Console
     console = Console()
 
     click.secho("")
@@ -61,10 +54,8 @@ def _prompt_selection(feeds: list[DiscoveredFeed]) -> list[int]:
     choice = console.input("Enter choice (a/s/c): ").strip().lower()
 
     if choice == "a":
-        # Add all
         return list(range(len(feeds)))
     elif choice == "s":
-        # Individual selection
         click.secho("Enter feed numbers (e.g., 1,3,5-7) or 'c' to cancel: ", fg="cyan")
         selection = console.input().strip()
         if selection.lower() == "c":
@@ -85,7 +76,7 @@ def _parse_selection(selection: str, max_idx: int) -> list[int]:
                 start, end = int(start.strip()), int(end.strip())
                 for i in range(start, end + 1):
                     if 1 <= i <= max_idx:
-                        indices.add(i - 1)  # Convert to 0-based
+                        indices.add(i - 1)
             else:
                 i = int(part)
                 if 1 <= i <= max_idx:
@@ -134,15 +125,11 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
       rss-reader feed add example.com --discover on --automatic off
       rss-reader feed add example.com --automatic on
     """
-    verbose = ctx.parent and ctx.parent.obj.get("verbose")
-
     if discover == "on":
         # Run discovery first
         try:
-            from rich.console import Console
-            import time as time_module
             console = Console()
-            start = time_module.time()
+            start = time.time()
             with console.status(f"[cyan]Discovering feeds from {url}...") as _status:
                 feeds = uvloop.run(discover_feeds(url, discover_depth))
             elapsed = time.time() - start
@@ -215,9 +202,6 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
             provider_name = "Unknown"
 
         click.secho(f"Added feed: {feed_obj.name} ({provider_name})", fg="green")
-        if verbose:
-            click.secho(f"Feed ID: {feed_obj.id}")
-            click.secho(f"Provider: {provider_name}")
     except ValueError as e:
         click.secho(f"Error: {e}", err=True, fg="red")
         sys.exit(1)
@@ -228,42 +212,71 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
 
 
 @feed.command("list")
+@click.option("--verbose", "-v", is_flag=True, help="Show detailed output")
 @click.pass_context
-def feed_list(ctx: click.Context) -> None:
+def feed_list(ctx: click.Context, verbose: bool) -> None:
     """List all subscribed feeds with provider type."""
-    verbose = ctx.parent and ctx.parent.obj.get("verbose")
     try:
         feeds = list_feeds()
         if not feeds:
             click.secho("No feeds subscribed yet. Use 'feed add <url>' to add one.")
             return
 
+        from rich.console import Console
+        from rich.table import Table
+
+        console = Console()
+
         if verbose:
-            # Verbose output
-            click.secho("ID  | Name | URL | Provider | Articles | Last Fetched")
-            click.secho("-" * 90)
             for f in feeds:
                 last_fetched = f.last_fetched or "Never"
                 provider_type = _get_provider_type(f.url)
-                click.secho(
-                    f"{f.id}\n"
-                    f"  Name: {f.name}\n"
-                    f"  URL: {f.url}\n"
-                    f"  Provider: {provider_type}\n"
-                    f"  Articles: {getattr(f, 'articles_count', 0)}\n"
-                    f"  Last Fetched: {last_fetched}"
-                )
+                articles_count = getattr(f, "articles_count", 0)
+                weight = f.weight if f.weight is not None else 0.3
+
+                table = Table(title=f.name, show_header=False, box=None, padding=(0, 1))
+                table.add_column(style="cyan", no_wrap=True)
+                table.add_column(style="white")
+                table.add_row("ID", f.id)
+                table.add_row("URL", f.url)
+                table.add_row("Type", provider_type)
+                table.add_row("Articles", str(articles_count))
+                table.add_row("Weight", f"{weight:.1f}")
+                table.add_row("Last Fetched", last_fetched)
+                console.print(table)
+                console.print()
         else:
-            # Compact table output
-            click.secho("ID  | Name | URL | Type | Articles | Last Fetched")
-            click.secho("-" * 90)
-            for f in feeds:
+            table = Table(
+                title="[bold cyan]Feeds[/]",
+                show_header=True,
+                header_style="bold magenta",
+                row_styles=["", "dim"],
+            )
+            table.add_column("#", justify="right", style="cyan", no_wrap=True)
+            table.add_column("Name", style="green", no_wrap=False)
+            table.add_column("Type", style="yellow", no_wrap=True)
+            table.add_column("Articles", justify="right", no_wrap=True)
+            table.add_column("Weight", justify="right", no_wrap=True)
+            table.add_column("Last Fetched", style="dim", no_wrap=True)
+
+            for i, f in enumerate(feeds, 1):
                 last_fetched = f.last_fetched or "Never"
+                if last_fetched != "Never":
+                    last_fetched = last_fetched[:10]
                 provider_type = _get_provider_type(f.url)
-                click.secho(
-                    f"{f.id} | {f.name[:30]} | {f.url[:40]} | {provider_type} | "
-                    f"{getattr(f, 'articles_count', 0)} | {last_fetched[:10]}"
+                articles_count = getattr(f, "articles_count", 0)
+                weight = f.weight if f.weight is not None else 0.3
+
+                table.add_row(
+                    str(i),
+                    f.name,
+                    provider_type,
+                    str(articles_count),
+                    f"{weight:.1f}",
+                    last_fetched,
                 )
+
+            console.print(table)
     except Exception as e:
         click.secho(f"Error: Failed to list feeds: {e}", err=True, fg="red")
         logger.exception("Failed to list feeds")
@@ -275,7 +288,6 @@ def feed_list(ctx: click.Context) -> None:
 @click.pass_context
 def feed_remove(ctx: click.Context, feed_id: str) -> None:
     """Remove a feed by ID."""
-    verbose = ctx.parent and ctx.parent.obj.get("verbose")
     try:
         removed = remove_feed(feed_id)
         if removed:

@@ -14,15 +14,37 @@ from src.application.articles import get_article_detail, list_articles, search_a
 logger = logging.getLogger(__name__)
 
 
+_MONTH_MAP = {
+    "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
+    "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
+    "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12",
+}
+
+
+def _format_date(pub_date: str | None) -> str:
+    """Format pub_date as 'YYYY-MM-DD' or return '-'."""
+    if not pub_date:
+        return "-"
+    # RFC-2822 style: "Wed, 31 Oct 2024 12:00:00 GMT"
+    if "," in pub_date:
+        parts = pub_date.split(",", 1)
+        segs = parts[1].strip().split()
+        if len(segs) >= 3:
+            day, mon, year = segs[0], segs[1], segs[2]
+            if mon in _MONTH_MAP and year.isdigit() and len(year) == 4:
+                return f"{year}-{_MONTH_MAP[mon]}-{day.zfill(2)}"
+    # ISO format: "2024-10-31T..." or "2024-10-31"
+    if len(pub_date) >= 10 and pub_date[4:5] == "-":
+        return pub_date[:10]
+    return pub_date[:10] if len(pub_date) >= 10 else pub_date
+
+
 def print_articles(items: list[ArticleListItem]) -> None:
     """Print formatted articles to console using Rich Table.
 
     Args:
         items: List of ArticleListItem objects.
     """
-    from rich.console import Console
-    from rich.table import Table
-
     console = Console()
 
     if not items:
@@ -31,13 +53,12 @@ def print_articles(items: list[ArticleListItem]) -> None:
 
     table = Table(show_header=True, header_style="bold magenta", expand=False, row_styles=["", "dim"])
     table.add_column("ID", style="dim", width=8, no_wrap=True, overflow="ellipsis")
-    table.add_column("Title", style="cyan", min_width=20, max_width=50, overflow="ellipsis")
+    table.add_column("Title", style="cyan", min_width=30, max_width=70, overflow="ellipsis")
     table.add_column("Source", style="green", width=12, no_wrap=True, overflow="ellipsis")
-    table.add_column("Date", style="yellow", width=10, no_wrap=True, overflow="ellipsis")
-    table.add_column("Score", justify="right", width=5, no_wrap=True)
+    table.add_column("Date", style="yellow", width=12, no_wrap=True, overflow="ellipsis")
 
     for item in items:
-        title = item.title[:60] if item.title else "-"
+        title = item.title[:80] if item.title else "-"
         if item.link:
             title = f"[link={item.link}]{title}[/link]"
 
@@ -45,8 +66,7 @@ def print_articles(items: list[ArticleListItem]) -> None:
             (item.id[:8] if item.id else "-"),
             title,
             (item.feed_name[:15] if item.feed_name else "-"),
-            (item.pub_date[:10] if item.pub_date else "-"),
-            (str(item.score)[:4] if item.score is not None else "-"),
+            _format_date(item.pub_date),
         )
 
     console.print(table)
@@ -108,7 +128,8 @@ def article_view(ctx: click.Context, article_id: str) -> None:
         console.print(Panel(meta_table, title=title, subtitle=f"{article['feed_name']} | {article['pub_date'] or 'No date'}"))
         if article["content"]:
             console.print(); console.print(article["content"])
-        else: console.print("\n[yellow]No content available[/yellow]")
+        else:
+            console.print(Panel("[dim]No content available[/dim]", border_style="yellow"))
     except Exception as e:
         click.secho(f"Error: Failed to view article: {e}", err=True, fg="red")
         logger.exception("Failed to view article"); sys.exit(1)

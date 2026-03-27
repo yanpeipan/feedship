@@ -213,9 +213,15 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
     valid_ids = [aid for aid in ids if aid]
     id_to_article = {}
     if valid_ids:
-        from src.storage.sqlite import get_articles_by_ids
+        from src.storage.sqlite import get_articles_by_ids, get_feeds_by_ids
         articles_data = get_articles_by_ids(valid_ids)
         id_to_article = {a["id"]: a for a in articles_data}
+
+        # Batch fetch all unique feeds to avoid N DB calls in loop
+        feed_ids = list({a.get("feed_id") for a in articles_data if a.get("feed_id")})
+        id_to_feed = {f.id: f for f in get_feeds_by_ids(feed_ids).values()} if feed_ids else {}
+    else:
+        id_to_feed = {}
 
     # Build ranked results with multi-factor scoring
     ranked_results = []
@@ -245,14 +251,10 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
             except (ValueError, TypeError):
                 pass
 
-        # Source weight from feed
-        from src.storage.sqlite import get_feed
+        # Source weight from feed (batch-fetched above)
         feed_id = article_info.get("feed_id")
-        source_weight = 0.3
-        if feed_id:
-            feed = get_feed(feed_id)
-            if feed and feed.weight is not None:
-                source_weight = feed.weight
+        feed = id_to_feed.get(feed_id) if feed_id else None
+        source_weight = feed.weight if feed and feed.weight is not None else 0.3
 
         # Final score: 0.5 * norm_similarity + 0.3 * norm_freshness + 0.2 * source_weight
         # For now use cos_sim directly (already normalized across results)

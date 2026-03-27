@@ -23,23 +23,19 @@ def temp_db_path(tmp_path):
 def initialized_db(temp_db_path, monkeypatch):
     """Database that has been initialized with schema (tables created).
 
-    Patches the storage module to use the temp_db_path before initialization.
+    Patches impl module _DB_PATH to use temp_db_path before initialization.
     """
-    import src.storage.sqlite as storage_module
+    from src.storage.sqlite import impl
 
-    # Save original path
-    original_path = storage_module._DB_PATH
-
-    # Patch to use temp path
-    storage_module._DB_PATH = Path(temp_db_path)
+    # Patch _DB_PATH in impl module (where it's actually defined)
+    monkeypatch.setattr(impl, "_DB_PATH", Path(temp_db_path))
 
     # Initialize the schema
-    storage_module.init_db()
+    impl.init_db()
 
     yield temp_db_path
 
-    # Restore original path
-    storage_module._DB_PATH = original_path
+    # Cleanup happens automatically via tmp_path
 
 
 # --- Sample Data Fixtures ---

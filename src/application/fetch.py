@@ -12,9 +12,10 @@ import logging
 from typing import Optional
 
 from src.application.feed import FeedNotFoundError, fetch_one, get_feed
+from src.application.config import get_timezone
 from src.models import Feed
 from src.providers import discover_or_default
-from src.storage import list_feeds as storage_list_feeds, store_article_async
+from src.storage import list_feeds as storage_list_feeds, store_article_async, update_feed as storage_update_feed
 from src.utils import generate_article_id
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,12 @@ async def fetch_one_async(feed: Feed) -> dict:
         except Exception as e:
             logger.warning("Failed to store article %s: %s", article_guid, e)
             continue
+
+    # Update feed metadata after successful fetch
+    if new_count > 0:
+        from datetime import datetime
+        now = datetime.now(get_timezone()).isoformat()
+        storage_update_feed(feed.id, now)
 
     return {"new_articles": new_count}
 

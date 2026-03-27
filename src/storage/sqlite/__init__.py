@@ -1,6 +1,8 @@
 """SQLite storage package."""
 
 from src.storage.sqlite.impl import (
+    _DB_PATH,
+    _get_db_write_lock,
     get_db,
     init_db,
     store_article,
@@ -10,7 +12,9 @@ from src.storage.sqlite.impl import (
     add_feed,
     list_feeds,
     get_feed,
+    get_feeds_by_ids,
     remove_feed,
+    update_feed,
     list_articles,
     get_article,
     get_article_detail,
@@ -31,7 +35,9 @@ __all__ = [
     "add_feed",
     "list_feeds",
     "get_feed",
+    "get_feeds_by_ids",
     "remove_feed",
+    "update_feed",
     "list_articles",
     "get_article",
     "get_article_detail",

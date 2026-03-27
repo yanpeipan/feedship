@@ -16,6 +16,7 @@ from src.storage.sqlite.impl import (
     list_feeds,
     get_feed,
     remove_feed,
+    update_feed,
     list_articles,
     get_article,
     get_article_detail,

@@ -13,7 +13,11 @@ class DatabaseInitializer:
     def init_db(self) -> None:
         """Initialize the database schema.
 
-        Creates all tables and indexes if they do not already exist.
+        Creates the feeds table and articles table with appropriate indexes
+        if they do not already exist.
+
+        Feeds table stores feed sources with metadata for conditional fetching.
+        Articles table stores individual items with foreign key to feeds.
         """
         from src.storage.sqlite import get_db
 
@@ -49,7 +53,6 @@ class DatabaseInitializer:
                     description TEXT,
                     content TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    repo_id TEXT REFERENCES github_repos(id) ON DELETE SET NULL,
                     UNIQUE(feed_id, id)
                 )
             """)
@@ -73,91 +76,6 @@ class DatabaseInitializer:
                     description,
                     content,
                     tokenize='porter ascii'
-                )
-            """)
-
-            # Tags table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS tags (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL UNIQUE,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            # Article-Tags junction table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS article_tags (
-                    article_id TEXT NOT NULL,
-                    tag_id TEXT NOT NULL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (article_id, tag_id),
-                    FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
-                    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-                )
-            """)
-
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_article_tags_tag_id ON article_tags(tag_id)"
-            )
-
-            # GitHub repos table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS github_repos (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    owner TEXT NOT NULL,
-                    repo TEXT NOT NULL,
-                    last_fetched TEXT,
-                    last_tag TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(owner, repo)
-                )
-            """)
-
-            # GitHub releases table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS github_releases (
-                    id TEXT PRIMARY KEY,
-                    repo_id TEXT NOT NULL REFERENCES github_repos(id) ON DELETE CASCADE,
-                    tag_name TEXT NOT NULL,
-                    name TEXT,
-                    body TEXT,
-                    html_url TEXT NOT NULL,
-                    published_at TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(repo_id, tag_name)
-                )
-            """)
-
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_github_releases_repo_id ON github_releases(repo_id)"
-            )
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_github_releases_published ON github_releases(published_at)"
-            )
-
-            # GitHub release tags junction table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS github_release_tags (
-                    release_id TEXT NOT NULL,
-                    tag_id TEXT NOT NULL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (release_id, tag_id),
-                    FOREIGN KEY (release_id) REFERENCES github_releases(id) ON DELETE CASCADE,
-                    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-                )
-            """)
-
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_github_release_tags_tag_id ON github_release_tags(tag_id)"
-            )
-
-            # Article embeddings table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS article_embeddings (
-                    article_id TEXT PRIMARY KEY,
-                    embedding BLOB
                 )
             """)
 

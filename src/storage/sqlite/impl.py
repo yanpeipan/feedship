@@ -210,9 +210,9 @@ def add_feed(feed) -> Feed:
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """INSERT INTO feeds (id, name, url, etag, last_modified, last_fetched, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (feed.id, feed.name, feed.url, feed.etag, feed.last_modified, feed.last_fetched, feed.created_at)
+            """INSERT INTO feeds (id, name, url, etag, last_modified, last_fetched, created_at, weight)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (feed.id, feed.name, feed.url, feed.etag, feed.last_modified, feed.last_fetched, feed.created_at, feed.weight)
         )
         conn.commit()
         return feed
@@ -224,7 +224,7 @@ def list_feeds() -> list:
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT f.id, f.name, f.url, f.etag, f.last_modified, f.last_fetched, f.created_at,
+            SELECT f.id, f.name, f.url, f.etag, f.last_modified, f.last_fetched, f.created_at, f.weight,
                    COUNT(a.id) as articles_count
             FROM feeds f
             LEFT JOIN articles a ON f.id = a.feed_id
@@ -242,6 +242,7 @@ def list_feeds() -> list:
                 last_modified=row["last_modified"],
                 last_fetched=row["last_fetched"],
                 created_at=row["created_at"],
+                weight=row["weight"],
             )
             feed.articles_count = row["articles_count"]
             feeds.append(feed)
@@ -270,6 +271,40 @@ def get_feed(feed_id: str) -> Optional[Feed]:
             created_at=row["created_at"],
             weight=row["weight"],
         )
+
+
+def get_feeds_by_ids(ids: list[str]) -> dict[str, Feed]:
+    """Get feeds by IDs in batch, returning a dict mapping id -> Feed.
+
+    Args:
+        ids: List of feed IDs
+
+    Returns:
+        Dict mapping feed ID to Feed object. Missing entries are omitted.
+    """
+    from src.models import Feed
+    if not ids:
+        return {}
+    with get_db() as conn:
+        cursor = conn.cursor()
+        placeholders = ",".join("?" * len(ids))
+        cursor.execute(
+            f"SELECT id, name, url, etag, last_modified, last_fetched, created_at, weight FROM feeds WHERE id IN ({placeholders})",
+            ids
+        )
+        return {
+            row["id"]: Feed(
+                id=row["id"],
+                name=row["name"],
+                url=row["url"],
+                etag=row["etag"],
+                last_modified=row["last_modified"],
+                last_fetched=row["last_fetched"],
+                created_at=row["created_at"],
+                weight=row["weight"],
+            )
+            for row in cursor.fetchall()
+        }
 
 
 def remove_feed(feed_id: str) -> bool:
@@ -553,6 +588,26 @@ def search_articles(query: str, limit: int = 20, feed_id: Optional[str] = None, 
             )
             for row in cursor.fetchall()
         ]
+
+
+def update_feed(feed_id: str, last_fetched: str, etag: Optional[str] = None, last_modified: Optional[str] = None) -> bool:
+    """Update feed metadata after a successful fetch.
+
+    Returns True if feed was updated, False if not found.
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if etag is not None or last_modified is not None:
+            cursor.execute(
+                """UPDATE feeds SET last_fetched = ?, etag = COALESCE(?, etag), last_modified = COALESCE(?, last_modified)
+                   WHERE id = ?""",
+                (last_fetched, etag, last_modified, feed_id)
+            )
+        else:
+            cursor.execute("UPDATE feeds SET last_fetched = ? WHERE id = ?", (last_fetched, feed_id))
+        updated = cursor.rowcount > 0
+        conn.commit()
+        return updated
 
 
 def ensure_crawled_feed() -> None:
