@@ -14,37 +14,87 @@ from src.application.articles import ArticleListItem
 from src.storage.sqlite import get_article
 
 
-def format_semantic_results(results: list[dict[str, Any]], verbose: bool = False) -> list[dict[str, Any]]:
-    """Format semantic search results for display.
-
-    Takes output from rank_semantic_results (list of dicts with article_id,
-    sqlite_id, title, url, distance, document, norm_similarity) and formats
-    for unified CLI presentation.
+def format_articles(items: list, mode: str = "list", verbose: bool = False) -> list[dict[str, Any]]:
+    """Unified article list formatter for all display modes.
 
     Args:
-        results: List of dicts from rank_semantic_results with keys:
-            - article_id: ChromaDB ID (guid)
-            - sqlite_id: SQLite nanoid or None
-            - title: Article title or None
-            - url: Article URL or None
-            - distance: L2 distance (float) or None
-            - document: Full content text or None
-            - norm_similarity: Normalized similarity score (0-1) from ranking
-        verbose: If True, include full details (id, url, document preview).
-                 If False, show truncated summary.
+        items: List of articles (type depends on mode)
+        mode: 'list' for list_articles, 'fts' for search_articles, 'semantic' for rank_semantic_results
+        verbose: Include full details if True
 
     Returns:
-        List of dicts with unified formatted fields:
-        - id: sqlite_id[:8] or "" (non-verbose), full sqlite_id or "" (verbose)
-        - title: article title (truncated to 60 chars)
-        - source: domain from url (truncated to 15 chars) or "-"
-        - date: "-" (semantic search has no date)
-        - score: norm_similarity * 100 as percentage like "85%" or "N/A"
-        - url: full url (verbose only)
-        - document_preview: truncated content (verbose only)
+        List of dicts with unified fields: id, title, source, date, score
     """
+    if mode == "list":
+        return _format_list_items(items, verbose)
+    elif mode == "fts":
+        return _format_fts_items(items, verbose)
+    elif mode == "semantic":
+        return _format_semantic_items(items, verbose)
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
+
+def _format_list_items(items: list[ArticleListItem], verbose: bool) -> list[dict[str, Any]]:
+    """Format list_articles output (ArticleListItem list)."""
     formatted = []
-    for result in results:
+    for article in items:
+        title = _truncate(article.title, 60) if article.title else "No title"
+        source = _truncate(article.feed_name, 15) if article.feed_name else "Unknown"
+        date = _truncate(article.pub_date, 10) if article.pub_date else "-"
+        article_id = article.id
+        if verbose:
+            formatted.append({
+                "id": article_id,
+                "title": title,
+                "source": source,
+                "date": date,
+                "score": "LIST",
+            })
+        else:
+            formatted.append({
+                "id": article_id[:8],
+                "title": title,
+                "source": source,
+                "date": date,
+                "score": "LIST",
+            })
+    return formatted
+
+
+def _format_fts_items(items: list[ArticleListItem], verbose: bool) -> list[dict[str, Any]]:
+    """Format search_articles output (ArticleListItem list)."""
+    formatted = []
+    for article in items:
+        title = _truncate(article.title, 60) if article.title else "No title"
+        source = _truncate(article.feed_name, 15) if article.feed_name else "Unknown"
+        date = _truncate(article.pub_date, 10) if article.pub_date else "-"
+        if verbose:
+            desc_preview = _truncate(article.description, 100) if article.description else ""
+            formatted.append({
+                "id": "",
+                "title": title,
+                "source": source,
+                "date": date,
+                "score": "FTS",
+                "link": article.link or "",
+                "description_preview": desc_preview,
+            })
+        else:
+            formatted.append({
+                "id": "",
+                "title": title,
+                "source": source,
+                "date": date,
+                "score": "FTS",
+            })
+    return formatted
+
+
+def _format_semantic_items(items: list[dict[str, Any]], verbose: bool) -> list[dict[str, Any]]:
+    """Format rank_semantic_results output (dict list)."""
+    formatted = []
+    for result in items:
         title = result.get("title") or "No title"
         url = result.get("url") or ""
         sqlite_id = result.get("sqlite_id")
@@ -90,6 +140,38 @@ def format_semantic_results(results: list[dict[str, Any]], verbose: bool = False
                 "score": score,
             })
     return formatted
+
+
+def format_semantic_results(results: list[dict[str, Any]], verbose: bool = False) -> list[dict[str, Any]]:
+    """Format semantic search results for display.
+
+    Takes output from rank_semantic_results (list of dicts with article_id,
+    sqlite_id, title, url, distance, document, norm_similarity) and formats
+    for unified CLI presentation.
+
+    Args:
+        results: List of dicts from rank_semantic_results with keys:
+            - article_id: ChromaDB ID (guid)
+            - sqlite_id: SQLite nanoid or None
+            - title: Article title or None
+            - url: Article URL or None
+            - distance: L2 distance (float) or None
+            - document: Full content text or None
+            - norm_similarity: Normalized similarity score (0-1) from ranking
+        verbose: If True, include full details (id, url, document preview).
+                 If False, show truncated summary.
+
+    Returns:
+        List of dicts with unified formatted fields:
+        - id: sqlite_id[:8] or "" (non-verbose), full sqlite_id or "" (verbose)
+        - title: article title (truncated to 60 chars)
+        - source: domain from url (truncated to 15 chars) or "-"
+        - date: "-" (semantic search has no date)
+        - score: norm_similarity * 100 as percentage like "85%" or "N/A"
+        - url: full url (verbose only)
+        - document_preview: truncated content (verbose only)
+    """
+    return format_articles(results, mode="semantic", verbose=verbose)
 
 
 # Source weight configuration for ranking
@@ -228,32 +310,7 @@ def format_fts_results(articles: list[ArticleListItem], verbose: bool = False) -
         - link: article link (verbose only)
         - description_preview: truncated description (verbose only)
     """
-    formatted = []
-    for article in articles:
-        title = _truncate(article.title, 60) if article.title else "No title"
-        source = _truncate(article.feed_name, 15) if article.feed_name else "Unknown"
-        date = _truncate(article.pub_date, 10) if article.pub_date else "-"
-
-        if verbose:
-            desc_preview = _truncate(article.description, 100) if article.description else ""
-            formatted.append({
-                "id": "",
-                "title": title,
-                "source": source,
-                "date": date,
-                "score": "FTS",
-                "link": article.link or "",
-                "description_preview": desc_preview,
-            })
-        else:
-            formatted.append({
-                "id": "",
-                "title": title,
-                "source": source,
-                "date": date,
-                "score": "FTS",
-            })
-    return formatted
+    return format_articles(articles, mode="fts", verbose=verbose)
 
 
 def _truncate(text: str, max_length: int) -> str:

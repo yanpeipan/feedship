@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from src.application.articles import get_article_detail, list_articles, search_articles
-from src.application.search import format_semantic_results, format_fts_results, rank_semantic_results
+from src.application.search import format_semantic_results, format_fts_results, rank_semantic_results, format_articles
 # Lazy import: from src.application.related import get_related_articles_display
 # Lazy import: from src.storage.vector import search_articles_semantic
 
@@ -59,16 +59,9 @@ def article_list(ctx: click.Context, limit: int, feed_id: Optional[str], verbose
         table.add_column("Source", max_width=20)
         table.add_column("Date", max_width=10)
 
-        for article in articles:
-            title = article.title or "No title"
-            pub_date = article.pub_date or "No date"
-
-            source = article.feed_name or "Unknown"
-
-            # Use full ID if verbose, otherwise truncate to 8 chars
-            id_display = article.id if verbose else article.id[:8]
-
-            table.add_row(id_display, title[:50], source[:20], pub_date[:10])
+        formatted = format_articles(articles, mode='list', verbose=verbose)
+        for item in formatted:
+            table.add_row(item['id'][:8] if not verbose else item['id'], item['title'][:50], item['source'][:20], item['date'][:10])
         console.print(table)
     except Exception as e:
         click.secho(f"Error: Failed to list articles: {e}", err=True, fg="red")
