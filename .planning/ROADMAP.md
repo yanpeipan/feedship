@@ -142,7 +142,9 @@ Plans:
   2. ChromaDB errors (corruption, disk full) are caught and reported without crash
   3. `article related <id>` on article without embedding shows helpful message
   4. `search --semantic` on empty index handles gracefully
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 33-01-PLAN.md — Add graceful error handling for semantic search edge cases
 
 ## Progress
 
@@ -181,7 +183,7 @@ Plans:
 | 30. Semantic Search Infrastructure | 3/3 | ✅ Complete | 2026-03-27 |
 | 31. Write Path - Incremental Embedding | 2/2 | Complete   | 2026-03-26 |
 | 32. Query Path - Semantic Search CLI | 0/1 | Not started | - |
-| 33. Polish - Error Handling | 0/1 | Not started | - |
+| 33. Polish - Error Handling | 1/1 | Planned | - |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_
