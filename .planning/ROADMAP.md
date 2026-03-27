@@ -12,6 +12,10 @@
 - [x] **v1.8 ChromaDB 语义搜索** — Phases 30-33 (shipped 2026-03-27)
 - [x] **v1.9 Automatic Discovery Feed** — Phases 34-37 (shipped 2026-03-27)
 
+- [x] **v1.10 uvloop Best Practices Review** — Phase 39 (shipped 2026-03-28)
+
+- [ ] **v1.11 Comprehensive uvloop Audit** — Phase 40
+
 ## Phases
 
 <details>
@@ -104,7 +108,35 @@
   6. CLI output labeled "ranked" not "by similarity"
 **Plans**: 1 plan
 Plans:
-- [ ] 38-01-PLAN.md — Multi-factor ranking algorithm (rank_semantic_results, CLI wiring, tests)
+- [x] 38-01-PLAN.md — Multi-factor ranking algorithm (rank_semantic_results, CLI wiring, tests)
+
+### Phase 39: uvloop Best Practices Review
+**Goal**: Review all async code patterns to ensure uvloop is used correctly, remove dead code, and document findings
+**Depends on**: Phase 19, Phase 20, Phase 21, Phase 22 (v1.5 uvloop concurrency)
+**Requirements**: None (code review phase)
+**Success Criteria** (what must be TRUE):
+  1. All CLI entry points use `uvloop.run()` (not `asyncio.run()`)
+  2. All async code uses standard asyncio primitives (Semaphore, gather, to_thread)
+  3. No custom event loop creation in async code
+  4. Dead code removed from `src/utils/asyncio_utils.py`
+  5. `install_uvloop()` pattern is consistent across all CLI entry points
+**Plans**: 1 plan
+Plans:
+- [x] 39-01-PLAN.md — Dead code removal + install_uvloop() simplification (completed 2026-03-28)
+
+### Phase 40: Comprehensive uvloop Audit
+**Goal**: Full audit of all async code to identify uvloop anti-patterns, ensure no asyncio.run() usage, verify blocking calls are wrapped in asyncio.to_thread(), and confirm all async code flows through uvloop.run() at CLI boundaries
+**Depends on**: Phase 39 (v1.10 uvloop Best Practices Review)
+**Requirements**: None (code audit phase)
+**Success Criteria** (what must be TRUE):
+  1. Zero `asyncio.run()` calls found in `src/` (verified via grep)
+  2. No blocking I/O calls outside `asyncio.to_thread()`
+  3. No custom event loop creation in async code
+  4. All async providers use true async (not sync-in-async patterns)
+  5. Any uvloop anti-patterns found are fixed or noted as deferred
+**Plans**: 1 plan
+Plans:
+- [x] 40-01-PLAN.md — Comprehensive uvloop Audit (grep verification + file-by-file audit + VERIFICATION.md)
 
 ### Phase 34: Discovery Core Module
 **Goal**: Users can programmatically discover RSS/Atom/RDF feeds from a website URL via the discovery service module
@@ -210,7 +242,9 @@ Plans:
   2. `article related <id>` shows articles similar to the specified article
   3. Results display article title, similarity score, and source
   4. Empty results handled gracefully with user-friendly message
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [x] 40-01-PLAN.md — Comprehensive uvloop Audit (grep verification + file-by-file audit + VERIFICATION.md)
 
 ### Phase 33: Polish - Error Handling
 **Goal**: System handles edge cases gracefully without crashing
@@ -267,7 +301,8 @@ Plans:
 | 35. Discovery CLI Command | 1/1 | ✅ Complete | 2026-03-27 |
 | 36. Feed Add Integration | 1/1 | ✅ Complete | 2026-03-27 |
 | 37. Deep Crawling | 2/2 | Complete    | 2026-03-27 |
-| 38. Search Result Ranking | — | Pending | — |
+| 38. Search Result Ranking | 1/1 | Complete   | 2026-03-27 |
+| 39. uvloop Best Practices Review | 1/1 | ✅ Complete | 2026-03-28 |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_
