@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: ChromaDB 语义搜索
 status: completed
-stopped_at: Completed quick task 260327-h4z: refactor CLI fetch command to use application layer
-last_updated: "2026-03-27T12:00:00.000Z"
-last_activity: "2026-03-27 — Completed quick task 260327-h4z: refactor CLI fetch command to use application layer"
+stopped_at: Completed quick task 260327-jt7: remove all tag functionality
+last_updated: "2026-03-27T13:00:00.000Z"
+last_activity: "2026-03-27 — Completed quick task 260327-jt7: remove all tag functionality"
 progress:
   total_phases: 4
   completed_phases: 3
@@ -224,3 +224,4 @@ Stopped at: Completed quick task 260327-jju
 | 260327-h4z | Refactor CLI fetch command to use fetch_ids_async from application layer | 2026-03-27 | a844ee4 | Verified | [260327-h4z-src-cli-feed-py-200-cli-application](./quick/260327-h4z-src-cli-feed-py-200-cli-application/) |
 | 260327-hmk | 删除 feed_refresh 命令，和 fetch <id> 功能重叠 | 2026-03-27 | fc212a8 | Verified | [260327-hmk-feed-refresh-fetch-ids](./quick/260327-hmk-feed-refresh-fetch-ids/) |
 | 260327-jju | 优化 fetch <feed_id> 响应速度，使用 async-native 路径 | 2026-03-27 | bd03fef | Verified | [260327-jju-python-m-src-cli-fetch-feed-id](./quick/260327-jju-python-m-src-cli-fetch-feed-id/) |
+| 260327-jt7 | 删除全部 tag 功能（CLI 命令、storage 函数、models、providers、tests） | 2026-03-27 | dbd7dfe | Verified | [260327-jt7-tag-dead-code](./quick/260327-jt7-tag-dead-code/) |
