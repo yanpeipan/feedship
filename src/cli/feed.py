@@ -169,30 +169,6 @@ def feed_remove(ctx: click.Context, feed_id: str) -> None:
         sys.exit(1)
 
 
-@feed.command("refresh")
-@click.argument("feed_id")
-@click.pass_context
-def feed_refresh(ctx: click.Context, feed_id: str) -> None:
-    """Refresh a single feed to fetch new articles."""
-    try:
-        result = fetch_one(feed_id)
-        if "error" in result:
-            click.secho(f"Error refreshing feed: {result['error']}", fg="red")
-            sys.exit(1)
-        new_count = result.get("new_articles", 0)
-        if new_count > 0:
-            click.secho(f"Fetched {new_count} new articles", fg="green")
-        else:
-            click.secho("No new articles available", fg="yellow")
-    except FeedNotFoundError:
-        click.secho(f"Feed not found: {feed_id}", fg="red")
-        sys.exit(1)
-    except Exception as e:
-        click.secho(f"Error: Failed to refresh feed: {e}", err=True, fg="red")
-        logger.exception("Failed to refresh feed")
-        sys.exit(1)
-
-
 @cli.command("fetch")
 @click.option("--all", "do_fetch_all", is_flag=True, help="Fetch all feeds")
 @click.option("--concurrency", default=10, type=click.IntRange(1, 100), help="Max concurrent fetches (default: 10)")
