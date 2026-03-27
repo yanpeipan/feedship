@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: "Completed quick task 260328-3bv: feed weight refactor for semantic search"
+stopped_at: "Completed quick task 260328-3og: remove ALTER TABLE migration, weight column in CREATE TABLE"
 last_updated: "2026-03-28"
 progress:
   total_phases: 40
@@ -238,6 +238,7 @@ Stopped at: Completed quick task 260328-3bv: feed weight refactor for semantic s
 | Phase 37 P37-01 | <5 | 4 tasks | 5 files |
 | Phase 37 P37-02 | ~3 | 3 tasks | 2 files |
 | 260328-173 | Unified Rich progress bar and elapsed time UI for src.cli commands | 2026-03-28 | — | Verified | [260328-173-src-cli-ui](./quick/260328-173-src-cli-ui/) |
+| 260328-3og | Remove ALTER TABLE migration, add weight column directly to feeds CREATE TABLE | 2026-03-28 | 0dc9fb1 | Verified | [260328-3og-remove-migration-init-db](./quick/260328-3og-remove-migration-init-db/) |
 | 260328-3bv | Refactor source weight to use feed.weight from database, delete domain matching | 2026-03-28 | ff6f478 | Verified | [260328-3bv-feeds-weight](./quick/260328-3bv-feeds-weight/) |
 | 260327-sp3 | Implement regex-based feed path matching with generate_feed_candidates() | 2026-03-27 | e5e38d9 | Verified | [260327-sp3-implement-regex-based-feed-path-matching](./quick/260327-sp3-implement-regex-based-feed-path-matching/) |
 | 260327-t7d | Refactor src/discovery HTML parsing from BeautifulSoup to Scrapling | 2026-03-27 | b12cf01 | Verified | [260327-t7d-scrapling-src-discovery](./quick/260327-t7d-scrapling-src-discovery/) |
