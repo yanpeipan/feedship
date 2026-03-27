@@ -7,6 +7,7 @@ import click
 import uvloop
 from rich.console import Console
 from rich.table import Table
+from rich.text import Text
 
 from src.discovery import discover_feeds, DiscoveredFeed
 
@@ -55,7 +56,7 @@ def _display_feeds(feeds: list[DiscoveredFeed], numbered: bool = False) -> None:
     for i, feed in enumerate(feeds, 1):
         color = color_map.get(feed.feed_type, "white")
         title = feed.title if feed.title else "—"
-        type_display = click.style(feed.feed_type.upper(), fg=color)
+        type_display = Text(feed.feed_type.upper(), style=color)
         if numbered:
             table.add_row(str(i), type_display, title, feed.url)
         else:

@@ -6,6 +6,8 @@ import time
 from collections import deque
 from urllib.parse import urljoin, urlparse
 
+import feedparser
+
 from scrapling import Fetcher, Selector
 from robotexclusionrulesparser import RobotExclusionRulesParser
 
@@ -42,6 +44,30 @@ def normalize_url_for_visit(url: str) -> str:
     return f"{scheme_host}{path}"
 
 
+async def _extract_feed_title(url: str) -> str | None:
+    """Extract title from a feed URL using feedparser.
+
+    Args:
+        url: Feed URL to fetch and parse.
+
+    Returns:
+        Feed title string if found, None otherwise.
+    """
+    try:
+        # Use httpx directly since feedparser works with bytes/content
+        import httpx
+        async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return None
+            feed = feedparser.parse(response.content)
+            if feed.feed:
+                return feed.feed.get('title')
+            return None
+    except Exception:
+        return None
+
+
 async def _probe_well_known_paths(page_url: str) -> list[DiscoveredFeed]:
     """Probe well-known feed paths on a page URL.
 
@@ -59,9 +85,11 @@ async def _probe_well_known_paths(page_url: str) -> list[DiscoveredFeed]:
     for candidate in candidates:
         is_valid, feed_type = await validate_feed(candidate)
         if is_valid:
+            # Extract title from feed content
+            title = await _extract_feed_title(candidate)
             results.append(DiscoveredFeed(
                 url=candidate,
-                title=None,
+                title=title,
                 feed_type=feed_type,
                 source='well_known_path',
                 page_url=page_url,
