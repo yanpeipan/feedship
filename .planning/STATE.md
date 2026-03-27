@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Automatic Discovery Feed
 status: executing
-stopped_at: Completed Quick Task 260327-sp3 - regex-based feed path matching
-last_updated: "2026-03-27T15:13:38.656Z"
-last_activity: 2026-03-27 -- Phase 37 execution started
+stopped_at: Completed Plan 37-02 - dynamic subdirectory discovery via CSS selectors
+last_updated: "2026-03-27T16:45:00Z"
+last_activity: 2026-03-27 -- Phase 37 Plan 37-02 completed
 progress:
   total_phases: 4
   completed_phases: 3
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (v1.9 milestone started)
 ## Current Position
 
 Phase: 37 (deep-crawling) — EXECUTING
-Plan: 1 of 2
-Status: Executing Phase 37
-Last activity: 2026-03-27 -- Phase 37 execution started
+Plan: 2 of 2
+Status: Executing Phase 37 Plan 37-02 just completed
+Last activity: 2026-03-27 -- Phase 37 Plan 37-02 completed
 
 ## v1.9 Phase Structure
 
@@ -132,6 +132,9 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 37]: RobotExclusionRulesParser (not RobotFileParser) - correct import name from robotexclusionrulesparser package
 - [Phase 37]: robots.txt lazy mode per plan spec: only check when depth > 1
 - [Phase 37]: asyncio.Semaphore(5) limits concurrent requests to 5 per depth level
+- [Phase 37-02]: Removed hardcoded _SUBDIR_NAMES and _SUBGRID_PATTERNS - replaced with dynamic subdirectory discovery via CSS selectors
+- [Phase 37-02]: _extract_links() uses CSS selectors (a[href*="rss"], a[href*="feed"], etc.) to find feed-like links directly
+- [Phase 37-02]: Fixed path handling: paths starting with / (like /blog/rss.xml) are same-domain paths, not external URLs
 
 ### Technical Notes
 
@@ -239,6 +242,7 @@ Stopped at: Completed Quick Task 260327-sp3 - regex-based feed path matching
 | Phase 35 P35-01 | 3 | 3 tasks | 2 files |
 | Phase 36 P36-01 | ~5 | 3 tasks | 2 files |
 | Phase 37 P37-01 | <5 | 4 tasks | 5 files |
+| Phase 37 P37-02 | ~3 | 3 tasks | 2 files |
 | 260327-sp3 | Implement regex-based feed path matching with generate_feed_candidates() | 2026-03-27 | e5e38d9 | Verified | [260327-sp3-implement-regex-based-feed-path-matching](./quick/260327-sp3-implement-regex-based-feed-path-matching/) |
 | 260327-t7d | Refactor src/discovery HTML parsing from BeautifulSoup to Scrapling | 2026-03-27 | b12cf01 | Verified | [260327-t7d-scrapling-src-discovery](./quick/260327-t7d-scrapling-src-discovery/) |
 | 260327-tpu | Replace httpx with Scrapling Fetcher in deep_crawl | 2026-03-27 | bbe0da8 | Verified | [260327-tpu-replace-beautifulsoup-with-scrapling-in-](./quick/260327-tpu-replace-beautifulsoup-with-scrapling-in-/) |
