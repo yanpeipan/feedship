@@ -59,7 +59,7 @@ def print_articles(items: list[ArticleListItem], verbose: bool = False) -> None:
         return
 
     # Normal table view
-    table = Table(show_header=True, header_style="bold magenta", expand=False)
+    table = Table(show_header=True, header_style="bold magenta", expand=False, row_styles=["", "dim"])
     table.add_column("ID", style="dim", width=8, no_wrap=True, overflow="ellipsis")
     table.add_column("Title", style="cyan", min_width=20, max_width=50, overflow="ellipsis")
     table.add_column("Source", style="green", width=12, no_wrap=True, overflow="ellipsis")
