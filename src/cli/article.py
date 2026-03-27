@@ -139,26 +139,26 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional
             # Apply multi-factor ranking
             results = rank_semantic_results(results, top_k=limit)
             formatted = format_semantic_results(results, verbose=verbose)
-            click.secho("Semantic search results (ranked):\n" + "-" * 80)
+            click.secho("ID | Title | Source | Date | Score\n" + "-" * 80)
             for item in formatted:
                 if verbose:
                     click.secho(f"\nTitle: {item['title']}")
-                    if item.get('id_display'): click.secho(f"ID: {item['id_display']}")
+                    if item.get('id'): click.secho(f"ID: {item['id']}")
                     if item.get('url'): click.secho(f"URL: {item['url']}")
-                    click.secho(f"Similarity: {item['similarity']}")
+                    click.secho(f"Score: {item['score']}")
                     if item.get('document_preview'): click.secho(f"Content preview: {item['document_preview']}")
-                else: click.secho(f"{item['id_display']}{item['title'][:40]} | Similarity: {item['similarity']}")
+                else: click.secho(f"{item['id'][:8]} | {item['title'][:60]} | {item['source'][:15]} | {item['date'][:10]} | {item['score'][:4]}")
         else:
             articles = search_articles(query=query, limit=limit, feed_id=feed_id)
             if not articles: click.secho("No articles found matching your search."); return
             formatted = format_fts_results(articles, verbose=verbose)
-            click.secho("Title | Source | Date\n" + "-" * 80)
+            click.secho("ID | Title | Source | Date | Score\n" + "-" * 80)
             for item in formatted:
                 if verbose:
                     click.secho(f"\nTitle: {item['title']}\nSource: {item['source']}\nDate: {item['date']}")
                     if item.get('link'): click.secho(f"Link: {item['link']}")
                     if item.get('description_preview'): click.secho(f"Description: {item['description_preview']}")
-                else: click.secho(f"{item['title']} | {item['source']} | {item['date']}")
+                else: click.secho(f"{item['id'][:8]} | {item['title'][:60]} | {item['source'][:15]} | {item['date'][:10]} | {item['score'][:4]}")
     except Exception as e:
         click.secho(f"Search unavailable: {e}.", err=True, fg="yellow")
         logger.exception("Failed to search articles"); sys.exit(1)
