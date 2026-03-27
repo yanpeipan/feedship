@@ -79,6 +79,7 @@ async def fetch_one_async(feed: Feed) -> dict:
                     title=article.get("title") or "",
                     content=article.get("content") or article.get("description") or "",
                     url=article.get("link") or "",
+                    pub_date=article.get("pub_date"),
                 )
             except Exception as e:
                 logger.warning("Failed to add embedding for article %s: %s", article_guid, e)

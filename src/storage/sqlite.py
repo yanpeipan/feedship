@@ -411,36 +411,50 @@ def remove_feed(feed_id: str) -> bool:
         return deleted
 
 
-def list_articles(limit: int = 20, feed_id: Optional[str] = None) -> list:
-    """List articles ordered by publication date."""
+def list_articles(limit: int = 20, feed_id: Optional[str] = None, since: Optional[str] = None, until: Optional[str] = None, on: Optional[list[str]] = None) -> list:
+    """List articles ordered by publication date.
+
+    Args:
+        limit: Maximum number of articles.
+        feed_id: Optional feed ID to filter by.
+        since: Optional start date (inclusive), format YYYY-MM-DD.
+        until: Optional end date (inclusive), format YYYY-MM-DD.
+        on: Optional list of specific dates to match.
+    """
     from src.application.articles import ArticleListItem
+
+    # Build WHERE clause
+    conditions = []
+    params = []
+    if feed_id:
+        conditions.append("a.feed_id = ?")
+        params.append(feed_id)
+    if since:
+        conditions.append("DATE(a.pub_date) >= DATE(?)")
+        params.append(since)
+    if until:
+        conditions.append("DATE(a.pub_date) <= DATE(?)")
+        params.append(until)
+    if on:
+        placeholders = ",".join("?" * len(on))
+        conditions.append(f"DATE(a.pub_date) IN ({placeholders})")
+        params.extend(on)
+    where_clause = " AND ".join(conditions) if conditions else "1=1"
+
     with get_db() as conn:
         cursor = conn.cursor()
-        if feed_id:
-            cursor.execute(
-                """
-                SELECT a.id, a.feed_id, f.name as feed_name,
-                       a.title, a.link, a.guid, a.pub_date, a.description
-                FROM articles a
-                JOIN feeds f ON a.feed_id = f.id
-                WHERE a.feed_id = ?
-                ORDER BY a.pub_date DESC, a.created_at DESC
-                LIMIT ?
-                """,
-                (feed_id, limit),
-            )
-        else:
-            cursor.execute(
-                """
-                SELECT a.id, a.feed_id, f.name as feed_name,
-                       a.title, a.link, a.guid, a.pub_date, a.description
-                FROM articles a
-                JOIN feeds f ON a.feed_id = f.id
-                ORDER BY a.pub_date DESC, a.created_at DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
+        cursor.execute(
+            f"""
+            SELECT a.id, a.feed_id, f.name as feed_name,
+                   a.title, a.link, a.guid, a.pub_date, a.description
+            FROM articles a
+            JOIN feeds f ON a.feed_id = f.id
+            WHERE {where_clause}
+            ORDER BY a.pub_date DESC, a.created_at DESC
+            LIMIT ?
+            """,
+            [*params, limit],
+        )
         rows = cursor.fetchall()
         return [
             ArticleListItem(
@@ -574,42 +588,87 @@ def get_article_detail(article_id: str) -> Optional[dict]:
         }
 
 
-def search_articles(query: str, limit: int = 20, feed_id: Optional[str] = None) -> list:
-    """Search articles using FTS5 full-text search."""
+def search_articles(query: str, limit: int = 20, feed_id: Optional[str] = None, since: Optional[str] = None, until: Optional[str] = None, on: Optional[list[str]] = None) -> list:
+    """Search articles using FTS5 full-text search.
+
+    Args:
+        query: Search query string.
+        limit: Maximum number of results.
+        feed_id: Optional feed ID to filter by.
+        since: Optional start date (inclusive), format YYYY-MM-DD.
+        until: Optional end date (inclusive), format YYYY-MM-DD.
+        on: Optional list of specific dates to match.
+    """
     from src.application.articles import ArticleListItem
     if not query or not query.strip():
         return []
+
+    # Build WHERE clause for date filtering
+    date_conditions = []
+    date_params = []
+    if since:
+        date_conditions.append("DATE(a.pub_date) >= DATE(?)")
+        date_params.append(since)
+    if until:
+        date_conditions.append("DATE(a.pub_date) <= DATE(?)")
+        date_params.append(until)
+    if on:
+        placeholders = ",".join("?" * len(on))
+        date_conditions.append(f"DATE(a.pub_date) IN ({placeholders})")
+        date_params.extend(on)
+    date_clause = " AND ".join(date_conditions) if date_conditions else None
+
     with get_db() as conn:
         cursor = conn.cursor()
         if feed_id:
+            where_parts = ["articles_fts MATCH ?", "a.feed_id = ?"]
+            params = [query, feed_id]
+            if date_clause:
+                where_parts.append(date_clause)
+                params.extend(date_params)
+            where_sql = " AND ".join(where_parts)
             cursor.execute(
-                """
+                f"""
                 SELECT a.id, a.feed_id, f.name as feed_name,
                        a.title, a.link, a.guid, a.pub_date, a.description
                 FROM articles_fts
                 JOIN articles a ON articles_fts.rowid = a.rowid
                 JOIN feeds f ON a.feed_id = f.id
-                WHERE articles_fts MATCH ?
-                  AND a.feed_id = ?
+                WHERE {where_sql}
                 ORDER BY bm25(articles_fts)
                 LIMIT ?
                 """,
-                (query, feed_id, limit),
+                [*params, limit],
             )
         else:
-            cursor.execute(
-                """
-                SELECT a.id, a.feed_id, f.name as feed_name,
-                       a.title, a.link, a.guid, a.pub_date, a.description
-                FROM articles_fts
-                JOIN articles a ON articles_fts.rowid = a.rowid
-                JOIN feeds f ON a.feed_id = f.id
-                WHERE articles_fts MATCH ?
-                ORDER BY bm25(articles_fts)
-                LIMIT ?
-                """,
-                (query, limit),
-            )
+            if date_clause:
+                cursor.execute(
+                    f"""
+                    SELECT a.id, a.feed_id, f.name as feed_name,
+                           a.title, a.link, a.guid, a.pub_date, a.description
+                    FROM articles_fts
+                    JOIN articles a ON articles_fts.rowid = a.rowid
+                    JOIN feeds f ON a.feed_id = f.id
+                    WHERE articles_fts MATCH ? AND {date_clause}
+                    ORDER BY bm25(articles_fts)
+                    LIMIT ?
+                    """,
+                    [query, *date_params, limit],
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT a.id, a.feed_id, f.name as feed_name,
+                           a.title, a.link, a.guid, a.pub_date, a.description
+                    FROM articles_fts
+                    JOIN articles a ON articles_fts.rowid = a.rowid
+                    JOIN feeds f ON a.feed_id = f.id
+                    WHERE articles_fts MATCH ?
+                    ORDER BY bm25(articles_fts)
+                    LIMIT ?
+                    """,
+                    (query, limit),
+                )
         return [
             ArticleListItem(
                 id=row["id"],

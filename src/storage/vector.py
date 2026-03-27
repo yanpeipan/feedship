@@ -97,7 +97,7 @@ def get_chroma_collection():
     )
 
 
-def add_article_embedding(article_id: str, title: str, content: str, url: str) -> None:
+def add_article_embedding(article_id: str, title: str, content: str, url: str, pub_date: str | None = None) -> None:
     """Add an article embedding to ChromaDB.
 
     Args:
@@ -105,6 +105,7 @@ def add_article_embedding(article_id: str, title: str, content: str, url: str) -
         title: Article title (stored as metadata)
         content: Article content text (used for embedding, or fallback text)
         url: Article URL (stored as metadata)
+        pub_date: Publication date (stored as metadata for filtering)
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -134,7 +135,7 @@ def add_article_embedding(article_id: str, title: str, content: str, url: str) -
             raise
         embedding_vector = emb.tolist()
 
-        metadata = {"title": title, "url": url}
+        metadata = {"title": title, "url": url, "pub_date": pub_date or ""}
         try:
             collection.add(
                 ids=[article_id],
@@ -147,12 +148,15 @@ def add_article_embedding(article_id: str, title: str, content: str, url: str) -
             raise
 
 
-def search_articles_semantic(query_text: str, limit: int = 10) -> list[ArticleListItem]:
+def search_articles_semantic(query_text: str, limit: int = 10, since: str | None = None, until: str | None = None, on: list[str] | None = None) -> list[ArticleListItem]:
     """Search articles by semantic similarity using ChromaDB.
 
     Args:
         query_text: Natural language query to search for
         limit: Maximum number of results to return
+        since: Optional start date (inclusive), format YYYY-MM-DD.
+        until: Optional end date (inclusive), format YYYY-MM-DD.
+        on: Optional list of specific dates to match.
 
     Returns:
         List of ArticleListItem with keys: id, feed_id, feed_name, title, link, guid, pub_date, score
@@ -162,6 +166,21 @@ def search_articles_semantic(query_text: str, limit: int = 10) -> list[ArticleLi
 
     import logging
     logger = logging.getLogger(__name__)
+
+    # Build ChromaDB where clause for date filtering
+    where_conditions = []
+    if since:
+        where_conditions.append(("pub_date", {"$gte": since}))
+    if until:
+        where_conditions.append(("pub_date", {"$lte": until}))
+    if on:
+        where_conditions.append(("pub_date", {"$in": on}))
+    where_clause = None
+    if len(where_conditions) == 1:
+        where_clause = {where_conditions[0][0]: where_conditions[0][1]}
+    elif len(where_conditions) > 1:
+        # Combine with $and
+        where_clause = {"$and": [{k: v} for k, v in where_conditions]}
 
     with _chroma_lock:
         collection = get_chroma_collection()
@@ -177,6 +196,7 @@ def search_articles_semantic(query_text: str, limit: int = 10) -> list[ArticleLi
             results = collection.query(
                 query_embeddings=[embedding_vector],
                 n_results=limit,
+                where=where_clause,
                 include=["documents", "metadatas", "distances"],
             )
         except Exception as e:

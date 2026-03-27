@@ -71,12 +71,16 @@ def article(ctx: click.Context) -> None:
 @article.command("list")
 @click.option("--limit", default=20, help="Maximum number of articles to show")
 @click.option("--feed-id", default=None, help="Filter by feed ID")
+@click.option("--since", default=None, help="Start date (YYYY-MM-DD)")
+@click.option("--until", default=None, help="End date (YYYY-MM-DD)")
+@click.option("--on", multiple=True, help="Specific date (YYYY-MM-DD), can repeat")
 @click.pass_context
 
-def article_list(ctx: click.Context, limit: int, feed_id: Optional[str]) -> None:
+def article_list(ctx: click.Context, limit: int, feed_id: Optional[str], since: Optional[str], until: Optional[str], on: tuple) -> None:
     """List recent articles from all feeds or a specific feed."""
     try:
-        articles = list_articles(limit=limit, feed_id=feed_id)
+        on_list = list(on) if on else None
+        articles = list_articles(limit=limit, feed_id=feed_id, since=since, until=until, on=on_list)
         print_articles(articles)
     except Exception as e:
         click.secho(f"Error: Failed to list articles: {e}", err=True, fg="red")
@@ -132,15 +136,19 @@ def article_open(ctx: click.Context, article_id: str) -> None:
 @click.option("--limit", default=20, help="Maximum number of results")
 @click.option("--feed-id", default=None, help="Filter by feed ID")
 @click.option("--semantic", is_flag=True, help="Use semantic search instead of keyword search")
+@click.option("--since", default=None, help="Start date (YYYY-MM-DD)")
+@click.option("--until", default=None, help="End date (YYYY-MM-DD)")
+@click.option("--on", multiple=True, help="Specific date (YYYY-MM-DD), can repeat")
 @click.pass_context
-def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional[str], semantic: bool) -> None:
+def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional[str], semantic: bool, since: Optional[str], until: Optional[str], on: tuple) -> None:
     try:
+        on_list = list(on) if on else None
         if semantic:
             # Lazy import to avoid torch dependency for non-semantic search
             from src.storage.vector import search_articles_semantic
-            articles = search_articles_semantic(query_text=query, limit=limit)
+            articles = search_articles_semantic(query_text=query, limit=limit, since=since, until=until, on=on_list)
         else:
-            articles = search_articles(query=query, limit=limit, feed_id=feed_id)
+            articles = search_articles(query=query, limit=limit, feed_id=feed_id, since=since, until=until, on=on_list)
         print_articles(articles)
     except Exception as e:
         click.secho(f"Search unavailable: {e}.", err=True, fg="yellow")
