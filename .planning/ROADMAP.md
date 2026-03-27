@@ -91,6 +91,55 @@
 - [ ] **Phase 36: Feed Add Integration** — `--discover` and `--automatic` flags
 - [ ] **Phase 37: Deep Crawling** — BFS crawler, robots.txt, documentation
 
+### Phase 34: Discovery Core Module
+**Goal**: Users can programmatically discover RSS/Atom/RDF feeds from a website URL via the discovery service module
+**Depends on**: Nothing (first phase of v1.9)
+**Requirements**: DISC-01, DISC-02, DISC-03, DISC-04
+**Success Criteria** (what must be TRUE):
+  1. `discover_feeds(url)` function parses HTML `<head>` for `<link rel="alternate" type="...">` tags and returns discovered feed URLs
+  2. `discover_feeds(url)` falls back to well-known paths (/feed, /feed/, /rss, /rss.xml, /atom.xml, /feed.xml, /index.xml) when no autodiscovery tags found
+  3. Relative URLs in `<link href="...">` are correctly resolved to absolute URLs using urljoin and `<base href>` override
+  4. Discovered feed URLs are validated via HEAD request, returning only feeds with HTTP 200 and Content-Type containing rss/atom/rdf
+  5. Bozo feeds (malformed but parseable) are identified and filtered from results
+**Plans**: 3 plans
+Plans:
+- [ ] 34-01-PLAN.md — Discovery package foundation (models, common_paths)
+- [ ] 34-02-PLAN.md — HTML link parser and feed validator (parser.py, fetcher.py)
+- [ ] 34-03-PLAN.md — discover_feeds() entry point orchestration
+
+### Phase 35: Discovery CLI Command
+**Goal**: Users can run `discover <url> --discover-deep [n]` to see all discoverable feeds without subscribing
+**Depends on**: Phase 34
+**Requirements**: DISC-05
+**Success Criteria** (what must be TRUE):
+  1. User can run `discover <url>` and see a list of discovered RSS/Atom/RDF feeds
+  2. User can run `discover <url> --discover-deep 1` to limit crawling to depth 1 (current page only)
+  3. User can run `discover <url> --discover-deep 2` to enable BFS crawling up to depth 2
+  4. CLI output shows feed URL, feed type (RSS/Atom/RDF), and title if available
+**Plans**: TBD
+
+### Phase 36: Feed Add Integration
+**Goal**: Users can add feeds via discovery using `feed add <url> --discover --automatic --discover-deep`
+**Depends on**: Phase 34, Phase 35
+**Requirements**: DISC-06
+**Success Criteria** (what must be TRUE):
+  1. User can run `feed add <url> --discover on` to enable feed discovery during subscription
+  2. User can run `feed add <url> --automatic on` to enable automatic feed addition from discovered feeds
+  3. User can run `feed add <url> --discover-deep 2` to set deep crawl depth for discovery
+  4. Default behavior: `--discover on`, `--automatic off` (discovery enabled but not automatic)
+**Plans**: TBD
+
+### Phase 37: Deep Crawling
+**Goal**: Users can discover feeds across an entire website with BFS crawling, respecting robots.txt
+**Depends on**: Phase 34, Phase 35
+**Requirements**: DISC-07, DISC-08, DISC-09
+**Success Criteria** (what must be TRUE):
+  1. Deep crawl (depth > 1) uses BFS with visited-set to avoid cycles and duplicate URLs
+  2. Deep crawl respects rate limiting (2 seconds per host) to avoid overwhelming servers
+  3. Deep crawl honors robots.txt using robotexclusionrulesparser for disallowed paths
+  4. User can read `docs/Automatic Discovery Feed.md` which documents the discovery algorithm, URL resolution rules, and supported feed types
+**Plans**: TBD
+
 ### v1.8 ChromaDB 语义搜索 (Phases 30-33)
 
 - [ ] **Phase 30: Semantic Search Infrastructure** - ChromaDB setup, embedding service, model pre-download
@@ -192,7 +241,7 @@ Plans:
 | 31. Write Path - Incremental Embedding | 2/2 | ✅ Complete | 2026-03-26 |
 | 32. Query Path - Semantic Search CLI | — | ✅ Complete | 2026-03-27 |
 | 33. Polish - Error Handling | — | ✅ Complete | 2026-03-27 |
-| 34. Discovery Core Module | — | Not started | - |
+| 34. Discovery Core Module | 0/3 | Not started | - |
 | 35. Discovery CLI Command | — | Not started | - |
 | 36. Feed Add Integration | — | Not started | - |
 | 37. Deep Crawling | — | Not started | - |
