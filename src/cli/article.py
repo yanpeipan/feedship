@@ -14,6 +14,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from src.application.articles import get_article_detail, list_articles, search_articles
+from src.application.search import format_semantic_results, format_fts_results
 from src.storage import search_articles_semantic, get_related_articles
 
 logger = logging.getLogger(__name__)
@@ -308,34 +309,21 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional
             if not results:
                 click.secho("No articles found matching your semantic search.")
                 return
+            formatted = format_semantic_results(results, verbose=verbose)
             click.secho("Semantic search results (by similarity):")
             click.secho("-" * 80)
-            for i, result in enumerate(results):
-                title = result.get("title") or "No title"
-                url = result.get("url") or ""
-                distance = result.get("distance")
-                # Convert L2 distance to cosine similarity for normalized embeddings:
-                # L2_dist = sqrt(2 - 2*cos_sim) => cos_sim = 1 - dist^2/2
-                if distance is not None:
-                    cos_sim = max(0.0, 1.0 - (distance * distance / 2.0))
-                    similarity = f"{round(cos_sim * 100, 1)}%"
-                else:
-                    similarity = "N/A"
+            for item in formatted:
                 if verbose:
-                    click.secho(f"\nTitle: {title}")
-                    sqlite_id = result.get("sqlite_id")
-                    if sqlite_id:
-                        click.secho(f"ID: {sqlite_id[:8]}")
-                    click.secho(f"URL: {url}")
-                    click.secho(f"Similarity: {similarity}")
-                    doc = result.get("document") or ""
-                    if doc:
-                        preview = doc[:150] + "..." if len(doc) > 150 else doc
-                        click.secho(f"Content preview: {preview}")
+                    click.secho(f"\nTitle: {item['title']}")
+                    if item['id_display']:
+                        click.secho(f"ID: {item['id_display']}")
+                    if item['url']:
+                        click.secho(f"URL: {item['url']}")
+                    click.secho(f"Similarity: {item['similarity']}")
+                    if item.get('document_preview'):
+                        click.secho(f"Content preview: {item['document_preview']}")
                 else:
-                    sqlite_id = result.get("sqlite_id")
-                    id_display = f"{sqlite_id[:8]} | " if sqlite_id else ""
-                    click.secho(f"{id_display}{title[:40]} | Similarity: {similarity}")
+                    click.secho(f"{item['id_display']}{item['title'][:40]} | Similarity: {item['similarity']}")
         else:
             # FTS5 keyword search
             articles = search_articles(query=query, limit=limit, feed_id=feed_id)
@@ -343,26 +331,21 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional
                 click.secho("No articles found matching your search.")
                 return
 
+            formatted = format_fts_results(articles, verbose=verbose)
             click.secho("Title | Source | Date")
             click.secho("-" * 80)
 
-            for article in articles:
-                title = article.title or "No title"
-                pub_date = article.pub_date or "No date"
-
-                source = article.feed_name or "Unknown"
-
+            for item in formatted:
                 if verbose:
-                    click.secho(f"\nTitle: {title}")
-                    click.secho(f"Source: {source}")
-                    click.secho(f"Date: {pub_date}")
-                    if article.link:
-                        click.secho(f"Link: {article.link}")
-                    if article.description:
-                        desc_preview = article.description[:100] + "..." if len(article.description) > 100 else article.description
-                        click.secho(f"Description: {desc_preview}")
+                    click.secho(f"\nTitle: {item['title']}")
+                    click.secho(f"Source: {item['source']}")
+                    click.secho(f"Date: {item['date']}")
+                    if item.get('link'):
+                        click.secho(f"Link: {item['link']}")
+                    if item.get('description_preview'):
+                        click.secho(f"Description: {item['description_preview']}")
                 else:
-                    click.secho(f"{title[:50]} | {source[:25]} | {pub_date[:10]}")
+                    click.secho(f"{item['title']} | {item['source']} | {item['date']}")
     except Exception as e:
         click.secho(f"Semantic search unavailable: {e}. Your articles are still stored and searchable by keyword.", err=True, fg="yellow")
         logger.exception("Failed to search articles")
