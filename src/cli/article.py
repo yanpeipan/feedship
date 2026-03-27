@@ -71,15 +71,10 @@ def article(ctx: click.Context) -> None:
 @article.command("list")
 @click.option("--limit", default=20, help="Maximum number of articles to show")
 @click.option("--feed-id", default=None, help="Filter by feed ID")
-@click.option("--verbose", is_flag=True, help="Show full article IDs (32 chars)")
 @click.pass_context
 
-def article_list(ctx: click.Context, limit: int, feed_id: Optional[str], verbose: bool) -> None:
-    """List recent articles from all feeds or a specific feed.
-
-    Use --verbose to show full 32-char article IDs instead of truncated 8-char IDs.
-    """
-    verbose = verbose or (ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False)
+def article_list(ctx: click.Context, limit: int, feed_id: Optional[str]) -> None:
+    """List recent articles from all feeds or a specific feed."""
     try:
         articles = list_articles(limit=limit, feed_id=feed_id)
         print_articles(articles)
@@ -89,9 +84,8 @@ def article_list(ctx: click.Context, limit: int, feed_id: Optional[str], verbose
 
 @article.command("view")
 @click.argument("article_id")
-@click.option("--verbose", is_flag=True, help="Show full content without truncation")
 @click.pass_context
-def article_view(ctx: click.Context, article_id: str, verbose: bool) -> None:
+def article_view(ctx: click.Context, article_id: str) -> None:
     try:
         article = get_article_detail(article_id)
         if not article: click.secho(f"Article not found: {article_id}", fg="red"); sys.exit(1)
@@ -110,9 +104,7 @@ def article_view(ctx: click.Context, article_id: str, verbose: bool) -> None:
         title = article["title"] or "No title"
         console.print(Panel(meta_table, title=title, subtitle=f"{article['feed_name']} | {article['pub_date'] or 'No date'}"))
         if article["content"]:
-            content = article["content"] if verbose else article["content"][:2000]
-            if not verbose and len(article["content"]) > 2000: content += "\n\n... (truncated, use --verbose for full content)"
-            console.print(); console.print(content)
+            console.print(); console.print(article["content"])
         else: console.print("\n[yellow]No content available[/yellow]")
     except Exception as e:
         click.secho(f"Error: Failed to view article: {e}", err=True, fg="red")
@@ -142,7 +134,6 @@ def article_open(ctx: click.Context, article_id: str) -> None:
 @click.option("--semantic", is_flag=True, help="Use semantic search instead of keyword search")
 @click.pass_context
 def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional[str], semantic: bool) -> None:
-    verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
     try:
         if semantic:
             # Lazy import to avoid torch dependency for non-semantic search
@@ -160,7 +151,6 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional
 @click.option("--limit", default=5, help="Maximum number of related articles")
 @click.pass_context
 def article_related(ctx: click.Context, article_id: str, limit: int) -> None:
-    verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
     try:
         # Lazy import to avoid torch dependency when not using related articles
         from src.application.related import get_related_articles
