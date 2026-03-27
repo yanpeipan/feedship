@@ -10,7 +10,7 @@
 - [x] **v1.5 uvloop并发支持** — Phases 19-22 (shipped 2026-03-25)
 - [x] **v1.7 pytest测试框架** — Phases 26-29 (shipped 2026-03-25)
 - [x] **v1.8 ChromaDB 语义搜索** — Phases 30-33 (shipped 2026-03-27)
-- [ ] **v1.9 Automatic Discovery Feed** — Phases 34-37 (in progress)
+- [x] **v1.9 Automatic Discovery Feed** — Phases 34-37 (shipped 2026-03-27)
 
 ## Phases
 
@@ -133,7 +133,7 @@ Plans:
 Plans:
 - [x] 36-01-PLAN.md — Feed Add Integration (discovery options, selection prompt)
 
-### Phase 37: Deep Crawling
+### ✅ Phase 37: Deep Crawling (SHIPPED 2026-03-27)
 **Goal**: Users can discover feeds across an entire website with BFS crawling, respecting robots.txt
 **Depends on**: Phase 34, Phase 35
 **Requirements**: DISC-07, DISC-08, DISC-09
