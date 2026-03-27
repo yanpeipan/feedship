@@ -49,6 +49,48 @@ def normalize_url_for_visit(url: str) -> str:
     return f"{scheme_host}{path}"
 
 
+async def _quick_validate_feed(url: str) -> tuple[bool, str | None]:
+    """Quick feed validation via HEAD request only.
+
+    Only checks HTTP 200 + Content-Type header, skipping full feed parsing.
+    This is ~10x faster than validate_feed which does feedparser.parse().
+
+    Args:
+        url: The feed URL to validate.
+
+    Returns:
+        Tuple of (is_valid, feed_type).
+    """
+    import httpx
+    FEED_TYPE_MAP = {
+        'application/rss+xml': 'rss',
+        'application/atom+xml': 'atom',
+        'application/rdf+xml': 'rdf',
+    }
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=5.0) as client:
+            response = await client.head(url)
+            if response.status_code != 200:
+                return False, None
+            content_type = response.headers.get('content-type', '').lower()
+            # Check MIME type
+            for mime, ftype in FEED_TYPE_MAP.items():
+                if mime in content_type:
+                    return True, ftype
+            # Fallback: detect from URL path for generic xml types
+            if 'xml' in content_type:
+                lower_url = url.lower()
+                if '/rss' in lower_url or '.rss' in lower_url:
+                    return True, 'rss'
+                if '/atom' in lower_url:
+                    return True, 'atom'
+                if '/rdf' in lower_url:
+                    return True, 'rdf'
+            return False, None
+    except Exception:
+        return False, None
+
+
 async def _extract_feed_title(url: str) -> str | None:
     """Extract title from a feed URL using feedparser.
 
@@ -83,23 +125,34 @@ async def _probe_well_known_paths(page_url: str, html: str | None = None) -> lis
     Returns:
         List of DiscoveredFeed found via well-known path probing.
     """
-    results = []
-
-    # Generate candidates using pattern-based approach (now with dynamic subdirs if html provided)
+    # Generate candidates
     candidates = generate_feed_candidates(page_url, html)
 
-    for candidate in candidates:
-        is_valid, feed_type = await validate_feed(candidate)
+    # Validate all candidates concurrently (was sequential - major bottleneck)
+    validation_tasks = [_quick_validate_feed(c) for c in candidates]
+    validation_results = await asyncio.gather(*validation_tasks)
+
+    valid_candidates = []
+    for candidate, (is_valid, feed_type) in zip(candidates, validation_results):
         if is_valid:
-            # Extract title from feed content
-            title = await _extract_feed_title(candidate)
-            results.append(DiscoveredFeed(
-                url=candidate,
-                title=title,
-                feed_type=feed_type,
-                source='well_known_path',
-                page_url=page_url,
-            ))
+            valid_candidates.append((candidate, feed_type or 'rss'))
+
+    if not valid_candidates:
+        return []
+
+    # Fetch titles concurrently
+    title_tasks = [_extract_feed_title(url) for url, _ in valid_candidates]
+    titles = await asyncio.gather(*title_tasks)
+
+    results = []
+    for (candidate, feed_type), title in zip(valid_candidates, titles):
+        results.append(DiscoveredFeed(
+            url=candidate,
+            title=title,
+            feed_type=feed_type,
+            source='well_known_path',
+            page_url=page_url,
+        ))
 
     return results
 
@@ -173,14 +226,14 @@ async def _find_feed_links_on_page(html: str, page_url: str) -> list[DiscoveredF
                 continue
             found_urls.add(absolute)
 
-            # Validate via HTTP
-            is_valid, feed_type = await validate_feed(absolute)
+            # Validate via HTTP (quick HEAD + Content-Type only)
+            is_valid, feed_type = await _quick_validate_feed(absolute)
             if is_valid:
                 title = await _extract_feed_title(absolute)
                 results.append(DiscoveredFeed(
                     url=absolute,
                     title=title,
-                    feed_type=feed_type,
+                    feed_type=feed_type or 'rss',
                     source='css_selector',
                     page_url=page_url,
                 ))
