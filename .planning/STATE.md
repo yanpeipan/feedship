@@ -2,15 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: ChromaDB 语义搜索
-status: planning
-stopped_at: Phase 33-01 complete - SEM-07 achieved
-last_updated: "2026-03-27T01:54:09.104Z"
-last_activity: 2026-03-27 — Phase 31 complete (SEM-06)
-progress:
-  total_phases: 4
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+status: Phase 33 complete - milestone v1.8 done
+stopped_at: Phase 33 complete - SEM-07 achieved
+last_updated: "2026-03-27T02:15:00.000Z"
+last_activity: 2026-03-27 — Phase 33 complete (SEM-07)
 ---
 
 # Project State
@@ -20,14 +15,14 @@ progress:
 See: .planning/PROJECT.md (v1.8 milestone started)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Phase 31 planning - Write Path Incremental Embedding
+**Current focus:** Milestone v1.8 complete - ChromaDB semantic search
 
 ## Current Position
 
-Phase: 33 (Polish - Error Handling)
+Phase: All 4 phases complete
 Plan: —
-Status: Ready for planning
-Last activity: 2026-03-27 — Phase 31 complete (SEM-06)
+Status: Milestone v1.8 complete
+Last activity: 2026-03-27 — Phase 33 complete (SEM-07)
 
 ## v1.8 Phase Structure
 
@@ -73,6 +68,14 @@ Last activity: 2026-03-27 — Phase 31 complete (SEM-06)
 **v1.7 velocity:**
 
 - 4 phases, 4 plans (shipped 2026-03-25)
+
+**v1.8 velocity:**
+
+- 4 phases, 5 plans (ChromaDB semantic search shipped 2026-03-27)
+- Phase 30: ChromaDB PersistentClient + sentence-transformers infrastructure
+- Phase 31: Incremental embedding on fetch
+- Phase 32: search --semantic + article related CLI commands
+- Phase 33: Graceful error handling for ChromaDB edge cases
 
 ## Accumulated Context
 
@@ -202,3 +205,4 @@ Stopped at: Phase 33-01 complete - SEM-07 achieved
 | Phase 31 P31-01 | <1 | 2 tasks | 2 files |
 | Phase 31 P31-02 | <1 | 1 task | 1 files |
 | Phase 32 P32-01 | 5 | 2 tasks | 3 files |
+| Phase 33 P33-01 | 1 | 2 tasks | 2 files |
