@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Automatic Discovery Feed
 status: verifying
-stopped_at: Completed 35-01 plan - Discovery CLI Command
-last_updated: "2026-03-27T08:58:14.881Z"
+stopped_at: Completed Phase 37-01 plan - Deep Crawling (37-01-SUMMARY.md)
+last_updated: "2026-03-27T10:27:27.497Z"
 last_activity: 2026-03-27
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  completed_phases: 4
+  total_plans: 6
+  completed_plans: 6
 ---
 
 # Project State
@@ -20,11 +20,11 @@ progress:
 See: .planning/PROJECT.md (v1.9 milestone started)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Phase 35 — Discovery CLI Command
+**Current focus:** Phase 37 — deep-crawling
 
 ## Current Position
 
-Phase: 36
+Phase: 37
 Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-03-27
@@ -34,8 +34,8 @@ Last activity: 2026-03-27
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
 | 34. Discovery Core Module | Core discovery engine | DISC-01, DISC-02, DISC-03, DISC-04 | ✅ Complete |
-| 35. Discovery CLI Command | `discover <url>` command | DISC-05 | Pending |
-| 36. Feed Add Integration | `--discover` and `--automatic` flags | DISC-06 | Pending |
+| 35. Discovery CLI Command | `discover <url>` command | DISC-05 | ✅ Complete |
+| 36. Feed Add Integration | `--discover` and `--automatic` flags | DISC-06 | ✅ Complete |
 | 37. Deep Crawling | BFS crawler, robots.txt, documentation | DISC-07, DISC-08, DISC-09 | Pending |
 
 ## Performance Metrics
@@ -128,6 +128,10 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [v1.9]: Discovery is a separate service module (src/discovery/), NOT a Provider plugin
 - [v1.9]: Phase order: Core module → CLI → Integration → Deep crawl
 - [Phase 35]: discover CLI uses uvloop.run() pattern consistent with feed.py fetch commands
+- [Phase 36]: feed add --discover/--automatic/--discover-deep integration; _display_feeds() extended with numbered parameter; Selection UI via "a/s/c" prompt with range parsing
+- [Phase 37]: RobotExclusionRulesParser (not RobotFileParser) - correct import name from robotexclusionrulesparser package
+- [Phase 37]: robots.txt lazy mode per plan spec: only check when depth > 1
+- [Phase 37]: asyncio.Semaphore(5) limits concurrent requests to 5 per depth level
 
 ### Technical Notes
 
@@ -177,8 +181,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-27T08:54:40.479Z
-Stopped at: Completed 35-01 plan - Discovery CLI Command
+Last session: 2026-03-27T10:20:40.708Z
+Stopped at: Completed Phase 37-01 plan - Deep Crawling (37-01-SUMMARY.md)
 
 ## Quick Tasks Completed
 
@@ -233,3 +237,5 @@ Stopped at: Completed 35-01 plan - Discovery CLI Command
 | 260327-jju | 优化 fetch <feed_id> 响应速度，使用 async-native 路径 | 2026-03-27 | bd03fef | Verified | [260327-jju-python-m-src-cli-fetch-feed-id](./quick/260327-jju-python-m-src-cli-fetch-feed-id/) |
 | 260327-jt7 | 删除全部 tag 功能（CLI 命令、storage 函数、models、providers、tests） | 2026-03-27 | d75f37d | Verified | [260327-jt7-tag-dead-code](./quick/260327-jt7-tag-dead-code/) |
 | Phase 35 P35-01 | 3 | 3 tasks | 2 files |
+| Phase 36 P36-01 | ~5 | 3 tasks | 2 files |
+| Phase 37 P37-01 | <5 | 4 tasks | 5 files |

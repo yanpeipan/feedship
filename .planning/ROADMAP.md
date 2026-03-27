@@ -89,7 +89,7 @@
 - [x] **Phase 34: Discovery Core Module** — HTML parsing, path probing, URL resolution, feed validation
 - [x] **Phase 35: Discovery CLI Command** — `discover <url>` command (completed 2026-03-27)
 - [x] **Phase 36: Feed Add Integration** — `--discover` and `--automatic` flags (completed 2026-03-27)
-- [ ] **Phase 37: Deep Crawling** — BFS crawler, robots.txt, documentation
+- [x] **Phase 37: Deep Crawling** — BFS crawler, robots.txt, documentation (completed 2026-03-27)
 
 ### Phase 34: Discovery Core Module
 **Goal**: Users can programmatically discover RSS/Atom/RDF feeds from a website URL via the discovery service module
@@ -250,7 +250,7 @@ Plans:
 | 34. Discovery Core Module | 3/3 | ✅ Complete | 2026-03-27 |
 | 35. Discovery CLI Command | 1/1 | Complete    | 2026-03-27 |
 | 36. Feed Add Integration | 1/1 | ✅ Complete | 2026-03-27 |
-| 37. Deep Crawling | 1/1 | Planned | - |
+| 37. Deep Crawling | 1/1 | Complete    | 2026-03-27 |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_
