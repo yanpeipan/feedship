@@ -15,21 +15,6 @@ _ROOT_PATH_PATTERNS = (
     "/index.xml",
 )
 
-# Fallback subdirectory names for when HTML is not available or doesn't contain feed links
-# These are common subdirectories where feeds are typically found
-_FALLBACK_SUBDIR_NAMES: tuple[str, ...] = (
-    "blog",
-    "news",
-    "feed",
-    "rss",
-    "atom",
-    "feeds",
-    "updates",
-    "posts",
-    "articles",
-)
-
-
 def generate_feed_candidates(base_url: str, _html: str | None = None) -> list[str]:
     """Generate candidate feed URLs from base URL.
 
@@ -54,11 +39,6 @@ def generate_feed_candidates(base_url: str, _html: str | None = None) -> list[st
     # Root-level candidates (always included)
     for path in _ROOT_PATH_PATTERNS:
         candidates.append(base + path)
-
-    # Subdirectory candidates from common fallback names
-    for subdir in _FALLBACK_SUBDIR_NAMES:
-        for filename in ('rss.xml', 'atom.xml', 'feed.xml'):
-            candidates.append(f"{base}/{subdir}/{filename}")
 
     return candidates
 
