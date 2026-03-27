@@ -47,7 +47,7 @@ def print_articles(items: list[ArticleListItem]) -> None:
             title,
             (item.feed_name[:15] if item.feed_name else "-"),
             (item.pub_date[:10] if item.pub_date else "-"),
-            (str(item.score)[:4] if item.score else "-"),
+            (str(item.score)[:4] if item.score is not None else "-"),
         )
 
     console.print(table)

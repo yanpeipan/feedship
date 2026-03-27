@@ -93,7 +93,7 @@ def get_chroma_collection():
     client = _get_chroma_client()
     return client.get_or_create_collection(
         name="articles",
-        metadata={"description": "Article embeddings for semantic search"},
+        metadata={"description": "Article embeddings for semantic search", "hnsw:space": "cosine"},
     )
 
 
@@ -128,7 +128,7 @@ def add_article_embedding(article_id: str, title: str, content: str, url: str) -
         # (sentence_transformers 2.7.0 + ChromaDB 1.5.5 have API incompatibility)
         embedding_fn = get_embedding_function()
         try:
-            emb = embedding_fn.encode([embedding_text], convert_to_numpy=True)[0]
+            emb = embedding_fn.encode([embedding_text], convert_to_numpy=True, normalize_embeddings=True)[0]
         except Exception as e:
             logger.error("Encoding failed for %s: text_len=%d, error=%s", article_id, len(embedding_text), e)
             raise
@@ -167,7 +167,7 @@ def search_articles_semantic(query_text: str, limit: int = 10) -> list[ArticleLi
         collection = get_chroma_collection()
         embedding_fn = get_embedding_function()
         try:
-            emb = embedding_fn.encode([query_text], convert_to_numpy=True)[0]
+            emb = embedding_fn.encode([query_text], convert_to_numpy=True, normalize_embeddings=True)[0]
         except Exception as e:
             logger.error("Encoding failed for semantic query: %s", e)
             raise
@@ -207,8 +207,9 @@ def search_articles_semantic(query_text: str, limit: int = 10) -> list[ArticleLi
         distance = distances[i] if i < len(distances) else None
         sqlite_id = article_info.get("id")
 
-        # Calculate cosine similarity from L2 distance
-        cos_sim = max(0.0, 1.0 - distance * distance / 2.0) if distance is not None else 0.0
+        # Calculate cosine similarity from cosine distance
+        # hnsw:space=cosine means distance = 1 - cosine_similarity (range 0-2)
+        cos_sim = max(0.0, 1.0 - distance / 2.0) if distance is not None else 0.5
 
         # Calculate freshness score
         pub_date = article_info.get("pub_date")
