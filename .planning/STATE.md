@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: "Completed quick task 260328-3og: remove ALTER TABLE migration, weight column in CREATE TABLE"
+stopped_at: "Completed quick task 260328-3w1: unify ranking functions with score field interface"
 last_updated: "2026-03-28"
 progress:
   total_phases: 40
