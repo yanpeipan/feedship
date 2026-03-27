@@ -11,7 +11,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from src.application.articles import ArticleListItem
-from src.storage.sqlite import get_article
+from src.storage.sqlite import get_article, get_feed
 
 
 def format_articles(items: list, mode: str = "list", verbose: bool = False) -> list[dict[str, Any]]:
@@ -174,15 +174,6 @@ def format_semantic_results(results: list[dict[str, Any]], verbose: bool = False
     return format_articles(results, mode="semantic", verbose=verbose)
 
 
-# Source weight configuration for ranking
-_SOURCE_WEIGHTS = {
-    "openai.com": 1.0,
-    "arxiv.org": 0.9,
-    "medium.com": 0.5,
-    "default": 0.3,
-}
-
-
 def rank_semantic_results(results: list[dict[str, Any]], top_k: int = 10) -> list[dict[str, Any]]:
     """Rank semantic search results using multi-factor scoring.
 
@@ -239,17 +230,13 @@ def rank_semantic_results(results: list[dict[str, Any]], top_k: int = 10) -> lis
         else:
             freshness = 0.0
 
-        # Get source weight via domain suffix match
-        url = result.get("url") or ""
-        domain = ""
-        if url:
-            parsed = urlparse(url)
-            domain = parsed.netloc
-        source_weight = _SOURCE_WEIGHTS.get("default")
-        for known_domain, weight in _SOURCE_WEIGHTS.items():
-            if known_domain != "default" and domain.endswith(known_domain):
-                source_weight = weight
-                break
+        # Get source weight from feed's weight field
+        feed_id = article.feed_id if article else None
+        if feed_id:
+            feed = get_feed(feed_id)
+            source_weight = feed.weight if feed and feed.weight is not None else 0.3
+        else:
+            source_weight = 0.3
 
         # Build ranked result with all original keys plus computed scores
         ranked_result = {**result}
