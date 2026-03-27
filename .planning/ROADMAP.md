@@ -244,7 +244,7 @@ Plans:
 | 32. Query Path - Semantic Search CLI | — | ✅ Complete | 2026-03-27 |
 | 33. Polish - Error Handling | — | ✅ Complete | 2026-03-27 |
 | 34. Discovery Core Module | 3/3 | ✅ Complete | 2026-03-27 |
-| 35. Discovery CLI Command | 1/1 | Complete   | 2026-03-27 |
+| 35. Discovery CLI Command | 1/1 | Complete    | 2026-03-27 |
 | 36. Feed Add Integration | — | Not started | - |
 | 37. Deep Crawling | — | Not started | - |
 
