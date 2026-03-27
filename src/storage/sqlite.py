@@ -503,6 +503,25 @@ def get_article_id_by_url(url: str) -> Optional[str]:
         return row["id"] if row else None
 
 
+def get_article_ids_by_urls(urls: list[str]) -> dict[str, str]:
+    """Get article nanoids by URLs (guids) in batch.
+
+    Args:
+        urls: List of article URLs (stored as guid in SQLite)
+
+    Returns:
+        Dict mapping URL (guid) to SQLite article nanoid (id).
+        Missing entries are omitted from the dict.
+    """
+    if not urls:
+        return {}
+    with get_db() as conn:
+        cursor = conn.cursor()
+        placeholders = ",".join("?" * len(urls))
+        cursor.execute(f"SELECT id, guid FROM articles WHERE guid IN ({placeholders})", urls)
+        return {row["guid"]: row["id"] for row in cursor.fetchall()}
+
+
 def get_article_detail(article_id: str) -> Optional[dict]:
     """Get full article details including content."""
     with get_db() as conn:

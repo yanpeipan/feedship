@@ -190,10 +190,15 @@ def search_articles_semantic(query_text: str, limit: int = 10) -> list[ArticleLi
     metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
 
+    # Batch lookup sqlite_ids by url (guid) - single query instead of N queries
+    sqlite_ids_map = {}
+    valid_ids = [aid for aid in ids if aid]
+    if valid_ids:
+        from src.storage.sqlite import get_article_ids_by_urls
+        sqlite_ids_map = get_article_ids_by_urls(valid_ids)
+
     for i, article_id in enumerate(ids):
-        # Look up SQLite article nanoid from URL (guid)
-        from src.storage.sqlite import get_article_id_by_url
-        sqlite_id = get_article_id_by_url(article_id) if article_id else None
+        sqlite_id = sqlite_ids_map.get(article_id) if article_id else None
 
         articles.append({
             "article_id": article_id,
