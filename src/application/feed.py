@@ -19,7 +19,7 @@ class FeedNotFoundError(Exception):
     """Raised when a feed is not found in the database."""
 
 
-def add_feed(url: str, weight: float | None = None) -> Feed:
+def add_feed(url: str, weight: float | None = None) -> tuple[Feed, bool]:
     """Add a new feed by URL.
 
     Uses provider.feed_meta to fetch metadata and provider.crawl to validate.

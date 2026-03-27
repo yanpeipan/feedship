@@ -162,7 +162,6 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
     Returns:
         List of ArticleListItem with keys: id, feed_id, feed_name, title, link, guid, pub_date, score
     """
-    from src.application.search import rank_semantic_results
     from src.application.articles import ArticleListItem
 
     import logging

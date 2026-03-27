@@ -72,7 +72,7 @@ async def fetch_one_async(feed: Feed) -> dict:
                 from src.storage.vector import add_article_embedding
                 await asyncio.to_thread(
                     add_article_embedding,
-                    article_id=article_id,
+                    article_id=article_guid,
                     title=article.get("title") or "",
                     content=article.get("content") or article.get("description") or "",
                     url=article.get("link") or "",

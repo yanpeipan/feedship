@@ -359,8 +359,8 @@ def remove_feed(feed_id: str) -> bool:
         return deleted
 
 
-def upsert_feed(feed) -> Feed:
-    """Insert or update a feed by URL, returning the Feed object.
+def upsert_feed(feed) -> tuple[Feed, bool]:
+    """Insert or update a feed by URL, returning the Feed object and whether it was new.
 
     If feed with same URL exists, preserves existing id and updates other fields.
     If not exists, inserts new feed.
@@ -369,11 +369,11 @@ def upsert_feed(feed) -> Feed:
         feed: Feed object with all fields to save.
 
     Returns:
-        The saved Feed object (new or updated).
+        Tuple of (saved Feed object, is_new) where is_new is True for insert, False for update.
     """
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM feeds WHERE url = ?", (feed.url,))
+        cursor.execute("SELECT id, created_at FROM feeds WHERE url = ?", (feed.url,))
         existing = cursor.fetchone()
 
         if existing:
@@ -385,15 +385,18 @@ def upsert_feed(feed) -> Feed:
             )
             conn.commit()
             # Return Feed with preserved id
-            return Feed(
-                id=existing["id"],
-                name=feed.name,
-                url=feed.url,
-                etag=feed.etag,
-                last_modified=feed.last_modified,
-                last_fetched=feed.last_fetched,
-                created_at=existing["created_at"],
-                weight=feed.weight,
+            return (
+                Feed(
+                    id=existing["id"],
+                    name=feed.name,
+                    url=feed.url,
+                    etag=feed.etag,
+                    last_modified=feed.last_modified,
+                    last_fetched=feed.last_fetched,
+                    created_at=existing["created_at"],
+                    weight=feed.weight,
+                ),
+                False,  # not new
             )
         else:
             # INSERT new feed
@@ -403,7 +406,7 @@ def upsert_feed(feed) -> Feed:
                 (feed.id, feed.name, feed.url, feed.etag, feed.last_modified, feed.last_fetched, feed.created_at, feed.weight),
             )
             conn.commit()
-            return feed
+            return (feed, True)  # is new
 
 
 def list_articles(limit: int = 20, feed_id: Optional[str] = None, since: Optional[str] = None, until: Optional[str] = None, on: Optional[list[str]] = None) -> list:

@@ -156,24 +156,27 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
         if automatic == "on":
             # Auto-add all discovered feeds
             added_count = 0
+            updated_count = 0
             for feed in feeds:
-                try:
-                    add_feed(feed.url, weight)
+                _, is_new = add_feed(feed.url, weight)
+                if is_new:
                     added_count += 1
-                except ValueError as e:
-                    # Feed already exists or failed
-                    click.secho(f"  Skipped {feed.url}: {e}", fg="yellow")
-            click.secho(f"Added {added_count} feed(s) automatically.", fg="green")
+                else:
+                    updated_count += 1
+            if updated_count > 0:
+                click.secho(f"Added {added_count}, updated {updated_count} feed(s).", fg="green")
+            else:
+                click.secho(f"Added {added_count} feed(s) automatically.", fg="green")
             return
 
         # Single feed: auto-add without prompting
         if len(feeds) == 1:
             feed = feeds[0]
-            try:
-                add_feed(feed.url, weight)
+            _, is_new = add_feed(feed.url, weight)
+            if is_new:
                 click.secho(f"Added feed: {feed.url}", fg="green")
-            except ValueError as e:
-                click.secho(f"  Skipped {feed.url}: {e}", fg="yellow")
+            else:
+                click.secho(f"Updated feed: {feed.url}", fg="cyan")
             return
 
         # Multiple feeds: show numbered list and prompt for selection
@@ -185,36 +188,35 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
 
         # Add selected feeds
         added_count = 0
+        updated_count = 0
         for idx in selected:
             feed = feeds[idx]
-            try:
-                add_feed(feed.url, weight)
+            _, is_new = add_feed(feed.url, weight)
+            if is_new:
                 added_count += 1
-            except ValueError as e:
-                click.secho(f"  Skipped {feed.url}: {e}", fg="yellow")
-        click.secho(f"Added {added_count} feed(s).", fg="green")
+            else:
+                updated_count += 1
+        if updated_count > 0:
+            click.secho(f"Added {added_count}, updated {updated_count} feed(s).", fg="green")
+        else:
+            click.secho(f"Added {added_count} feed(s).", fg="green")
         return
 
     # Original behavior when --discover off
-    try:
-        feed_obj = add_feed(url, weight)
+    feed_obj, is_new = add_feed(url, weight)
 
-        # Determine provider type for display
-        from src.providers import discover_or_default
-        providers = discover_or_default(url)
-        if providers:
-            provider_name = providers[0].__class__.__name__.replace("Provider", "")
-        else:
-            provider_name = "Unknown"
+    # Determine provider type for display
+    from src.providers import discover_or_default
+    providers = discover_or_default(url)
+    if providers:
+        provider_name = providers[0].__class__.__name__.replace("Provider", "")
+    else:
+        provider_name = "Unknown"
 
+    if is_new:
         click.secho(f"Added feed: {feed_obj.name} ({provider_name})", fg="green")
-    except ValueError as e:
-        click.secho(f"Error: {e}", err=True, fg="red")
-        sys.exit(1)
-    except Exception as e:
-        click.secho(f"Error: Failed to add feed: {e}", err=True, fg="red")
-        logger.exception("Failed to add feed")
-        sys.exit(1)
+    else:
+        click.secho(f"Updated feed: {feed_obj.name} ({provider_name})", fg="cyan")
 
 
 @feed.command("list")
