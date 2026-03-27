@@ -146,6 +146,13 @@ def init_db() -> None:
             )
         """)
 
+        # Add weight column to feeds table (v1.9+)
+        try:
+            cursor.execute("ALTER TABLE feeds ADD COLUMN weight REAL DEFAULT 0.3")
+        except sqlite3.OperationalError as e:
+            if "duplicate column name" not in str(e).lower():
+                raise
+
         conn.commit()
 
 
@@ -382,7 +389,7 @@ def get_feed(feed_id: str) -> Optional[Feed]:
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id, name, url, etag, last_modified, last_fetched, created_at FROM feeds WHERE id = ?",
+            "SELECT id, name, url, etag, last_modified, last_fetched, created_at, weight FROM feeds WHERE id = ?",
             (feed_id,)
         )
         row = cursor.fetchone()
@@ -396,6 +403,7 @@ def get_feed(feed_id: str) -> Optional[Feed]:
             last_modified=row["last_modified"],
             last_fetched=row["last_fetched"],
             created_at=row["created_at"],
+            weight=row["weight"],
         )
 
 

@@ -32,6 +32,7 @@ class Feed:
     last_modified: Optional[str] = None
     last_fetched: Optional[str] = None
     metadata: Optional[str] = None  # JSON string with provider-specific data
+    weight: Optional[float] = None  # Feed weight for semantic search ranking (default 0.3)
 
 
 @dataclass
