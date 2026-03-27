@@ -61,10 +61,15 @@ def preload_embedding_model() -> None:
     """Pre-download and cache the embedding model at CLI startup (D-04).
 
     Downloads the 'all-MiniLM-L6-v2' model if not already cached.
-    Should be called during CLI initialization before any embedding
-    operations to avoid delays on first use.
+    Errors are logged but not raised — the model will be downloaded
+    on first use if preload fails.
     """
-    SentenceTransformer("all-MiniLM-L6-v2")
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        SentenceTransformer("all-MiniLM-L6-v2")
+    except Exception as e:
+        logger.warning("Embedding model preload failed: %s. Will download on first semantic search.", e)
 
 
 def get_chroma_collection():
