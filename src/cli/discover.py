@@ -74,11 +74,10 @@ from src.cli import cli
     "--discover-deep",
     default=1,
     type=click.IntRange(1, 10),
-    dest="discover_depth",
     help="Crawl depth for feed discovery (default: 1)",
 )
 @click.pass_context
-def discover(ctx: click.Context, url: str, discover_depth: int) -> None:
+def discover(ctx: click.Context, url: str, discover_deep: int) -> None:
     """Discover RSS/Atom/RDF feeds from a website URL without subscribing.
 
     Examples:
@@ -87,7 +86,7 @@ def discover(ctx: click.Context, url: str, discover_depth: int) -> None:
       rss-reader discover example.com --discover-deep 1
     """
     try:
-        feeds = uvloop.run(_discover_async(url, discover_depth))
+        feeds = uvloop.run(_discover_async(url, discover_deep))
         _display_feeds(feeds)
     except Exception as e:
         click.secho(f"Error: {e}", err=True, fg="red")

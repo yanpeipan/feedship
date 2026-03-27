@@ -147,11 +147,10 @@ def feed(ctx: click.Context) -> None:
     "--discover-deep",
     default=1,
     type=click.IntRange(1, 10),
-    dest="discover_depth",
     help="Discovery crawl depth (default: 1)",
 )
 @click.pass_context
-def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discover_depth: int) -> None:
+def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discover_deep: int) -> None:
     """Add a new feed by URL (auto-detects provider type).
 
     Examples:
@@ -164,7 +163,7 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
     if discover == "on":
         # Run discovery first
         try:
-            feeds = uvloop.run(discover_feeds(url, discover_depth))
+            feeds = uvloop.run(discover_feeds(url, discover_deep))
         except Exception as e:
             click.secho(f"Error during discovery: {e}", err=True, fg="red")
             sys.exit(1)
