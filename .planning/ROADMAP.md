@@ -251,7 +251,7 @@ Plans:
 | 34. Discovery Core Module | 3/3 | ✅ Complete | 2026-03-27 |
 | 35. Discovery CLI Command | 1/1 | ✅ Complete | 2026-03-27 |
 | 36. Feed Add Integration | 1/1 | ✅ Complete | 2026-03-27 |
-| 37. Deep Crawling | 2/2 | ✅ Complete | 2026-03-27 |
+| 37. Deep Crawling | 2/2 | Complete    | 2026-03-27 |
 
 ---
 _For completed milestone details, see `.planning/milestones/`_

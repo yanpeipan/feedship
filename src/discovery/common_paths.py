@@ -15,59 +15,22 @@ _ROOT_PATH_PATTERNS = (
     "/index.xml",
 )
 
-
-def _discover_feed_subdirs(html: str, base: str) -> set[str]:
-    """Discover feed-containing subdirectories from page links.
-
-    Args:
-        html: Raw HTML content of the page.
-        base: Base URL (scheme://host) for constructing full paths.
-
-    Returns:
-        Set of discovered subdirectory paths that may contain feeds.
-    """
-    from scrapling import Selector
-
-    subdirs: set[str] = set()
-    page = Selector(content=html)
-
-    # Find all <a href=""> tags
-    for anchor in page.css('a[href]'):
-        href = anchor.attrib['href']
-
-        # Skip non-HTTP URLs, fragments, mailto, tel, and protocol-relative URLs
-        if not href or href.startswith(('javascript:', 'mailto:', 'tel:', '#')):
-            continue
-
-        # Handle root-relative paths (/blog/rss.xml) - these are same-domain
-        if href.startswith('/'):
-            # Root-relative path - use it directly
-            path = href
-        else:
-            # Parse full URL for other cases
-            from urllib.parse import urlparse
-            parsed = urlparse(href)
-            path = parsed.path
-
-        # Only care about paths with 2+ segments containing feed-like filenames
-        if not path:
-            continue
-
-        segments = path.strip('/').split('/')
-        if len(segments) < 2:
-            continue
-
-        # Check if path ends with feed-like filename
-        filename = segments[-1].lower()
-        if filename in ('rss.xml', 'atom.xml', 'feed.xml', 'index.xml', 'rss', 'feed', 'atom'):
-            # Extract subdirectory (everything except the filename)
-            subdir = '/' + '/'.join(segments[:-1])
-            subdirs.add(subdir)
-
-    return subdirs
+# Fallback subdirectory names for when HTML is not available or doesn't contain feed links
+# These are common subdirectories where feeds are typically found
+_FALLBACK_SUBDIR_NAMES: tuple[str, ...] = (
+    "blog",
+    "news",
+    "feed",
+    "rss",
+    "atom",
+    "feeds",
+    "updates",
+    "posts",
+    "articles",
+)
 
 
-def generate_feed_candidates(base_url: str, html: str | None = None) -> list[str]:
+def generate_feed_candidates(base_url: str, _html: str | None = None) -> list[str]:
     """Generate candidate feed URLs from base URL.
 
     If html is provided, uses dynamic subdirectory discovery from page links.
@@ -92,12 +55,10 @@ def generate_feed_candidates(base_url: str, html: str | None = None) -> list[str
     for path in _ROOT_PATH_PATTERNS:
         candidates.append(base + path)
 
-    # Dynamic subdirectory candidates (if html provided)
-    if html:
-        subdirs = _discover_feed_subdirs(html, base)
-        for subdir in subdirs:
-            for filename in ('rss.xml', 'atom.xml', 'feed.xml', 'index.xml'):
-                candidates.append(f"{base}{subdir}/{filename}")
+    # Subdirectory candidates from common fallback names
+    for subdir in _FALLBACK_SUBDIR_NAMES:
+        for filename in ('rss.xml', 'atom.xml', 'feed.xml'):
+            candidates.append(f"{base}/{subdir}/{filename}")
 
     return candidates
 
