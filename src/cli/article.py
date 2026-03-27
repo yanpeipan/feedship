@@ -38,9 +38,13 @@ def print_articles(items: list[ArticleListItem]) -> None:
     table.add_column("Score", justify="right", width=5, no_wrap=True)
 
     for item in items:
+        title = item.title[:60] if item.title else "-"
+        if item.link:
+            title = f"[link={item.link}]{title}[/link]"
+
         table.add_row(
             (item.id[:8] if item.id else "-"),
-            (item.title[:60] if item.title else "-"),
+            title,
             (item.feed_name[:15] if item.feed_name else "-"),
             (item.pub_date[:10] if item.pub_date else "-"),
             (str(item.score)[:4] if item.score else "-"),
