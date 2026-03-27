@@ -166,26 +166,24 @@ def feed_refresh(ctx: click.Context, feed_id: str) -> None:
 @cli.command("fetch")
 @click.option("--all", "do_fetch_all", is_flag=True, help="Fetch all feeds")
 @click.option("--concurrency", default=10, type=click.IntRange(1, 100), help="Max concurrent fetches (default: 10)")
-@click.argument("urls", nargs=-1, required=False)
+@click.argument("ids", nargs=-1, required=False)
 @click.pass_context
-def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, urls: tuple) -> None:
-    """Fetch new articles from feeds or crawl specific URLs.
+def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, ids: tuple) -> None:
+    """Fetch new articles from subscribed feeds by ID.
 
     Examples:
 
       rss-reader fetch --all              Fetch all subscribed feeds
 
-      rss-reader fetch https://example.com  Crawl a single URL
-
-      rss-reader fetch https://ex.com https://py.com  Crawl multiple URLs
+      rss-reader fetch <feed_id> [<feed_id>...]  Fetch specific feeds by ID
     """
     verbose = ctx.parent and ctx.parent.obj.get("verbose") if ctx.parent else False
 
-    # Case 1: URL arguments provided
-    if urls:
+    # Case 1: ID arguments provided
+    if ids:
         try:
-            async def run_fetch_urls_with_progress():
-                """Run async URL fetch with Rich progress bar."""
+            async def run_fetch_ids_with_progress():
+                """Run async feed fetch by ID with Rich progress bar."""
                 total_new = 0
                 success_count = 0
                 error_count = 0
@@ -198,16 +196,16 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, urls: tuple)
                     TaskProgressColumn(),
                     TimeRemainingColumn(),
                 ) as progress:
-                    task = progress.add_task(f"[cyan]Fetching {len(urls)} URLs...", total=len(urls))
+                    task = progress.add_task(f"[cyan]Fetching {len(ids)} feeds by ID...", total=len(ids))
 
-                    # Create async generator for URL fetching
+                    # Create async generator for feed fetching by ID
                     semaphore = asyncio.Semaphore(concurrency)
 
-                    async def fetch_one_with_semaphore(url: str):
+                    async def fetch_one_with_semaphore(id: str):
                         async with semaphore:
-                            return await fetch_url_async(url)
+                            return await asyncio.to_thread(fetch_one, id)
 
-                    tasks = [fetch_one_with_semaphore(url) for url in urls]
+                    tasks = [fetch_one_with_semaphore(id) for id in ids]
 
                     for coro in asyncio.as_completed(tasks):
                         result = await coro
@@ -217,46 +215,46 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, urls: tuple)
                             progress.update(
                                 task,
                                 advance=1,
-                                description=f"[green]{result['url']}: +{result['new_articles']}",
+                                description=f"[green]feed: +{result['new_articles']}",
                             )
                         elif result.get("error"):
                             error_count += 1
-                            errors.append(f"{result['url']}: {result['error']}")
+                            errors.append(f"feed: {result['error']}")
                             progress.update(
                                 task,
                                 advance=1,
-                                description=f"[red]{result['url']}: error",
+                                description=f"[red]feed: error",
                             )
                         else:
                             success_count += 1
                             progress.update(
                                 task,
                                 advance=1,
-                                description=f"[blue]{result['url']}: up to date",
+                                description=f"[blue]feed: up to date",
                             )
 
                 return total_new, success_count, error_count, errors
 
-            total_new, success_count, error_count, errors = uvloop.run(run_fetch_urls_with_progress())
+            total_new, success_count, error_count, errors = uvloop.run(run_fetch_ids_with_progress())
 
             # Summary
             click.secho("")
             if error_count == 0:
                 click.secho(
-                    f"Fetched {total_new} articles from {success_count} URL(s)",
+                    f"Fetched {total_new} articles from {success_count} feed(s)",
                     fg="green",
                 )
             else:
                 click.secho(
-                    f"Fetched {total_new} articles from {success_count} URL(s), {error_count} errors",
+                    f"Fetched {total_new} articles from {success_count} feed(s), {error_count} errors",
                     fg="yellow",
                 )
                 for err in errors:
                     click.secho(f"  - {err}", fg="red")
 
         except Exception as e:
-            click.secho(f"Error: Failed to fetch URLs: {e}", err=True, fg="red")
-            logger.exception("Failed to fetch URLs")
+            click.secho(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
+            logger.exception("Failed to fetch feeds")
             sys.exit(1)
         return
 
@@ -336,4 +334,4 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, urls: tuple)
 
     # Case 3: No arguments
     click.secho("Use --all to fetch all feeds: rss-reader fetch --all")
-    click.secho("Or specify URLs to crawl: rss-reader fetch <url> [url ...]")
+    click.secho("Or specify feed IDs to fetch: rss-reader fetch <feed_id> [<feed_id>...]")
