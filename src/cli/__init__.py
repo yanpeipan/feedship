@@ -32,7 +32,6 @@ def cli(ctx: click.Context, verbose: bool) -> None:
 from src.cli import feed  # noqa: F401
 from src.cli import article  # noqa: F401
 from src.cli import tag  # noqa: F401
-from src.cli import crawl  # noqa: F401
 
 
 if __name__ == "__main__":
