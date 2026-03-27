@@ -206,7 +206,7 @@ def format_fts_results(articles: list[ArticleListItem], verbose: bool = False) -
     """Format FTS5 keyword search results for display.
 
     Takes output from search_articles (list of ArticleListItem) and
-    formats fields with appropriate truncation for display.
+    formats fields for unified CLI presentation.
 
     Args:
         articles: List of ArticleListItem from search_articles with keys:
@@ -219,33 +219,39 @@ def format_fts_results(articles: list[ArticleListItem], verbose: bool = False) -
                  If False, show truncated summary.
 
     Returns:
-        List of dicts with formatted fields:
-        - title: article title (truncated to 50 chars)
-        - source: feed_name (truncated to 25 chars)
+        List of dicts with unified formatted fields:
+        - id: "" (FTS has no article ID)
+        - title: article title (truncated to 60 chars)
+        - source: feed_name (truncated to 15 chars)
         - date: pub_date (truncated to 10 chars)
+        - score: "FTS" (indicates FTS keyword search)
         - link: article link (verbose only)
         - description_preview: truncated description (verbose only)
     """
     formatted = []
     for article in articles:
-        title = _truncate(article.title, 50) if article.title else "No title"
-        source = _truncate(article.feed_name, 25) if article.feed_name else "Unknown"
-        date = _truncate(article.pub_date, 10) if article.pub_date else "No date"
+        title = _truncate(article.title, 60) if article.title else "No title"
+        source = _truncate(article.feed_name, 15) if article.feed_name else "Unknown"
+        date = _truncate(article.pub_date, 10) if article.pub_date else "-"
 
         if verbose:
             desc_preview = _truncate(article.description, 100) if article.description else ""
             formatted.append({
+                "id": "",
                 "title": title,
                 "source": source,
                 "date": date,
+                "score": "FTS",
                 "link": article.link or "",
                 "description_preview": desc_preview,
             })
         else:
             formatted.append({
+                "id": "",
                 "title": title,
                 "source": source,
                 "date": date,
+                "score": "FTS",
             })
     return formatted
 
