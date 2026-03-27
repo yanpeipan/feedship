@@ -8,18 +8,18 @@
 
 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
 
-## Current Milestone: v1.8 ChromaDB 语义搜索
+## Current Milestone: v1.9 Automatic Discovery Feed
 
-**Goal:** 用向量嵌入实现语义相似度搜索，自动发现相关文章
+**Goal:** 给定网站 URL，自动发现其 RSS/Atom 订阅源
 
 **Target features:**
-- ChromaDB 向量数据库集成（存储文章 embedding）
-- sentence-transformers 生成文章向量
-- 语义搜索 CLI：`search --semantic "query"`
-- 相关文章推荐：`article related <id>`
-- 增量 embedding：新文章自动生成并存入 ChromaDB
+- `feed add <url> --discover` (默认开启)：自动发现 URL 的 RSS/Atom/RDF feed，默认 1 层，可配置多层深度
+- `discover <url>` 新命令：仅发现 feed，不订阅，列出所有发现的 feeds
+- `--automatic` 参数 (默认关闭)：on=直接订阅所有，off=列出确认
+- 全量 feed 类型支持：RSS 0.90-2.0、Atom 0.3/1.0、CDF、RDF
+- 文档化：`docs/Automatic Discovery Feed.md`
 
-**Status:** ⏳ Started (2026-03-26)
+**Status:** ⏳ Started (2026-03-27)
 
 ---
 
@@ -190,6 +190,23 @@
 - **Storage**: SQLite（单一数据库文件）
 - **No API**: 纯本地应用，无后端服务
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
 
-*Last updated: 2026-03-26 — v1.8 ChromaDB 语义搜索 milestone started*
+*Last updated: 2026-03-27 — v1.9 Automatic Discovery Feed milestone started*

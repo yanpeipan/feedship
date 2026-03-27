@@ -1,49 +1,35 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: ChromaDB 语义搜索
-status: completed
-stopped_at: Completed quick task 260327-jt7: remove all tag functionality
-last_updated: "2026-03-27T13:00:00.000Z"
-last_activity: "2026-03-27 — Completed quick task 260327-jt7: remove all tag functionality"
-progress:
-  total_phases: 4
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+milestone: v1.9
+milestone_name: Automatic Discovery Feed
+status: active
+stopped_at: Milestone v1.9 started
+last_updated: "2026-03-27T00:00:00.000Z"
+last_activity: "2026-03-27 — Milestone v1.9 started"
+progress: {}
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (v1.8 milestone started)
+See: .planning/PROJECT.md (v1.9 milestone started)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Milestone v1.8 complete - ChromaDB semantic search
+**Current focus:** Milestone v1.9 — Automatic Discovery Feed
 
 ## Current Position
 
-Phase: All 4 phases complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Milestone v1.8 complete
-Last activity: 2026-03-27 — Completed quick task 260327-feu: remove preload_embedding_model from CLI init
+Status: Defining requirements
+Last activity: 2026-03-27 — Milestone v1.9 started
 
-## v1.8 Phase Structure
-
-| Phase | Goal | Requirements |
-|-------|------|--------------|
-| 30 | Semantic Search Infrastructure | SEM-01, SEM-02, SEM-03 |
-| 31 | Write Path - Incremental Embedding | SEM-06 |
-| 32 | Query Path - Semantic Search CLI | SEM-04, SEM-05 |
-| 33 | Polish - Error Handling | SEM-07 |
+## v1.9 Phase Structure
 
 | Phase | Goal | Requirements |
 |-------|------|--------------|
-| 26 | pytest框架搭建 | TEST-01 |
-| 27 | Provider单元测试 | TEST-02 |
-| 28 | Storage层单元测试 | TEST-03 |
-| 29 | CLI集成测试 | TEST-04 |
+| TBD | — | — |
 
 ## Performance Metrics
 
