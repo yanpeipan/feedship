@@ -504,10 +504,10 @@ def get_article_id_by_url(url: str) -> Optional[str]:
 
 
 def get_articles_by_urls(urls: list[str]) -> list:
-    """Get articles by URLs (guids) in batch.
+    """Get articles by URLs in batch.
 
     Args:
-        urls: List of article URLs (stored as guid in SQLite)
+        urls: List of article URLs
 
     Returns:
         List of article dicts with all fields. Missing entries are omitted.
@@ -522,7 +522,7 @@ def get_articles_by_urls(urls: list[str]) -> list:
                        a.pub_date, a.description
                 FROM articles a
                 JOIN feeds f ON a.feed_id = f.id
-                WHERE a.guid IN ({placeholders})""",
+                WHERE a.link IN ({placeholders})""",
             urls,
         )
         return [dict(row) for row in cursor.fetchall()]
