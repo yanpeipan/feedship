@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from src.application.articles import get_article_detail, list_articles, search_articles
-from src.application.search import format_semantic_results, format_fts_results
+from src.application.search import format_semantic_results, format_fts_results, rank_semantic_results
 # Lazy import: from src.application.related import get_related_articles_display
 # Lazy import: from src.storage.vector import search_articles_semantic
 
@@ -136,8 +136,10 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional
             from src.storage.vector import search_articles_semantic
             results = search_articles_semantic(query_text=query, limit=limit)
             if not results: click.secho("No articles found matching your semantic search."); return
+            # Apply multi-factor ranking
+            results = rank_semantic_results(results, top_k=limit)
             formatted = format_semantic_results(results, verbose=verbose)
-            click.secho("Semantic search results (by similarity):\n" + "-" * 80)
+            click.secho("Semantic search results (ranked):\n" + "-" * 80)
             for item in formatted:
                 if verbose:
                     click.secho(f"\nTitle: {item['title']}")
