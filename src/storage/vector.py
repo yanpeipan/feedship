@@ -210,14 +210,16 @@ def get_related_articles(article_id: str, limit: int = 5) -> list[dict]:
     with _chroma_lock:
         collection = get_chroma_collection()
         # First get the embedding vector for the source article
+        # First get the embedding vector for the source article
         try:
             existing = collection.get(ids=[chroma_id], include=["embeddings"])
         except Exception as e:
-            logger.error("ChromaDB get failed for %s (guid=%s): %s", article_id, chroma_id, e)
-            raise
+            logger.warning("ChromaDB error in get_related_articles: %s", e)
+            return []
         embeddings = existing.get("embeddings", [[]])
         if embeddings is None or len(embeddings) == 0 or len(embeddings[0]) == 0:
-            raise ValueError(f"No embedding found for article {article_id} (guid={chroma_id})")
+            logger.info("Article %s has no embedding (fetched before v1.8)", article_id)
+            return []
         source_embedding = embeddings[0]
 
         # Now query for similar articles using the source embedding
@@ -228,8 +230,8 @@ def get_related_articles(article_id: str, limit: int = 5) -> list[dict]:
                 include=["documents", "metadatas", "distances"],
             )
         except Exception as e:
-            logger.error("ChromaDB query failed for related articles: %s", e)
-            raise
+            logger.warning("ChromaDB error in get_related_articles: %s", e)
+            return []
 
     # Flatten and map results, excluding the query article itself
     articles = []

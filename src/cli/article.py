@@ -359,7 +359,7 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional
                 else:
                     click.secho(f"{title[:50]} | {source[:25]} | {pub_date[:10]}")
     except Exception as e:
-        click.secho(f"Error: Failed to search articles: {e}", err=True, fg="red")
+        click.secho(f"Semantic search unavailable: {e}. Your articles are still stored and searchable by keyword.", err=True, fg="yellow")
         logger.exception("Failed to search articles")
         sys.exit(1)
 
@@ -378,7 +378,13 @@ def article_related(ctx: click.Context, article_id: str, limit: int) -> None:
     try:
         results = get_related_articles(article_id=article_id, limit=limit)
         if not results:
-            click.secho("No related articles found.")
+            # Check if article exists but has no embedding
+            from src.storage.sqlite import get_article
+            article = get_article(article_id)
+            if article:
+                click.secho(f"Article was fetched before v1.8 and has no semantic embedding. Fetch the article again to enable similarity search.", fg="yellow")
+            else:
+                click.secho("No related articles found.")
             return
 
         click.secho(f"Articles related to {article_id}:")
