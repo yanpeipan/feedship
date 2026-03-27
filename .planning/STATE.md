@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Automatic Discovery Feed
 status: executing
-stopped_at: "Completed quick task 260328-2h9: unified search format"
-last_updated: "2026-03-27T17:52:19.587Z"
-last_activity: 2026-03-27
+stopped_at: "Completed quick task 260328-2v6: unified article list formatting"
+last_updated: "2026-03-28T00:12:00.000Z"
+last_activity: 2026-03-28
 progress:
   total_phases: 6
   completed_phases: 5
@@ -184,13 +184,14 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-27T17:52:19.581Z
-Stopped at: Completed quick task 260328-2h9: unified search format
+Last session: 2026-03-28T00:12:00.000Z
+Stopped at: Completed quick task 260328-2v6: unified article list formatting
 
 ## Quick Tasks Completed
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 260328-2v6 | format_articles() unified formatter for article_list, format_semantic_results, format_fts_results | 2026-03-28 | 1c558dd | Verified | [260328-2v6-article-semantic-search-search-articles-](./quick/260328-2v6-article-semantic-search-search-articles-/) |
 | 260328-2h9 | 统一返回结构：{id[:8]} | {title[:60]} | {source[:15]} | {date[:10]} | {score[:4]} | 2026-03-27 | f5fc86b | Verified | [260328-2h9-id-8-title-60-source-15-date-10-score-4-](./quick/260328-2h9-id-8-title-60-source-15-date-10-score-4-/) |
 | 260325-2am | src.cli fetch支持指定一个或多个链接 | 2026-03-24 | (pending) | Gaps | [260325-2am-src-cli-fetch](./quick/260325-2am-src-cli-fetch/) |
 | 2026-03-25 | 260325-0a9 | db.py → src/storage/sqlite.py | Moved db.py to storage/, made _get_connection private, updated all imports, removed broken get_release_detail code |
