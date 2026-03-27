@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from collections import deque
 from urllib.parse import urljoin, urlparse
@@ -9,6 +10,10 @@ from urllib.parse import urljoin, urlparse
 import feedparser
 
 from scrapling import Fetcher, Selector, DynamicFetcher
+
+# Suppress scrapling 0.4.x deprecation warning logged unconditionally in DynamicFetcher.__init__
+_scrapling_logger = logging.getLogger("scrapling")
+_scrapling_logger.disabled = True
 from robotexclusionrulesparser import RobotExclusionRulesParser
 
 from src.discovery.common_paths import matches_feed_path_pattern, generate_feed_candidates
