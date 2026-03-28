@@ -16,6 +16,7 @@ import chromadb
 from chromadb import PersistentClient
 from chromadb.config import Settings
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import platformdirs
 from sentence_transformers import SentenceTransformer
 import threading
@@ -24,6 +25,40 @@ import threading
 _chroma_client: PersistentClient | None = None
 _embedding_function: SentenceTransformer | None = None
 _chroma_lock = threading.Lock()
+
+
+def _pub_date_to_timestamp(pub_date: str | None) -> int | None:
+    """Convert pub_date string to unix timestamp for ChromaDB storage/query.
+
+    Handles RFC 2822 dates from RSS feeds (e.g., 'Thu, 26 Mar 2026 10:30:00 +0000')
+    and ISO format dates (e.g., '2026-03-26', '2026-03-26T10:30:00+00:00').
+
+    Args:
+        pub_date: Publication date string or None.
+
+    Returns:
+        Unix timestamp (seconds since epoch) or None if parsing fails.
+    """
+    if not pub_date:
+        return None
+
+    # Try parsing as RFC 2822 (RSS feed format)
+    try:
+        dt = parsedate_to_datetime(pub_date)
+        return int(dt.timestamp())
+    except Exception:
+        pass
+
+    # Try parsing as ISO format
+    try:
+        dt = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return int(dt.timestamp())
+    except Exception:
+        pass
+
+    return None
 
 
 def _get_chroma_client() -> PersistentClient:
@@ -136,7 +171,7 @@ def add_article_embedding(article_id: str, title: str, content: str, url: str, p
             raise
         embedding_vector = emb.tolist()
 
-        metadata = {"title": title, "url": url, "pub_date": pub_date or ""}
+        metadata = {"title": title, "url": url, "pub_date": _pub_date_to_timestamp(pub_date)}
         try:
             collection.add(
                 ids=[article_id],
@@ -147,6 +182,84 @@ def add_article_embedding(article_id: str, title: str, content: str, url: str, p
         except Exception as e:
             logger.error("ChromaDB add failed for %s: error=%s", article_id, e)
             raise
+
+
+def add_article_embeddings(articles: list[dict]) -> None:
+    """Batch add article embeddings to ChromaDB.
+
+    Args:
+        articles: List of article dicts with keys: article_id, title, content, url, pub_date.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    if not articles:
+        return
+
+    # Prepare embedding texts and metadata
+    embedding_texts = []
+    ids = []
+    metadatas = []
+
+    for article in articles:
+        article_id = article["article_id"]
+        title = article.get("title") or ""
+        content = article.get("content") or ""
+        url = article.get("url") or ""
+        pub_date = article.get("pub_date")
+
+        if content and len(content) >= 50:
+            embedding_text = content
+        else:
+            embedding_text = f"{title} {content}".strip()
+
+        if not embedding_text:
+            logger.warning("Skipping embedding for article %s: no useful text", article_id)
+            continue
+
+        embedding_texts.append(embedding_text)
+        ids.append(article_id)
+        metadatas.append({"title": title, "url": url, "pub_date": _pub_date_to_timestamp(pub_date)})
+
+    if not embedding_texts:
+        return
+
+    # Serialize all encoding + ChromaDB operations to avoid concurrency issues
+    with _chroma_lock:
+        collection = get_chroma_collection()
+        embedding_fn = get_embedding_function()
+
+        try:
+            emb = embedding_fn.encode(embedding_texts, convert_to_numpy=True, normalize_embeddings=True)
+        except Exception as e:
+            logger.error("Batch encoding failed for %d articles: error=%s", len(embedding_texts), e)
+            raise
+
+        embedding_vectors = emb.tolist()
+
+        try:
+            collection.add(
+                ids=ids,
+                documents=embedding_texts,
+                embeddings=embedding_vectors,
+                metadatas=metadatas,
+            )
+        except Exception as e:
+            logger.error("ChromaDB batch add failed: error=%s", e)
+            raise
+
+
+def _parse_date_to_timestamp(date_str: str) -> int:
+    """Convert YYYY-MM-DD date string to unix timestamp.
+
+    Args:
+        date_str: Date string in YYYY-MM-DD format.
+
+    Returns:
+        Unix timestamp (seconds since epoch).
+    """
+    dt = datetime.strptime(date_str, "%Y-%m-%d")
+    return int(dt.timestamp())
 
 
 def search_articles_semantic(query_text: str, limit: int = 10, since: str | None = None, until: str | None = None, on: list[str] | None = None) -> list[ArticleListItem]:
@@ -168,13 +281,14 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
     logger = logging.getLogger(__name__)
 
     # Build ChromaDB where clause for date filtering
+    # ChromaDB $gte/$lte operators require numeric values (unix timestamps)
     where_conditions = []
     if since:
-        where_conditions.append(("pub_date", {"$gte": since}))
+        where_conditions.append(("pub_date", {"$gte": _parse_date_to_timestamp(since)}))
     if until:
-        where_conditions.append(("pub_date", {"$lte": until}))
+        where_conditions.append(("pub_date", {"$lte": _parse_date_to_timestamp(until)}))
     if on:
-        where_conditions.append(("pub_date", {"$in": on}))
+        where_conditions.append(("pub_date", {"$in": [_parse_date_to_timestamp(d) for d in on]}))
     where_clause = None
     if len(where_conditions) == 1:
         where_clause = {where_conditions[0][0]: where_conditions[0][1]}
@@ -232,6 +346,10 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
         article_info = id_to_article.get(article_id, {})
         distance = distances[i] if i < len(distances) else None
         sqlite_id = article_info.get("id")
+
+        # Skip articles not found in SQLite (stale ChromaDB entries)
+        if not sqlite_id:
+            continue
 
         # Calculate cosine similarity from cosine distance
         # hnsw:space=cosine means distance = 1 - cosine_similarity (range 0-2)
