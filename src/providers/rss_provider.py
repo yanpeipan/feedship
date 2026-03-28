@@ -205,7 +205,9 @@ class RSSProvider:
         """Return provider priority.
 
         Returns:
-            50 - higher than DefaultProvider (0), lower than GitHubReleaseProvider (200).
+            200 - higher than WebpageProvider (100), lower than GitHubReleaseProvider (300).
+            RSS/Atom feeds should be handled by this provider before falling through
+            to the generic WebpageProvider.
         """
         return 50
 

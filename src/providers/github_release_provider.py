@@ -28,7 +28,7 @@ class GitHubReleaseProvider:
     """Content provider for GitHub repository releases.
 
     Detects github.com URLs and fetches the latest release
-    using the GitHub API. Higher priority (200) than GitHubProvider (100).
+    using the GitHub API. Higher priority (300) than GitHubProvider (100).
     """
 
     def match(self, url: str) -> bool:
@@ -65,9 +65,10 @@ class GitHubReleaseProvider:
         """Return provider priority.
 
         Returns:
-            200 - higher than GitHubProvider (100), tried first for releases.
+            300 - highest. GitHub releases must be handled by this provider,
+            not fall through to RSS or Webpage providers.
         """
-        return 200
+        return 300
 
     def crawl(self, url: str) -> List[Raw]:
         """Fetch latest GitHub release for a repository.
@@ -194,5 +195,5 @@ class GitHubReleaseProvider:
         )
 
 
-# Register this provider - higher priority (200) than GitHubProvider (100)
+# Register this provider - highest priority (300)
 PROVIDERS.append(GitHubReleaseProvider())
