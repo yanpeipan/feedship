@@ -116,7 +116,7 @@ def _analyze_link_paths(url: str, limit: int = 15) -> dict[str, int]:
         # Build all path prefixes
         segments = path.split("/")
         for i in range(1, len(segments) + 1):
-            prefix = "/" + "/".join(segments[:i])
+            prefix = "/".join(segments[:i]) or "/"
             path_counts[prefix] = path_counts.get(prefix, 0) + 1
 
     # Sort by count descending
