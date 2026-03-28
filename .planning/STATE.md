@@ -113,9 +113,12 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-28T12:04:32Z
-Stopped at: Completed 43-01-PLAN.md
+Last activity: 2026-03-28 - Refactored provider priority system (no github.com hardcoding)
 
 ## Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260328 | Refactor provider priority: GitHubRelease=300, RSS=200, Webpage=100; removed github.com hardcoding from WebpageProvider.match() | 2026-03-28 | 213ad74 | — |
 
 - Phase 44-01: Wired article search with --rerank flag, combine_scores weight config for semantic (gamma=0.2, delta=0.0) and FTS5 (gamma=0.0, delta=0.2) paths
