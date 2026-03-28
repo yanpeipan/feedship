@@ -146,12 +146,29 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
         click.secho(f"Discovered {len(feeds)} feed(s) in {elapsed:.1f}s", fg="cyan")
 
         if not feeds:
-            click.secho(
-                f"No feeds found at {url}. Try providing a website URL instead of a feed URL.",
-                err=True,
-                fg="yellow",
-            )
-            sys.exit(1)
+            # No RSS/Atom feeds found - try provider fallback
+            from src.providers import discover_or_default
+            providers = discover_or_default(url)
+            # Filter out RSSProvider fallback (only useful for actual RSS URLs)
+            specific_providers = [p for p in providers if p.__class__.__name__ != "RSSProvider"]
+
+            if specific_providers:
+                # A specific provider matched - add via that provider
+                provider_name = specific_providers[0].__class__.__name__.replace("Provider", "")
+                click.secho(f"No RSS feeds found. Provider matched: {provider_name}", fg="cyan")
+                feed_obj, is_new = add_feed(url, weight)
+                if is_new:
+                    click.secho(f"Added feed: {feed_obj.name} ({provider_name})", fg="green")
+                else:
+                    click.secho(f"Updated feed: {feed_obj.name} ({provider_name})", fg="cyan")
+                return
+            else:
+                click.secho(
+                    f"No feeds found at {url}. Try providing a website URL instead of a feed URL.",
+                    err=True,
+                    fg="yellow",
+                )
+                sys.exit(1)
 
         if automatic == "on":
             # Auto-add all discovered feeds
