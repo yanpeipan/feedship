@@ -530,7 +530,7 @@ def list_articles(limit: int = 20, feed_id: Optional[str] = None, since: Optiona
         rows = cursor.fetchall()
 
         def _compute_article_item(row):
-            pub_ts = _pub_date_to_timestamp(row.get("pub_date"))
+            pub_ts = _pub_date_to_timestamp(row["pub_date"])
             freshness = 0.0
             if pub_ts:
                 pub_dt = datetime.fromtimestamp(pub_ts, tz=timezone.utc)

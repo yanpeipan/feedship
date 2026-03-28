@@ -18,7 +18,6 @@ from chromadb.config import Settings
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 import platformdirs
-from sentence_transformers import SentenceTransformer
 import threading
 
 # Module-level singleton client
@@ -88,7 +87,7 @@ def _get_chroma_client() -> PersistentClient:
     return _chroma_client
 
 
-def get_embedding_function() -> SentenceTransformer:
+def get_embedding_function() -> "SentenceTransformer":
     """Get the SentenceTransformer embedding function.
 
     Uses 'all-MiniLM-L6-v2' model which produces 384-dimensional vectors
@@ -99,6 +98,7 @@ def get_embedding_function() -> SentenceTransformer:
     Returns:
         SentenceTransformer: The embedding function instance.
     """
+    from sentence_transformers import SentenceTransformer
     global _embedding_function
     if _embedding_function is None:
         _embedding_function = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
