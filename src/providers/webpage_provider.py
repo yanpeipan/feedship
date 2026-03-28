@@ -1,15 +1,24 @@
-"""Webpage provider - renders JS-heavy pages and extracts article items via CSS selectors.
+"""Webpage provider - generic JS-rendered page extractor.
 
-Falls back to Readability for generic article extraction.
+Uses DynamicFetcher (Playwright) for JS rendering, Trafilatura for article
+extraction, and optional CSS-selector configs from config.yaml for list pages.
 
-Site-specific extraction rules are defined in config.yaml under "webpage_sites".
-See docs/WebpageProvider.md for configuration format.
+No Python-level hardcoding. All site-specific rules live in config.yaml.
+
+Strategy per URL type:
+  1. List page (feed add / fetch):
+     → CSS selector config from config.yaml → extract multiple article entries
+     → Fallback: generic link discovery → Trafilatura on each link
+  2. Single article URL:
+     → DynamicFetcher + Trafilatura → extract title/content/description
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 
 from src.providers import PROVIDERS
@@ -18,244 +27,290 @@ from src.providers.base import Article, ContentProvider, CrawlResult, Raw
 logger = logging.getLogger(__name__)
 
 
-def _extract_domain(url: str) -> str:
-    """Extract domain from URL."""
+# ── Helpers ─────────────────────────────────────────────────────────────────────
+
+def _is_pro_domain(url: str) -> bool:
+    """Return True if URL is on a known PRO/付费 subdomain."""
+    PRO_DOMAINS = ("pro.", "www.pro.", "app.")
     from urllib.parse import urlparse
-    return urlparse(url).netloc
+    netloc = urlparse(url).netloc.lower()
+    return any(netloc.startswith(p) for p in PRO_DOMAINS)
 
 
-def _get_site_config(url: str) -> dict:
-    """Get site config for URL from config.yaml.
+# ── Config helpers ──────────────────────────────────────────────────────────────
 
-    Returns the matching site's config dict, or empty dict if no match.
-    """
-    from src.application.config import get_webpage_sites
+def _load_webpage_sites() -> dict:
+    """Load webpage_sites from config.yaml (direct YAML read, bypasses Dynaconf)."""
+    import yaml
+    from pathlib import Path
+    config_path = Path(__file__).resolve().parent.parent.parent / "config.yaml"
+    try:
+        with open(config_path) as f:
+            data = yaml.safe_load(f)
+        return data.get("webpage_sites", {}) if data else {}
+    except Exception:
+        return {}
 
-    domain = _extract_domain(url)
-    sites = get_webpage_sites()
+
+def _site_config_for(url: str) -> dict:
+    """Return the matching site's config dict, or {} if none found."""
+    from urllib.parse import urlparse
+    domain = urlparse(url).netloc.lower()
+    sites = _load_webpage_sites()
     for site_domain, config in sites.items():
         if site_domain in domain:
             return config
     return {}
 
 
-def _get_section_config(url: str, site_config: dict) -> dict:
-    """Get the most specific section config for a URL.
-
-    Matches URL path against section keys (e.g. "articles", "repos").
-    Falls back to "_default" if no path match found.
-    """
+def _section_config_for(url: str, site_config: dict) -> dict:
+    """Return the most specific section config for a URL path."""
     if not site_config:
         return {}
-
     from urllib.parse import urlparse
-
     path = urlparse(url).path.strip("/")
-    path_segment = path.split("/")[0] if path else ""
-
-    if path_segment and path_segment in site_config:
-        return site_config[path_segment]
+    segment = path.split("/")[0] if path else ""
+    if segment and segment in site_config:
+        return site_config[segment]
     return site_config.get("_default", {})
 
 
+# ── Article link construction ────────────────────────────────────────────────
+
 def _construct_article_link(item, section_config: dict) -> Optional[str]:
-    """Construct article URL from item's image URL using configured pattern.
-
-    Uses link_pattern and link_uuid_regex from section_config to build the article URL:
-    1. Search item images for the configured uuid_regex
-    2. If found, interpolate uuid into link_pattern
-
-    Example config:
-        link_pattern: "https://pro.example.com/article/{uuid}"
-        link_uuid_regex: "/cover_image/([0-9a-f-]{36})/"
-
-    Returns None if no pattern is configured or no UUID found.
-    """
-    link_pattern = section_config.get("link_pattern")
-    link_uuid_regex = section_config.get("link_uuid_regex")
-
-    if not link_pattern or not link_uuid_regex:
+    """Build article URL from item image URL using link_pattern + link_uuid_regex."""
+    pattern = section_config.get("link_pattern")
+    uuid_re = section_config.get("link_uuid_regex")
+    if not pattern or not uuid_re:
         return None
-
-    imgs = item.css("img")
-    for img in imgs:
+    for img in item.css("img"):
         src = img.attrib.get("src", "")
-        uuid_match = re.search(link_uuid_regex, src)
-        if uuid_match:
-            return link_pattern.replace("{uuid}", uuid_match.group(1))
+        m = re.search(uuid_re, src)
+        if m:
+            return pattern.replace("{uuid}", m.group(1))
     return None
 
 
-def _parse_relative_date(date_str: str | None) -> Optional[str]:
-    """Parse common date formats found on news sites.
+# ── Date parsing ───────────────────────────────────────────────────────────────
 
-    Supports:
-      - "03月27日" (Chinese month-day) -> "2026-03-27"
-      - "2024-12-01" (ISO date)
-      - "3分钟前", "2小时前" -> today
-    """
+def _parse_date(date_str: str | None) -> Optional[str]:
+    """Parse common date formats into YYYY-MM-DD."""
     if not date_str:
         return None
     date_str = date_str.strip()
 
-    # "03月27日" format
     m = re.match(r"(\d{1,2})月(\d{1,2})日", date_str)
     if m:
         month, day = int(m.group(1)), int(m.group(2))
         now = datetime.now()
-        year = now.year
-        if month > now.month:
-            year -= 1
-        dt = datetime(year, month, day)
-        return dt.strftime("%Y-%m-%d")
+        year = now.year if month <= now.month else now.year - 1
+        return datetime(year, month, day).strftime("%Y-%m-%d")
 
-    # "2023-12-01" format
     try:
-        dt = datetime.strptime(date_str[:10], "%Y-%m-%d")
-        return dt.isoformat()
+        return datetime.strptime(date_str[:10], "%Y-%m-%d").isoformat()
     except ValueError:
         pass
 
-    # "3分钟前", "2小时前" etc. -> use today
     return datetime.now().strftime("%Y-%m-%d")
 
 
+# ── Link discovery (generic fallback) ─────────────────────────────────────────
+
+def _root_domain(domain: str) -> str:
+    """Return root domain, e.g. 'jiqizhixin.com' from 'www.jiqizhixin.com'."""
+    parts = domain.lower().split(".")
+    return ".".join(parts[-2:]) if len(parts) >= 2 else domain.lower()
+
+
+def _discover_links(root, page_url: str) -> List[tuple[str, int]]:
+    """Score all internal links on the rendered page.
+
+    Returns list of (url, score) sorted by score descending.
+    """
+    from urllib.parse import urljoin, urlparse
+
+    base_root = _root_domain(urlparse(page_url).netloc)
+    seen: set[str] = set()
+    results: dict[str, int] = {}
+
+    for el in root.css("a[href]"):
+        href = el.attrib.get("href", "").strip()
+        if not href or href.startswith("#") or "javascript:" in href.lower():
+            continue
+
+        full_url = urljoin(page_url, href)
+        parsed = urlparse(full_url)
+        if not parsed.netloc:
+            continue
+
+        link_root = _root_domain(parsed.netloc)
+        if link_root != base_root:
+            continue
+
+        path = parsed.path.rstrip("/")
+        if not path or path in seen:
+            continue
+        seen.add(path)
+
+        score = 0
+        pl = path.lower()
+
+        # Positive signals
+        if re.search(r"/[0-9a-f-]{8,}", pl):
+            score += 30  # UUID / long-slug pattern
+        elif "/article/" in pl:
+            score += 25
+        elif "/post" in pl:
+            score += 20
+        elif any(x in pl for x in ["/a/", "/news/", "/story/", "/entry/"]):
+            score += 15
+        elif re.search(r"/\d+/?$", pl):
+            score += 10
+
+        # Negative signals
+        if any(x in pl for x in [
+            "/tag/", "/category/", "/author/",
+            "/page/", "/feed", "/assets/",
+            "/static/", "/images/",
+            "/login", "/register",
+            "/search", "/subscribe",
+            "/short_urls/", "/agreement/",
+        ]):
+            score -= 30
+
+        if score > 0:
+            results[full_url] = score
+
+    return sorted(results.items(), key=lambda x: x[1], reverse=True)
+
+
+# ── Main provider ─────────────────────────────────────────────────────────────
+
 class WebpageProvider:
-    """Content provider for JS-rendered web pages.
+    """Generic web page provider using DynamicFetcher + Trafilatura.
 
-    Uses Scrapling's DynamicFetcher (Playwright) to render pages with JavaScript,
-    then extracts article items via CSS selectors defined in config.yaml.
-
-    Falls back to Readability for generic single-article extraction when no
-    site-specific config exists.
-
-    Priority: 100 (higher than RSS=200, lower than GitHubReleaseProvider=300)
+    Falls back to DefaultProvider (priority=0) when this provider returns nothing.
     """
 
     def __init__(self) -> None:
-        self._dynamic_fetcher_initialized = False
+        self._df_initialized = False
 
     def match(self, url: str) -> bool:
-        """Check if URL should be handled by this provider.
-
-        Returns True for HTTP(S) URLs that are NOT obvious RSS/Atom feed paths.
-        Priority ensures this is only used when no higher-priority provider matches.
-        """
         if not url.startswith("http"):
             return False
         lower = url.lower()
-        if any(ext in lower for ext in (
-            ".rss", ".atom", "/feed", "/feed.xml",
-            "/atom.xml", "/rss.xml", "/index.xml",
-        )):
+        if any(ext in lower for ext in (".rss", ".atom", "/feed", "/feed.xml",
+                                         "/atom.xml", "/rss.xml", "/index.xml")):
             return False
         return True
 
     def priority(self) -> int:
         return 100
 
-    def _get_dynamic_fetcher(self):
-        """Lazy-load DynamicFetcher to avoid startup cost."""
-        if not self._dynamic_fetcher_initialized:
+    def _df(self):
+        if not self._df_initialized:
             from scrapling import DynamicFetcher
             self._DynamicFetcher = DynamicFetcher
-            self._dynamic_fetcher_initialized = True
+            self._df_initialized = True
         return self._DynamicFetcher
 
     def crawl(self, url: str) -> List[Raw]:
-        """Fetch and parse a web page, extracting article items.
-
-        Strategy:
-        1. If site has config: use CSS selectors + DynamicFetcher
-        2. Else: use Readability to extract single article from the page itself
-
-        Args:
-            url: URL of the page to crawl.
-
-        Returns:
-            List of raw article dicts with extracted fields.
-        """
         try:
-            site_config = _get_site_config(url)
-            if site_config:
-                items = self._crawl_impl(url)
+            site_config = _site_config_for(url)
+            section_config = _section_config_for(url, site_config)
+
+            # ── Case 1: site has CSS selector config → extract list from rendered page
+            if section_config:
+                items = self._crawl_list(url, section_config)
                 if items:
                     return items
 
-            logger.debug("WebpageProvider: no site config for %s, trying Readability fallback", url)
-            return self._crawl_readability(url)
+            # ── Case 2: try single-article Trafilatura extraction
+            items = self._crawl_article(url)
+            if items:
+                return items
+
+            # ── Case 3: generic link discovery → fetch each link with Trafilatura
+            return self._crawl_discovery(url)
         except Exception as e:
             logger.error("WebpageProvider.crawl(%s) failed: %s", url, e)
             return []
 
-    def _crawl_impl(self, url: str) -> List[Raw]:
-        """Site-specific extraction via CSS selectors and DynamicFetcher."""
+    def _crawl_list(self, url: str, config: dict) -> List[Raw]:
+        """Extract article list from rendered page using CSS selectors from config."""
         from scrapling import DynamicFetcher, Selector
 
-        site_config = _get_site_config(url)
-        section_config = _get_section_config(url, site_config)
+        wait_sel = config.get("wait_selector", "article")
+        item_sel = config.get("item", "article")
+        title_sel = config.get("title")
+        time_sel = config.get("time")
+        tags_sel = config.get("tags")
+        desc_sel = config.get("description")
 
-        wait_sel = section_config.get("wait_selector", "article")
-        item_sel = section_config.get("item", "article")
-        title_sel = section_config.get("title")
-        time_sel = section_config.get("time")
-        tags_sel = section_config.get("tags")
-        desc_sel = section_config.get("description")
-
-        Fetcher = self._get_dynamic_fetcher()
+        Fetcher = self._df()
         fetcher = Fetcher()
 
         try:
             r = fetcher.fetch(url, timeout=30000, wait_selector=wait_sel)
         except Exception as e:
-            logger.warning(
-                "DynamicFetcher.fetch(%s) with wait_selector=%s failed: %s, retrying without...",
-                url, wait_sel, e,
-            )
-            r = fetcher.fetch(url, timeout=30000)
+            logger.warning("DynamicFetcher(%s) wait_selector=%s failed: %s, retrying",
+                           url, wait_sel, e)
+            try:
+                r = fetcher.fetch(url, timeout=30000)
+            except Exception:
+                return []
 
         body = r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
         root = Selector(body)
 
         items = root.css(item_sel)
-        logger.debug("WebpageProvider found %d items with selector '%s'", len(items), item_sel)
-
+        logger.debug("WebpageProvider._crawl_list found %d items with '%s'", len(items), item_sel)
         results = []
+
         for item in items:
             title = None
             if title_sel:
-                title_els = item.css(title_sel)
-                if title_els:
-                    title = title_els[0].text.strip() if title_els[0].text else None
+                els = item.css(title_sel)
+                title = els[0].text.strip() if els and els[0].text else None
 
+            # Link: explicit selector first, then UUID-from-image construction
             link = None
-            # Try explicit link selector first
-            link_els = item.css("a")
-            if link_els:
-                link = link_els[0].attrib.get("href")
-            # Fall back to generic link construction via UUID pattern
+            link_sel = config.get("link")
+            if link_sel:
+                els = item.css(link_sel)
+                if els:
+                    link = els[0].attrib.get("href")
             if not link:
-                link = _construct_article_link(item, section_config)
+                link = _construct_article_link(item, config)
 
             pub_date = None
             if time_sel:
-                time_els = item.css(time_sel)
-                if time_els:
-                    pub_date = _parse_relative_date(time_els[0].text)
+                els = item.css(time_sel)
+                if els:
+                    pub_date = _parse_date(els[0].text)
 
             tags = []
             if tags_sel:
-                tag_els = item.css(tags_sel)
-                tags = [t.text.strip() for t in tag_els if t.text]
+                tags = [t.text.strip() for t in item.css(tags_sel) if t.text]
 
             description = None
             if desc_sel:
-                desc_els = item.css(desc_sel)
-                if desc_els and desc_els[0].text:
-                    description = desc_els[0].text.strip()
+                els = item.css(desc_sel)
+                if els and els[0].text:
+                    description = els[0].text.strip()
 
             if not title:
                 continue
+
+            # Try to fetch full article content for this article link
+            # Skip PRO/付费域名 — they return login page content, not real articles
+            content = None
+            if link and not _is_pro_domain(link):
+                article_items = self._crawl_article(link)
+                if article_items:
+                    content = article_items[0].get("content")
+                    if article_items[0].get("description"):
+                        description = article_items[0].get("description")
 
             results.append({
                 "title": title,
@@ -263,136 +318,197 @@ class WebpageProvider:
                 "pub_date": pub_date,
                 "tags": tags,
                 "description": description,
+                "content": content,
                 "source_url": url,
             })
 
         return results
 
-    def _crawl_readability(self, url: str) -> List[Raw]:
-        """Fallback: use Readability to extract article content from a single page.
-
-        When no site config exists for a URL, this treats the URL itself as
-        an article page and extracts its title/content for storage.
-        """
+    def _crawl_article(self, url: str) -> List[Raw]:
+        """Fetch a single article page using DynamicFetcher + Trafilatura."""
         from scrapling import DynamicFetcher
+        from trafilatura import extract
 
-        Fetcher = self._get_dynamic_fetcher()
+        Fetcher = self._df()
         fetcher = Fetcher()
 
         try:
             r = fetcher.fetch(url, timeout=30000)
-        except Exception as e:
-            logger.warning("Readability fallback: DynamicFetcher failed for %s: %s", url, e)
+        except Exception:
             return []
 
         body = r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
 
-        try:
-            from readability import Document
-        except ImportError:
-            logger.warning("Readability not installed, cannot extract content for %s", url)
+        # Try trafilatura extraction with metadata
+        result = extract(
+            body,
+            url=url,
+            include_metadata=True,
+            output_format="json",
+            include_comments=False,
+        )
+
+        if not result:
             return []
 
         try:
-            doc = Document(body, url=url)
-        except Exception as e:
-            logger.warning("Readability parsing failed for %s: %s", url, e)
+            data = json.loads(result) if isinstance(result, str) else result
+        except (json.JSONDecodeError, TypeError):
+            # Fallback: result might be just text
+            if isinstance(result, str):
+                return [{
+                    "title": url,
+                    "link": url,
+                    "pub_date": datetime.now().strftime("%Y-%m-%d"),
+                    "tags": [],
+                    "description": None,
+                    "content": result,
+                    "source_url": url,
+                }]
             return []
 
-        title = doc.short_title() or None
-        content = doc.summary() if hasattr(doc, "summary") else None
-        if content:
-            try:
-                from lxml.html import fromstring
-                root = fromstring(content)
-                text_content = root.text_content()
-                description = text_content.strip()[:500] if text_content else None
-            except Exception:
-                description = re.sub(r"<[^>]+>", "", content).strip()[:500]
-        else:
-            description = None
+        title = data.get("title", "") or url
+        text = data.get("text", "") or data.get("content", "")
+        description = data.get("description", "") or data.get("author", "")
+        date = data.get("date", "")
 
-        if not title:
+        if not text:
             return []
 
         return [{
             "title": title,
             "link": url,
-            "pub_date": datetime.now().strftime("%Y-%m-%d"),
+            "pub_date": date or datetime.now().strftime("%Y-%m-%d"),
             "tags": [],
-            "description": description,
+            "description": (description or "")[:500] if description else None,
+            "content": text,
             "source_url": url,
         }]
 
-    async def crawl_async(self, url: str, etag: Optional[str] = None, last_modified: Optional[str] = None) -> CrawlResult:
-        """Async crawl using asyncio.to_thread for the blocking DynamicFetcher."""
-        import asyncio
+    def _crawl_discovery(self, url: str) -> List[Raw]:
+        """Generic fallback: discover article links → Trafilatura on each."""
+        from scrapling import DynamicFetcher, Selector
+        from trafilatura import extract
 
+        Fetcher = self._df()
+        fetcher = Fetcher()
+
+        try:
+            r = fetcher.fetch(url, timeout=30000)
+        except Exception:
+            return []
+
+        body = r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
+        root = Selector(body)
+
+        scored_links = _discover_links(root, url)
+        if not scored_links:
+            return []
+
+        results = []
+        for article_url, _ in scored_links[:20]:
+            article_body = self._fetch_page(article_url)
+            if not article_body:
+                continue
+
+            result = extract(
+                article_body,
+                url=article_url,
+                include_metadata=True,
+                output_format="json",
+                include_comments=False,
+            )
+            if not result:
+                continue
+
+            try:
+                import json
+                data = json.loads(result) if isinstance(result, str) else result
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            title = data.get("title", "") or article_url
+            text = data.get("text", "") or data.get("content", "")
+            description = data.get("description", "")
+            date = data.get("date", "")
+
+            if not text or len(text) < 100:
+                continue
+
+            results.append({
+                "title": title,
+                "link": article_url,
+                "pub_date": date or datetime.now().strftime("%Y-%m-%d"),
+                "tags": [],
+                "description": (description or "")[:500] if description else None,
+                "content": text,
+                "source_url": article_url,
+            })
+
+        return results
+
+    def _fetch_page(self, url: str) -> Optional[str]:
+        Fetcher = self._df()
+        try:
+            r = Fetcher().fetch(url, timeout=30000)
+            return r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
+        except Exception:
+            return None
+
+    async def crawl_async(self, url: str, etag: Optional[str] = None,
+                          last_modified: Optional[str] = None) -> CrawlResult:
+        import asyncio
         _ = etag, last_modified
         loop = asyncio.get_running_loop()
         try:
             entries = await loop.run_in_executor(None, self.crawl, url)
         except Exception as e:
-            logger.error("WebpageProvider.crawl_async(%s) failed: %s", url, e)
+            logger.error("crawl_async(%s) failed: %s", url, e)
             entries = []
         return CrawlResult(entries=entries)
 
     def parse(self, raw: Raw) -> Article:
-        """Convert raw dict to Article dict."""
         from src.utils import generate_article_id
-
         title = raw.get("title")
         link = raw.get("link")
         guid = generate_article_id(raw) if not link else link
         pub_date = raw.get("pub_date")
         description = raw.get("description")
         content = raw.get("content") or raw.get("description")
-
         return Article(
-            title=title,
-            link=link,
-            guid=guid,
-            pub_date=pub_date,
-            description=description,
-            content=content,
+            title=title, link=link, guid=guid,
+            pub_date=pub_date, description=description, content=content,
         )
 
     def feed_meta(self, url: str) -> "Feed":
-        """Fetch page and extract feed metadata (title)."""
         from src.models import Feed
         from src.application.config import get_timezone
 
-        try:
-            from scrapling import DynamicFetcher, Selector
-        except ImportError:
-            raise ValueError("scrapling is required for WebpageProvider. Install with: pip install radar[webpage]")
+        # First try Trafilatura on the page itself
+        items = self._crawl_article(url)
+        if items and items[0].get("title"):
+            now = datetime.now(get_timezone()).isoformat()
+            return Feed(
+                id="", name=items[0]["title"], url=url,
+                etag=None, last_modified=None,
+                last_fetched=now, created_at=now,
+            )
 
-        Fetcher = self._get_dynamic_fetcher()
-        fetcher = Fetcher()
-
+        # Fallback: use page <title>
+        from scrapling import DynamicFetcher, Selector
         try:
-            r = fetcher.fetch(url, timeout=30000)
-        except Exception as e:
-            logger.warning("feed_meta fetch failed for %s: %s, using URL as title", url, e)
-            title = url
-        else:
+            r = self._df()().fetch(url, timeout=30000)
             body = r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
             root = Selector(body)
-            title_el = root.css("title")
-            title = title_el[0].text.strip() if title_el and title_el[0].text else url
+            title_els = root.css("title")
+            title = title_els[0].text.strip() if title_els and title_els[0].text else url
             title = re.sub(r"\s*[-–|]\s*[^-|]+$", "", title).strip()
+        except Exception:
+            title = url
 
         now = datetime.now(get_timezone()).isoformat()
-        return Feed(
-            id="",
-            name=title,
-            url=url,
-            etag=None,
-            last_modified=None,
-            last_fetched=now,
-            created_at=now,
-        )
+        return Feed(id="", name=title, url=url, etag=None,
+                     last_modified=None, last_fetched=now, created_at=now)
 
 
-# Register this provider
 PROVIDERS.append(WebpageProvider())
