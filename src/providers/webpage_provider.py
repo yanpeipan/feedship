@@ -11,6 +11,7 @@ Strategy:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -246,9 +247,14 @@ class WebpageProvider:
             # Fallback: if filtering removes all links, use unfiltered
             scored_links = filtered_links if filtered_links else scored_links
 
+        article_urls = [url for url, _ in scored_links[:20]]
+
+        # Fetch all article pages concurrently
+        url_to_body = asyncio.run(self._fetch_articles_async(article_urls, concurrency=8))
+
         results = []
-        for article_url, _ in scored_links[:20]:
-            article_body = self._fetch_page(article_url)
+        for article_url in article_urls:
+            article_body = url_to_body.get(article_url)
             if not article_body:
                 continue
 
@@ -295,6 +301,26 @@ class WebpageProvider:
             return r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
         except Exception:
             return None
+
+    async def _fetch_page_async(self, url: str) -> tuple[str, Optional[str]]:
+        """Fetch article page asynchronously. Returns (url, body_or_none)."""
+        loop = asyncio.get_running_loop()
+        try:
+            body = await loop.run_in_executor(None, self._fetch_page, url)
+            return (url, body)
+        except Exception:
+            return (url, None)
+
+    async def _fetch_articles_async(self, urls: list[str], concurrency: int = 8) -> dict[str, Optional[str]]:
+        """Fetch multiple article URLs concurrently with semaphore-limited concurrency."""
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def fetch_with_sem(url):
+            async with semaphore:
+                return await self._fetch_page_async(url)
+
+        results = await asyncio.gather(*[fetch_with_sem(url) for url in urls])
+        return {url: body for url, body in results}
 
     async def crawl_async(self, url: str, etag: Optional[str] = None,
                           last_modified: Optional[str] = None) -> CrawlResult:
