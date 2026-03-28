@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 from typing import Optional
@@ -19,7 +20,7 @@ class FeedNotFoundError(Exception):
     """Raised when a feed is not found in the database."""
 
 
-def add_feed(url: str, weight: float | None = None) -> tuple[Feed, bool]:
+def add_feed(url: str, weight: float | None = None, path_filters: list[str] | None = None) -> tuple[Feed, bool]:
     """Add a new feed by URL.
 
     Uses provider.feed_meta to fetch metadata and provider.crawl to validate.
@@ -27,6 +28,7 @@ def add_feed(url: str, weight: float | None = None) -> tuple[Feed, bool]:
     Args:
         url: The URL of the feed to add.
         weight: Optional feed weight for semantic search ranking. Defaults to config value.
+        path_filters: Optional list of path prefix filters for WebpageProvider.
 
     Returns:
         The created Feed object.
@@ -74,6 +76,7 @@ def add_feed(url: str, weight: float | None = None) -> tuple[Feed, bool]:
         last_fetched=now,
         created_at=now,
         weight=weight if weight is not None else get_default_feed_weight(),
+        metadata=json.dumps({"path_filters": path_filters}) if path_filters else None,
     )
     return upsert_feed(feed)
 

@@ -184,6 +184,111 @@ def _discover_links(root, page_url: str) -> List[tuple[str, int]]:
     return sorted(results.items(), key=lambda x: x[1], reverse=True)
 
 
+# ── Path analysis for link filtering ─────────────────────────────────────────
+
+def _analyze_link_paths(url: str, limit: int = 15) -> dict[str, int]:
+    """Analyze all links on a page and return path patterns with their counts.
+
+    Uses StealthyFetcher to get JS-rendered content, extracts all href attributes,
+    then builds path prefix patterns (e.g. /articles/2026-02-02/1 → /articles,
+    /articles/2026-02-02, /articles/2026-02-02/1) and counts them.
+
+    Args:
+        url: Page URL to analyze.
+        limit: Max number of path patterns to return.
+
+    Returns:
+        Dict of path_pattern -> count, sorted by count descending.
+    """
+    from urllib.parse import urljoin, urlparse
+    from scrapling import StealthyFetcher, Selector
+
+    try:
+        fetcher = StealthyFetcher()
+        r = fetcher.fetch(url, timeout=30000)
+    except Exception:
+        return {}
+
+    body = r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
+    root = Selector(body)
+
+    path_counts: dict[str, int] = {}
+    base_netloc = urlparse(url).netloc.lower()
+
+    for el in root.css("a[href]"):
+        href = el.attrib.get("href", "").strip()
+        if not href or href.startswith("#") or "javascript:" in href.lower():
+            continue
+
+        full_url = urljoin(url, href)
+        parsed = urlparse(full_url)
+
+        # Only same-domain links
+        if parsed.netloc.lower() != base_netloc:
+            continue
+
+        path = parsed.path.rstrip("/")
+        if not path:
+            continue
+
+        # Build all path prefixes
+        segments = path.split("/")
+        for i in range(1, len(segments) + 1):
+            prefix = "/" + "/".join(segments[:i])
+            path_counts[prefix] = path_counts.get(prefix, 0) + 1
+
+    # Sort by count descending
+    sorted_paths = dict(
+        sorted(path_counts.items(), key=lambda x: x[1], reverse=True)[:limit]
+    )
+    return sorted_paths
+
+
+def _filter_links_by_paths(links: list[str], allowed_paths: list[str]) -> list[str]:
+    """Filter links to only those whose path starts with an allowed prefix.
+
+    Args:
+        links: List of URLs to filter.
+        allowed_paths: List of path prefixes to keep.
+
+    Returns:
+        Filtered list of URLs.
+    """
+    from urllib.parse import urlparse
+
+    if not allowed_paths:
+        return links
+
+    allowed_lower = [p.lower() for p in allowed_paths]
+    filtered = []
+    for link in links:
+        path = urlparse(link).path.rstrip("/").lower()
+        if any(path.startswith(p) for p in allowed_lower):
+            filtered.append(link)
+    return filtered
+
+
+def _load_feed_path_filters(url: str) -> list[str]:
+    """Load path_filters from feed metadata for a given URL.
+
+    Args:
+        url: Feed URL to look up.
+
+    Returns:
+        List of path filter prefixes, or empty list if none found.
+    """
+    import json
+    try:
+        from src.storage import get_feed as storage_get_feed
+        feed = storage_get_feed(url)
+        if feed and feed.metadata:
+            meta = json.loads(feed.metadata)
+            return meta.get("path_filters", [])
+    except Exception:
+        pass
+    return []
+
+
 # ── Main provider ─────────────────────────────────────────────────────────────
 
 class WebpageProvider:
@@ -266,6 +371,10 @@ class WebpageProvider:
 
         items = root.css(item_sel)
         logger.debug("WebpageProvider._crawl_list found %d items with '%s'", len(items), item_sel)
+
+        # Load path filters for this feed
+        path_filters = _load_feed_path_filters(url)
+
         results = []
 
         for item in items:
@@ -302,6 +411,13 @@ class WebpageProvider:
 
             if not title:
                 continue
+
+            # Apply path filters if configured
+            if link and path_filters:
+                from urllib.parse import urlparse
+                link_path = urlparse(link).path.rstrip("/").lower()
+                if not any(link_path.startswith(p.lower()) for p in path_filters):
+                    continue
 
             # Try to fetch full article content for this article link
             content = None
@@ -404,6 +520,14 @@ class WebpageProvider:
         scored_links = _discover_links(root, url)
         if not scored_links:
             return []
+
+        # Apply path filters from feed metadata
+        path_filters = _load_feed_path_filters(url)
+        if path_filters:
+            link_urls = [url for url, _ in scored_links]
+            filtered_urls = _filter_links_by_paths(link_urls, path_filters)
+            filtered_set = set(filtered_urls)
+            scored_links = [(url, score) for url, score in scored_links if url in filtered_set]
 
         results = []
         for article_url, _ in scored_links[:20]:

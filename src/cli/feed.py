@@ -86,6 +86,59 @@ def _parse_selection(selection: str, max_idx: int) -> list[int]:
         return []
 
 
+def _get_webpage_path_filters(url: str) -> list[str]:
+    """Analyze page links and prompt user to select path patterns for filtering.
+
+    Returns list of selected path prefixes (empty if user skips).
+    """
+    from src.providers.webpage_provider import _analyze_link_paths
+    from src.cli.ui import console
+
+    try:
+        with console.status(f"[cyan]Analyzing page links...") as _status:
+            path_counts = _analyze_link_paths(url)
+    except Exception as e:
+        click.secho(f"Warning: Could not analyze links: {e}", fg="yellow")
+        return []
+
+    if not path_counts:
+        return []
+
+    # Display path patterns
+    click.secho("\nSelect path patterns to filter (articles only):")
+    paths = list(path_counts.items())
+    for i, (path, count) in enumerate(paths, 1):
+        click.secho(f"  {i}. {path} ({count} links)")
+
+    click.secho("  c. Cancel")
+    click.secho("")
+
+    choice = console.input("Enter numbers (e.g. 1,3-5) or 'c' to skip filtering: ").strip()
+
+    if choice.lower() == 'c' or not choice:
+        return []
+
+    # Parse selection
+    indices = set()
+    try:
+        for part in choice.split(","):
+            part = part.strip()
+            if "-" in part:
+                start, end = part.split("-", 1)
+                start, end = int(start.strip()), int(end.strip())
+                for i in range(start, end + 1):
+                    if 1 <= i <= len(paths):
+                        indices.add(i - 1)
+            else:
+                i = int(part)
+                if 1 <= i <= len(paths):
+                    indices.add(i - 1)
+    except ValueError:
+        return []
+
+    return [paths[i][0] for i in sorted(indices)]
+
+
 from src.cli import cli
 
 
@@ -153,7 +206,10 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
             if providers:
                 provider_name = providers[0].__class__.__name__.replace("Provider", "")
                 click.secho(f"No RSS feeds found. Provider matched: {provider_name}", fg="cyan")
-                feed_obj, is_new = add_feed(url, weight)
+                path_filters = []
+                if provider_name == "Webpage":
+                    path_filters = _get_webpage_path_filters(url)
+                feed_obj, is_new = add_feed(url, weight, path_filters)
                 if is_new:
                     click.secho(f"Added feed: {feed_obj.name} ({provider_name})", fg="green")
                 else:
@@ -217,15 +273,19 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
         return
 
     # Original behavior when --discover off
-    feed_obj, is_new = add_feed(url, weight)
-
-    # Determine provider type for display
+    # Determine provider first to check for WebpageProvider path filtering
     from src.providers import discover
     providers = discover(url)
     if providers:
         provider_name = providers[0].__class__.__name__.replace("Provider", "")
     else:
         provider_name = "Unknown"
+
+    path_filters = []
+    if provider_name == "Webpage":
+        path_filters = _get_webpage_path_filters(url)
+
+    feed_obj, is_new = add_feed(url, weight, path_filters)
 
     if is_new:
         click.secho(f"Added feed: {feed_obj.name} ({provider_name})", fg="green")
