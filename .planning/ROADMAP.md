@@ -60,7 +60,7 @@
 | 38. Search Result Ranking | 1/1 | ✅ | 2026-03-27 |
 | 39. uvloop Best Practices Review | 1/1 | ✅ | 2026-03-28 |
 | 40. Comprehensive uvloop Audit | 1/1 | ✅ | 2026-03-28 |
-| 41. ArticleListItem & Semantic Search Core | 0 | Not started | - |
+| 41. ArticleListItem & Semantic Search Core | 1/1 | Planning complete | - |
 | 42. Storage Scoring Fixes | 0 | Not started | - |
 | 43. Scoring Infrastructure | 0 | Not started | - |
 | 44. CLI Integration | 0 | Not started | - |
@@ -194,7 +194,8 @@
 2. search_articles_semantic returns ArticleListItem with vec_sim set to raw cosine similarity from ChromaDB
 3. search_articles_semantic no longer crashes when pub_date is INTEGER unix timestamp
 4. search_articles_semantic score is NOT a weighted combination (returns raw cos_sim directly)
-**Plans**: TBD
+**Plans**: 1 plan
+- [ ] 41-01-PLAN.md — ArticleListItem field extension + pub_date crash fix + raw cos_sim return
 
 #### Phase 42: Storage Scoring Fixes
 **Goal**: list_articles and search_articles return properly normalized freshness and BM25 scores
