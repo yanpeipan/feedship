@@ -8,24 +8,23 @@
 
 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
 
-## Current Milestone: v2.0 Search Ranking Architecture
+## Current Milestone: Planning next milestone
 
-**Goal:** 实现 Route A — 三种搜索方法返回原始信号，应用层 `combine_scores` 统一合并，可选 Cross-Encoder 重排
-
-**Target features:**
-- `ArticleListItem` 扩展原始信号字段（`vec_sim`, `bm25_score`, `freshness`, `source_weight`, `ce_score`, `final_score`）
-- `search_articles_semantic` 移除硬编码加权，返回原始 `cos_sim`
-- BM25 归一化修复为 Sigmoid 变换
-- `list_articles` 填充 `freshness` 分数
-- Cross-Encoder 重排（lazy import）
-- `combine_scores` 统一合并函数
-- CLI search 命令接入权重配置
-
-**Status:** ⏳ Planning
+**Last shipped: v2.0 Search Ranking Architecture** (2026-03-28)
 
 ---
 
 ## Current State
+
+**Shipped: v2.0 Search Ranking Architecture** (2026-03-28)
+- Phase 41-44 complete: Route A unified search ranking
+- ArticleListItem extended with 6 scoring fields (vec_sim, bm25_score, freshness, source_weight, ce_score, final_score)
+- search_articles_semantic returns raw cos_sim, P0 crash fixed for INTEGER pub_date
+- BM25 sigmoid normalization: `1 / (1 + exp(bm25 * factor))`
+- Newton's cooling law freshness: `exp(-days_ago / 7)`
+- Cross-Encoder reranking: BAAI/bge-reranker-base with lazy import
+- combine_scores application layer unifies vec_sim + bm25_score + freshness + ce_score
+- article search --semantic (gamma=0.2) and default FTS5 (gamma=0.2) paths
 
 **Shipped: v1.11 Comprehensive uvloop Audit** (2026-03-28)
 - Phase 40 complete: Zero `asyncio.run()` calls in `src/`
@@ -62,15 +61,16 @@
 
 ## Requirements
 
-### Active (v2.0)
+### Validated (v2.0)
 
-- [ ] SEARCH-01: `ArticleListItem` 扩展原始信号字段 — P0
-- [ ] SEARCH-02: `search_articles_semantic` 返回原始 `cos_sim`，移除硬编码组合 — P0
-- [ ] SEARCH-03: BM25 归一化修复为 Sigmoid 变换 — P1
-- [ ] SEARCH-04: `list_articles` 填充 `freshness` 分数 — P1
-- [ ] SEARCH-05: Cross-Encoder 重排（lazy import）— P2
-- [ ] SEARCH-06: `combine_scores` 统一合并函数 — P2
-- [ ] SEARCH-07: CLI search 命令接入权重配置 — P2
+- [x] SEARCH-00: search_articles_semantic P0 crash fix (INTEGER pub_date) — Phase 41
+- [x] SEARCH-01: ArticleListItem 扩展原始信号字段（6 fields）— Phase 41
+- [x] SEARCH-02: search_articles_semantic 返回原始 cos_sim — Phase 41
+- [x] SEARCH-03: BM25 sigmoid 归一化（factor=0.5）— Phase 42
+- [x] SEARCH-04: list_articles freshness 填充（Newton's cooling）— Phase 42
+- [x] SEARCH-05: Cross-Encoder rerank（BAAI/bge-reranker-base, lazy import）— Phase 43
+- [x] SEARCH-06: combine_scores 统一合并函数（Newton's cooling law）— Phase 43
+- [x] SEARCH-07: CLI search 接入权重配置（gamma/delta paths）— Phase 44
 
 ### Validated (v1.11)
 
@@ -188,6 +188,12 @@
 | Multi-factor ranking | `0.5*sim + 0.3*fresh + 0.2*weight` 公式可配置 | ✅ Good (v1.9) |
 | uvloop.install() 简化 | 只调用 `uvloop.install()`，platform check + error handling | ✅ Good (v1.10) |
 | uvloop.run() at CLI boundaries | 所有 CLI 入口点使用 uvloop.run()，async 代码通过 to_thread 调用 | ✅ Good (v1.11) |
+| Route A Architecture | Storage 返回原始信号，application layer 执行 combine_scores() | ✅ Good (v2.0) |
+| ArticleListItem 扩展字段 | vec_sim, bm25_score, freshness, source_weight, ce_score, final_score | ✅ Good (v2.0) |
+| BM25 sigmoid 归一化 | `1 / (1 + exp(bm25 * factor))` 替代 abs() bug | ✅ Good (v2.0) |
+| Newton's cooling law freshness | `exp(-days_ago / 7)` 半衰期 7 天 | ✅ Good (v2.0) |
+| Cross-Encoder lazy import | torch/transformers 在 rerank() 函数内部加载，全局缓存 _model/_tokenizer | ✅ Good (v2.0) |
+| Semantic gamma=0.2, FTS5 delta=0.2 | Semantic search 高 vec_sim，FTS5 高 BM25 | ✅ Good (v2.0) |
 
 ## Tech Stack
 
@@ -233,4 +239,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-*Last updated: 2026-03-28 — v2.0 Search Ranking Architecture started*
+*Last updated: 2026-03-28 — v2.0 Search Ranking Architecture shipped*

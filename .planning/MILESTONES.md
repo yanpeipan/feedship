@@ -1,5 +1,18 @@
 # Milestones
 
+## v2.0 Search Ranking Architecture (Shipped: 2026-03-28)
+
+**Phases completed:** 4 phases, 4 plans, 7 tasks
+
+**Key accomplishments:**
+
+- Extended ArticleListItem with 6 scoring fields; fixed search_articles_semantic P0 crash on INTEGER pub_date; returns raw cos_sim without weighted formula
+- BM25 sigmoid normalization and freshness scoring populated in storage layer, enabling Phase 43 combine_scores application layer
+- Cross-Encoder rerank with BAAI/bge-reranker-base and combine_scores using Newton's cooling law for unified ranking
+- article search command wired with Phase 43 scoring infrastructure: --rerank flag, semantic path (gamma=0.2, delta=0.0), FTS5 path (gamma=0.0, delta=0.2), both using asyncio.to_thread() for Cross-Encoder reranking
+
+---
+
 ## v1.9 Automatic Discovery Feed (Shipped: 2026-03-27)
 
 **Phases completed:** 7 phases, 10 plans, 17 tasks
