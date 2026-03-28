@@ -99,6 +99,10 @@ def _get_webpage_selectors(url: str) -> list[str]:
     try:
         with console.status(f"[cyan]Analyzing page links...") as _status:
             path_counts = _analyze_link_paths(url)
+    except ModuleNotFoundError as e:
+        click.secho(f"Error: Missing dependency - {e}", fg="red")
+        click.secho("Install patchright: uv pip install patchright", fg="yellow")
+        return []
     except Exception as e:
         click.secho(f"Warning: Could not analyze links: {e}", fg="yellow")
         return []

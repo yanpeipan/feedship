@@ -206,6 +206,8 @@ def _analyze_link_paths(url: str, limit: int = 15) -> dict[str, int]:
     try:
         fetcher = StealthyFetcher()
         r = fetcher.fetch(url, timeout=30000)
+    except ModuleNotFoundError:
+        raise  # Re-raise so caller can handle with specific message
     except Exception:
         return {}
 
