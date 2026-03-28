@@ -32,3 +32,23 @@ def get_default_feed_weight() -> float:
 def get_bm25_factor() -> float:
     """Return the BM25 sigmoid normalization factor (default 0.5)."""
     return _get_settings().get("bm25_factor", 0.5)
+
+
+def get_webpage_sites() -> dict:
+    """Return the webpage_sites configuration from config.yaml.
+
+    Reads directly from YAML to avoid Dynaconf nested key issues.
+    config.yaml is at the project root (two levels above this file).
+    """
+    import yaml
+    from pathlib import Path
+    # config.yaml is at: /Users/y3/radar/config.yaml
+    # __file__ is: /Users/y3/radar/src/application/config.py
+    # parent.parent = /Users/y3/radar/
+    config_path = Path(__file__).resolve().parent.parent.parent / "config.yaml"
+    try:
+        with open(config_path) as f:
+            data = yaml.safe_load(f)
+        return data.get("webpage_sites", {}) if data else {}
+    except Exception:
+        return {}

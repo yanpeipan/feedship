@@ -1,3 +1,28 @@
 # Application configuration
 timezone: Asia/Shanghai
 bm25_factor: 0.5
+
+# WebpageProvider site configurations
+# See: docs/WebpageProvider.md
+webpage_sites:
+  jiqizhixin.com:
+    _default:
+      wait_selector: ".home__article-item"
+      item: ".home__article-item"
+      title: ".home__article-item__title"
+      time: ".home__article-item__time"
+      tags: ".home__article-item__tag-item"
+      description: null
+      link: null
+      link_pattern: "https://pro.jiqizhixin.com/reference/{uuid}"
+      link_uuid_regex: "/article/cover_image/([0-9a-f-]{36})/"
+    articles:
+      wait_selector: ".article-card"
+      item: ".article-card"
+      title: ".article-card__title"
+      time: ".article-card__time"
+      tags: ".article-card__tags > div"
+      description: null
+      link: null
+      link_pattern: "https://pro.jiqizhixin.com/reference/{uuid}"
+      link_uuid_regex: "/article/cover_image/([0-9a-f-]{36})/"
