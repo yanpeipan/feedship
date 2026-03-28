@@ -376,7 +376,7 @@ class WebpageProvider:
         result = extract(
             body,
             url=url,
-            include_metadata=True,
+            with_metadata=True,
             output_format="json",
             include_comments=False,
         )
@@ -447,7 +447,7 @@ class WebpageProvider:
             result = extract(
                 article_body,
                 url=article_url,
-                include_metadata=True,
+                with_metadata=True,
                 output_format="json",
                 include_comments=False,
             )
