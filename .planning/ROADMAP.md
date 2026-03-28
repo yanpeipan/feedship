@@ -63,7 +63,7 @@
 | 41. ArticleListItem & Semantic Search Core | 1/1 | Complete   | 2026-03-28 |
 | 42. Storage Scoring Fixes | 1/1 | Complete    | 2026-03-28 |
 | 43. Scoring Infrastructure | 1/1 | ✅ Complete | 2026-03-28 |
-| 44. CLI Integration | 1 | 📋 Planned | - |
+| 44. CLI Integration | 1/1 | Complete   | 2026-03-28 |
 
 ---
 
@@ -233,7 +233,7 @@
 3. alpha and beta weights are always passed to combine_scores (default alpha=0.3)
 4. --semantic and default search both produce ArticleListItem with final_score populated
 **Plans**: 1 plan
-- [ ] 44-01-PLAN.md — Wire rerank + combine_scores into article search
+- [x] 44-01-PLAN.md — Wire rerank + combine_scores into article search
 
 ---
 

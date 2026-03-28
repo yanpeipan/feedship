@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Search Ranking Architecture
-status: In progress
-stopped_at: Completed 43-01-PLAN.md
-last_updated: "2026-03-28T12:06:42.151Z"
+status: Phase 44 Complete
+stopped_at: Completed 44-01-PLAN.md
+last_updated: "2026-03-28T12:20:36Z"
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (v2.0 Search Ranking Architecture)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Phase 42 — storage-scoring-fixes
+**Current focus:** Phase 44 — CLI Integration
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
@@ -118,5 +118,4 @@ Stopped at: Completed 43-01-PLAN.md
 
 ## Quick Tasks Completed
 
-- Phase 43-01: Created Cross-Encoder rerank module (rerank.py) with lazy-loaded BAAI/bge-reranker-base
-- Phase 43-01: Created combine_scores unified scoring function (combine.py) with Newton's cooling law
+- Phase 44-01: Wired article search with --rerank flag, combine_scores weight config for semantic (gamma=0.2, delta=0.0) and FTS5 (gamma=0.0, delta=0.2) paths

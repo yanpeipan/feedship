@@ -19,7 +19,7 @@
 
 ### CLI Integration (P2)
 
-- [ ] **SEARCH-07**: CLI `article search` 命令调整：
+- [x] **SEARCH-07**: CLI `article search` 命令调整：
   - `--semantic` 时：`vector_search` → 可选 `rerank` → `combine_scores(gamma=0.2, delta=0.0)`
   - 默认 FTS5 时：`search_articles` → 可选 `rerank` → `combine_scores(gamma=0.0, delta=0.2)`
   - `alpha/beta` 始终传入（默认 0.3）；`gamma/delta` 根据搜索类型显式传入
@@ -49,4 +49,4 @@
 | SEARCH-04 | Phase 42 | Complete |
 | SEARCH-05 | Phase 43 | Pending |
 | SEARCH-06 | Phase 43 | Pending |
-| SEARCH-07 | Phase 44 | Pending |
+| SEARCH-07 | Phase 44 | Complete |
