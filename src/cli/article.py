@@ -14,10 +14,17 @@ from src.application.articles import get_article_detail, list_articles, search_a
 logger = logging.getLogger(__name__)
 
 
-def _format_date(pub_date: str | None) -> str:
+def _format_date(pub_date: int | str | None) -> str:
     """Format pub_date as 'YYYY-MM-DD' or return '-'."""
-    if not pub_date:
+    if pub_date is None:
         return "-"
+    if isinstance(pub_date, int):
+        from datetime import datetime
+        from src.application.config import get_timezone
+        tz = get_timezone()
+        dt = datetime.fromtimestamp(pub_date, tz=tz)
+        return dt.strftime("%Y-%m-%d")
+    # Legacy string parsing for old data
     # RFC-2822 style: "Wed, 31 Oct 2024 12:00:00 GMT"
     if "," in pub_date:
         parts = pub_date.split(",", 1)
