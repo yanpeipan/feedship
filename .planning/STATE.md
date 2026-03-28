@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (v2.0 Search Ranking Architecture)
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
 | 40. Comprehensive uvloop Audit | Zero asyncio.run(), uvloop at CLI boundaries | UVLOOP-AUDIT-01, 02, 03 | ✅ Complete |
-| 41. ArticleListItem & Semantic Search Core | ArticleListItem with scoring fields; raw cos_sim | SEARCH-00, SEARCH-01, SEARCH-02 | 📋 Context Ready |
+| 41. ArticleListItem & Semantic Search Core | ArticleListItem with scoring fields; raw cos_sim | SEARCH-00, SEARCH-01, SEARCH-02 | ✅ Complete |
 | 42. Storage Scoring Fixes | BM25 sigmoid; list_articles freshness | SEARCH-03, SEARCH-04 | 📋 Planned |
 | 43. Scoring Infrastructure | Cross-Encoder rerank; combine_scores | SEARCH-05, SEARCH-06 | 📋 Planned |
 | 44. CLI Integration | Search command wired with weight config | SEARCH-07 | 📋 Planned |
