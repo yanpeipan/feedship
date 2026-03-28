@@ -93,14 +93,10 @@ def _get_webpage_selectors(url: str) -> list[str]:
     Returns list of selected path prefixes (empty if user skips).
     """
     from src.providers.webpage_provider import _analyze_link_paths
-    from rich.console import Console
-    import readchar
-
-    console = Console()
+    import questionary
 
     try:
-        with console.status(f"[cyan]Analyzing page links...") as _status:
-            path_counts = _analyze_link_paths(url)
+        path_counts = _analyze_link_paths(url)
     except ModuleNotFoundError as e:
         click.secho(f"Error: Missing dependency - {e}", fg="red")
         click.secho("Install patchright: uv pip install patchright", fg="yellow")
@@ -112,44 +108,21 @@ def _get_webpage_selectors(url: str) -> list[str]:
     if not path_counts:
         return []
 
-    paths = list(path_counts.items())
-    selected = set()
-    cursor = 0
+    choices = [f"{path} ({count} links)" for path, count in path_counts.items()]
+    selected = questionary.checkbox(
+        "Select path patterns to filter (articles only):",
+        choices=choices,
+    ).ask()
 
-    while True:
-        console.clear()
-        console.print("\n  [cyan]Select path patterns to filter (articles only):[/]\n")
+    if not selected:
+        return []
 
-        for i, (path, count) in enumerate(paths):
-            prefix = "  "
-            if i == cursor:
-                prefix = " [>]" if i in selected else "[<] "
-            else:
-                prefix = "    " if i in selected else "    "
-            marker = "[x]" if i in selected else "[ ]"
-            color = "green" if i == cursor else "white"
-            console.print(f"{prefix}{marker} {path} ({count} links)", style=color)
-
-        console.print("\n  [↑/↓] move  [space] toggle  [enter] confirm  [c] cancel")
-
-        key = readchar.readkey()
-        if key == readchar.key.UP:
-            cursor = max(0, cursor - 1)
-        elif key == readchar.key.DOWN:
-            cursor = min(len(paths) - 1, cursor + 1)
-        elif key == " ":
-            if cursor in selected:
-                selected.remove(cursor)
-            else:
-                selected.add(cursor)
-        elif key == readchar.key.ENTER:
-            break
-        elif key.lower() == "c":
-            return []
-        elif key == readchar.key.ESC:
-            return []
-
-    return [paths[i][0] for i in sorted(selected)]
+    # Extract path from "path (N links)" format
+    result = []
+    for choice in selected:
+        path = choice.rsplit(" (", 1)[0]
+        result.append(path)
+    return result
 
 
 from src.cli import cli
