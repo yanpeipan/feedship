@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Search Ranking Architecture
-status: Executing Phase 42
+status: Ready to plan
 stopped_at: Completed 42-01-PLAN.md
-last_updated: "2026-03-28T11:30:00.000Z"
+last_updated: "2026-03-28T11:35:08.747Z"
 progress:
   total_phases: 4
   completed_phases: 2
@@ -88,6 +88,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase ?]: SEARCH-02: search_articles_semantic returns raw cos_sim as vec_sim
 - [Phase 42]: BM25 sigmoid normalization: 1 / (1 + exp(bm25 * factor)), factor from config.py default 0.5
 - [Phase 42]: Freshness via Newton's cooling law: exp(-days_ago / 7)
+- [Phase 42]: BM25 sigmoid normalization: 1 / (1 + exp(bm25 * factor)), factor from config.py default 0.5
+- [Phase 42]: Freshness via Newton's cooling law: exp(-days_ago / 7) in list_articles
 
 ### Technical Notes
 
@@ -111,7 +113,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-28T11:30:00.000Z
+Last session: 2026-03-28T11:30:25.183Z
 Stopped at: Completed 42-01-PLAN.md
 
 ## Quick Tasks Completed
