@@ -87,20 +87,26 @@ def _parse_selection(selection: str, max_idx: int) -> list[int]:
         return []
 
 
-def _get_webpage_selectors(url: str) -> list[str]:
+def _get_webpage_selectors(url: str) -> list[str] | None:
     """Analyze page links and prompt user to select path patterns for filtering.
 
-    Returns list of selected path prefixes (empty if user skips).
+    Returns list of selected path prefixes, or None if questionary is not available.
     """
     from src.providers.webpage_provider import _analyze_link_paths
-    import questionary
+
+    try:
+        import questionary
+    except ModuleNotFoundError as e:
+        click.secho(f"Error: Missing dependency - {e}", fg="red")
+        click.secho("Install patchright: uv pip install patchright", fg="yellow")
+        return None  # None means skip selector filtering entirely
 
     try:
         path_counts = _analyze_link_paths(url)
     except ModuleNotFoundError as e:
         click.secho(f"Error: Missing dependency - {e}", fg="red")
         click.secho("Install patchright: uv pip install patchright", fg="yellow")
-        return []
+        return None
     except Exception as e:
         click.secho(f"Warning: Could not analyze links: {e}", fg="yellow")
         return []
@@ -195,6 +201,9 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
                 selectors = []
                 if provider_name == "Webpage":
                     selectors = _get_webpage_selectors(url)
+                    if selectors is None:
+                        click.secho("Cannot add feed without interactive selector. Install questionary: uv pip install questionary", fg="yellow")
+                        return
                 feed_meta_data = FeedMetaData(selectors=selectors) if selectors is not None else None
                 feed_obj, is_new = add_feed(url, weight, feed_meta_data)
                 if is_new:
@@ -271,6 +280,9 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
     selectors = []
     if provider_name == "Webpage":
         selectors = _get_webpage_selectors(url)
+        if selectors is None:
+            click.secho("Cannot add feed without interactive selector. Install questionary: uv pip install questionary", fg="yellow")
+            return
 
     feed_meta_data = FeedMetaData(selectors=selectors) if selectors is not None else None
     feed_obj, is_new = add_feed(url, weight, feed_meta_data)

@@ -161,11 +161,16 @@ def _load_feed_selectors(url: str) -> list[str]:
     """
     import json
     try:
-        from src.storage import get_feed as storage_get_feed
+        import sqlite3
+        from src.storage.sqlite.impl import get_db_path
         from src.models import FeedMetaData
-        feed = storage_get_feed(url)
-        if feed and feed.metadata:
-            data = json.loads(feed.metadata)
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+        cursor.execute("SELECT metadata FROM feeds WHERE url = ?", (url,))
+        row = cursor.fetchone()
+        conn.close()
+        if row and row[0]:
+            data = json.loads(row[0])
             meta = FeedMetaData(**data)
             return meta.selectors or []
     except Exception:
@@ -237,7 +242,9 @@ class WebpageProvider:
             link_urls = [url for url, _ in scored_links]
             filtered_urls = _filter_links_by_paths(link_urls, selectors)
             filtered_set = set(filtered_urls)
-            scored_links = [(url, score) for url, score in scored_links if url in filtered_set]
+            filtered_links = [(url, score) for url, score in scored_links if url in filtered_set]
+            # Fallback: if filtering removes all links, use unfiltered
+            scored_links = filtered_links if filtered_links else scored_links
 
         results = []
         for article_url, _ in scored_links[:20]:
