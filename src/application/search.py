@@ -169,21 +169,28 @@ def _truncate(text: str, max_length: int) -> str:
     return text[:max_length] + "..."
 
 
-def _format_date_for_display(pub_date: str | None) -> str:
+def _format_date_for_display(pub_date: int | str | None) -> str:
     """Convert pub_date to yyyy-mm-dd format for display.
 
-    Handles RFC 2822 dates from RSS feeds (e.g., 'Thu, 26 Mar 2026 10:30:00 +0000')
-    and ISO format dates (e.g., '2026-03-26').
+    Handles Unix timestamp (int) and legacy string formats (RFC 2822, ISO).
 
     Args:
-        pub_date: Publication date string or None.
+        pub_date: Publication date as Unix timestamp (int) or string, or None.
 
     Returns:
         Formatted date string (yyyy-mm-dd) or "-" if invalid/None.
     """
-    if not pub_date:
+    if pub_date is None:
         return "-"
 
+    if isinstance(pub_date, int):
+        from datetime import datetime
+        from src.application.config import get_timezone
+        tz = get_timezone()
+        dt = datetime.fromtimestamp(pub_date, tz=tz)
+        return dt.strftime("%Y-%m-%d")
+
+    # Legacy string parsing for old data
     # Try parsing as RFC 2822 (RSS feed format)
     try:
         dt = parsedate_to_datetime(pub_date)
