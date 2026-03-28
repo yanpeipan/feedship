@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Search Ranking Architecture
-status: Executing Phase 41
-stopped_at: Completed 41-01-PLAN.md
-last_updated: "2026-03-28T11:05:03.000Z"
+status: Executing Phase 42
+stopped_at: Completed 42-01-PLAN.md
+last_updated: "2026-03-28T11:30:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
 ---
 
 # Project State
@@ -19,13 +19,13 @@ progress:
 See: .planning/PROJECT.md (v2.0 Search Ranking Architecture)
 
 **Core value:** 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
-**Current focus:** Phase 41 — articlelistitem-semantic-search-core
+**Current focus:** Phase 42 — storage-scoring-fixes
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
 | 40. Comprehensive uvloop Audit | Zero asyncio.run(), uvloop at CLI boundaries | UVLOOP-AUDIT-01, 02, 03 | ✅ Complete |
 | 41. ArticleListItem & Semantic Search Core | ArticleListItem with scoring fields; raw cos_sim | SEARCH-00, SEARCH-01, SEARCH-02 | ✅ Complete |
-| 42. Storage Scoring Fixes | BM25 sigmoid; list_articles freshness | SEARCH-03, SEARCH-04 | 📋 Planned |
+| 42. Storage Scoring Fixes | BM25 sigmoid; list_articles freshness | SEARCH-03, SEARCH-04 | 🔵 In progress |
 | 43. Scoring Infrastructure | Cross-Encoder rerank; combine_scores | SEARCH-05, SEARCH-06 | 📋 Planned |
 | 44. CLI Integration | Search command wired with weight config | SEARCH-07 | 📋 Planned |
 
@@ -86,6 +86,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase ?]: SEARCH-00 fixed: search_articles_semantic now uses _pub_date_to_timestamp()
 - [Phase ?]: SEARCH-01: ArticleListItem has 6 scoring fields with source_weight=0.3 default
 - [Phase ?]: SEARCH-02: search_articles_semantic returns raw cos_sim as vec_sim
+- [Phase 42]: BM25 sigmoid normalization: 1 / (1 + exp(bm25 * factor)), factor from config.py default 0.5
+- [Phase 42]: Freshness via Newton's cooling law: exp(-days_ago / 7)
 
 ### Technical Notes
 
@@ -109,8 +111,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-28T11:05:02.995Z
-Stopped at: Completed 41-01-PLAN.md
+Last session: 2026-03-28T11:30:00.000Z
+Stopped at: Completed 42-01-PLAN.md
 
 ## Quick Tasks Completed
 
