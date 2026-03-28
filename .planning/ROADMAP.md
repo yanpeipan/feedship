@@ -61,7 +61,7 @@
 | 39. uvloop Best Practices Review | 1/1 | ✅ | 2026-03-28 |
 | 40. Comprehensive uvloop Audit | 1/1 | ✅ | 2026-03-28 |
 | 41. ArticleListItem & Semantic Search Core | 1/1 | Complete   | 2026-03-28 |
-| 42. Storage Scoring Fixes | 0 | Not started | - |
+| 42. Storage Scoring Fixes | 1/1 | In progress | - |
 | 43. Scoring Infrastructure | 0 | Not started | - |
 | 44. CLI Integration | 0 | Not started | - |
 
@@ -206,7 +206,8 @@
 2. Articles without vec_sim/bm25_score/ce_score have those fields set to 0.0
 3. search_articles BM25 score uses sigmoid normalization: sigmoid_norm(bm25_raw, factor)
 4. BM25 sigmoid factor is configurable via config.py (default 0.5)
-**Plans**: TBD
+**Plans**: 1 plan
+- [ ] 42-01-PLAN.md — BM25 sigmoid normalization + freshness population
 
 #### Phase 43: Scoring Infrastructure
 **Goal**: Cross-Encoder rerank module and combine_scores function exist and work correctly
