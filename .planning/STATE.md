@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Search Ranking Architecture
-status: Ready to plan
-stopped_at: Completed 42-01-PLAN.md
-last_updated: "2026-03-28T11:35:08.747Z"
+status: In progress
+stopped_at: Completed 43-01-PLAN.md
+last_updated: "2026-03-28T12:06:42.151Z"
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (v2.0 Search Ranking Architecture)
 |-------|------|--------------|--------|
 | 40. Comprehensive uvloop Audit | Zero asyncio.run(), uvloop at CLI boundaries | UVLOOP-AUDIT-01, 02, 03 | ✅ Complete |
 | 41. ArticleListItem & Semantic Search Core | ArticleListItem with scoring fields; raw cos_sim | SEARCH-00, SEARCH-01, SEARCH-02 | ✅ Complete |
-| 42. Storage Scoring Fixes | BM25 sigmoid; list_articles freshness | SEARCH-03, SEARCH-04 | 🔵 In progress |
-| 43. Scoring Infrastructure | Cross-Encoder rerank; combine_scores | SEARCH-05, SEARCH-06 | 📋 Planned |
+| 42. Storage Scoring Fixes | BM25 sigmoid; list_articles freshness | SEARCH-03, SEARCH-04 | ✅ Complete |
+| 43. Scoring Infrastructure | Cross-Encoder rerank; combine_scores | SEARCH-05, SEARCH-06 | 🔵 In progress |
 | 44. CLI Integration | Search command wired with weight config | SEARCH-07 | 📋 Planned |
 
 ## Performance Metrics
@@ -113,9 +113,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-28T11:30:25.183Z
-Stopped at: Completed 42-01-PLAN.md
+Last session: 2026-03-28T12:04:32Z
+Stopped at: Completed 43-01-PLAN.md
 
 ## Quick Tasks Completed
 
-None in this session yet.
+- Phase 43-01: Created Cross-Encoder rerank module (rerank.py) with lazy-loaded BAAI/bge-reranker-base
+- Phase 43-01: Created combine_scores unified scoring function (combine.py) with Newton's cooling law
