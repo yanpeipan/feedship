@@ -113,12 +113,13 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-03-28 - Refactored provider priority system (no github.com hardcoding)
+Last activity: 2026-03-29 - Removed all hardcoded site logic from WebpageProvider
 
 ## Quick Tasks Completed
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260328 | Refactor provider priority: GitHubRelease=300, RSS=200, Webpage=100; removed github.com hardcoding from WebpageProvider.match() | 2026-03-28 | 213ad74 | — |
+| # | Description | Date | Commit |
+|---|-------------|------|--------|
+| 260328 | Refactor provider priority: GitHubRelease=300, RSS=200, Webpage=100; removed github.com hardcoding | 2026-03-28 | 213ad74 |
+| 260329 | Refactor WebpageProvider: SITE_CONFIGS → config.yaml; zero domain hardcoding in Python | 2026-03-29 | 42a0a6b |
 
 - Phase 44-01: Wired article search with --rerank flag, combine_scores weight config for semantic (gamma=0.2, delta=0.0) and FTS5 (gamma=0.0, delta=0.2) paths
