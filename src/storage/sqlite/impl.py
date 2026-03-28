@@ -103,23 +103,26 @@ def init_db() -> None:
     DatabaseInitializer().init_db()
 
 
-def _normalize_pub_date(pub_date: str | None, tz) -> str:
-    """Normalize pub_date to YYYY-MM-DD in the configured timezone.
+def _normalize_pub_date(pub_date: str | None, tz) -> int | None:
+    """Normalize pub_date to Unix timestamp in the configured timezone.
 
     Handles RFC-2822 ("Wed, 31 Oct 2024 12:00:00 GMT") and ISO
     ("2024-10-31T12:00:00Z") formats. Falls back to current time.
+
+    Returns:
+        Unix timestamp (int) or None if pub_date is None.
     """
     from datetime import datetime
     from email.utils import parsedate_to_datetime
 
     if not pub_date:
-        return datetime.now(tz).strftime("%Y-%m-%d")
+        return int(datetime.now(tz).timestamp())
 
     try:
         # Try RFC-2822 first (feedparser standard)
         dt = parsedate_to_datetime(pub_date)
         dt = dt.astimezone(tz)
-        return dt.strftime("%Y-%m-%d")
+        return int(dt.timestamp())
     except (ValueError, TypeError):
         pass
 
@@ -130,15 +133,16 @@ def _normalize_pub_date(pub_date: str | None, tz) -> str:
             dt = dt.replace(tzinfo=tz)
         else:
             dt = dt.astimezone(tz)
-        return dt.strftime("%Y-%m-%d")
+        return int(dt.timestamp())
     except (ValueError, TypeError):
         pass
 
     # Fallback: try YYYY-MM-DD direct
     if len(pub_date) >= 10 and pub_date[4:5] == "-":
-        return pub_date[:10]
+        dt = datetime.strptime(pub_date[:10], "%Y-%m-%d").replace(tzinfo=tz)
+        return int(dt.timestamp())
 
-    return datetime.now(tz).strftime("%Y-%m-%d")
+    return int(datetime.now(tz).timestamp())
 
 
 def store_article(
