@@ -18,20 +18,7 @@ class ContentProvider(Protocol):
 
     def feed_meta(self, url: str) -> FeedMeta:
         """Fetch feed metadata (title, etag) WITHOUT crawling full content."""
-
-    def tag_parsers(self) -> List[TagParser]:
-        """Return tag parsers for articles from this provider."""
 ```
-
-## TagParser Interface
-
-```python
-class TagParser(Protocol):
-    def parse_tags(self, article: Article) -> List[str]:
-        """Return tags for this article."""
-```
-
-Tag merging: union of all tags from all tag parsers, deduplicated.
 
 ## Providers
 
@@ -50,7 +37,6 @@ Handles GitHub repository release pages.
 
 - `match(url)` detects `github.com/*/releases`
 - Returns releases as articles with `tag` field set to version
-- No tag parsers needed (tags from release versions)
 
 ### DefaultProvider
 
