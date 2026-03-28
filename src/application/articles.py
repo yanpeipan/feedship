@@ -39,6 +39,12 @@ class ArticleListItem:
     guid: str
     pub_date: Optional[str]
     description: Optional[str]
+    vec_sim: float = 0.0
+    bm25_score: float = 0.0
+    freshness: float = 0.0
+    source_weight: float = 0.3
+    ce_score: float = 0.0
+    final_score: float = 0.0
     score: float = 1.0
 
 
