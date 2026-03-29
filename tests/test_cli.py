@@ -29,14 +29,14 @@ class TestFeedCommands:
         </rss>"""
 
         mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.content = rss_xml
+        mock_response.status = 200
+        mock_response.body = rss_xml
         mock_response.headers = {"content-type": "application/rss+xml"}
 
-        # Use --discover off to bypass deep_crawl (which uses local httpx import)
-        # and go through RSS provider (which has module-level httpx import)
-        with patch("src.providers.rss_provider.httpx.get", return_value=mock_response):
-            result = cli_runner.invoke(cli, ['feed', 'add', '--discover', 'off', 'https://example.com/feed.xml'])
+        # Patch scrapling.Fetcher.get for RSS feed validation
+        with patch("scrapling.Fetcher.get", return_value=mock_response):
+            with patch("scrapling.StealthyFetcher.fetch", return_value=mock_response):
+                result = cli_runner.invoke(cli, ['feed', 'add', '--discover', 'off', 'https://example.com/feed.xml'])
         assert result.exit_code == 0
         assert 'Added feed' in result.output
 
@@ -57,16 +57,17 @@ class TestFeedCommands:
         </rss>"""
 
         mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.content = rss_xml
+        mock_response.status = 200
+        mock_response.body = rss_xml
         mock_response.headers = {"content-type": "application/rss+xml"}
 
-        # Use --discover off to bypass deep_crawl (which uses local httpx import)
-        with patch("src.providers.rss_provider.httpx.get", return_value=mock_response):
-            # Add feed first
-            cli_runner.invoke(cli, ['feed', 'add', '--discover', 'off', 'https://example.com/dup.xml'])
-            # Try to add same URL again - duplicate detection happens after successful fetch
-            result = cli_runner.invoke(cli, ['feed', 'add', '--discover', 'off', 'https://example.com/dup.xml'])
+        # Patch scrapling.Fetcher.get for RSS feed validation
+        with patch("scrapling.Fetcher.get", return_value=mock_response):
+            with patch("scrapling.StealthyFetcher.fetch", return_value=mock_response):
+                # Add feed first
+                cli_runner.invoke(cli, ['feed', 'add', '--discover', 'off', 'https://example.com/dup.xml'])
+                # Try to add same URL again - duplicate detection happens after successful fetch
+                result = cli_runner.invoke(cli, ['feed', 'add', '--discover', 'off', 'https://example.com/dup.xml'])
         assert result.exit_code == 1
         assert 'Error' in result.output
 
@@ -122,19 +123,20 @@ class TestFeedCommands:
         </rss>"""
 
         mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.content = rss_xml
+        mock_response.status = 200
+        mock_response.body = rss_xml
         mock_response.headers = {"content-type": "application/rss+xml"}
 
-        # Use --discover off to bypass deep_crawl (which uses local httpx import)
-        with patch("src.providers.rss_provider.httpx.get", return_value=mock_response):
-            # Add feed first
-            cli_runner.invoke(cli, ['feed', 'add', '--discover', 'off', 'https://example.com/remove.xml'])
-            # Get the feed ID from the database
-            from src.storage.sqlite import list_feeds
-            feeds = list_feeds()
-            feed_id = feeds[0].id if feeds else None
-            result = cli_runner.invoke(cli, ['feed', 'remove', feed_id])
+        # Patch scrapling.Fetcher.get for RSS feed validation
+        with patch("scrapling.Fetcher.get", return_value=mock_response):
+            with patch("scrapling.StealthyFetcher.fetch", return_value=mock_response):
+                # Add feed first
+                cli_runner.invoke(cli, ['feed', 'add', '--discover', 'off', 'https://example.com/remove.xml'])
+                # Get the feed ID from the database
+                from src.storage.sqlite import list_feeds
+                feeds = list_feeds()
+                feed_id = feeds[0].id if feeds else None
+                result = cli_runner.invoke(cli, ['feed', 'remove', feed_id])
         assert result.exit_code == 0
         assert 'Removed feed' in result.output
 

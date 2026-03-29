@@ -348,12 +348,13 @@ async def _discover_feeds_on_page(html: str, page_url: str) -> list[DiscoveredFe
     return await _probe_well_known_paths(page_url, html)
 
 
-async def deep_crawl(start_url: str, max_depth: int = 1) -> DiscoveredResult:
+async def deep_crawl(start_url: str, max_depth: int = 1, auto_discover: bool = True) -> DiscoveredResult:
     """Discover feeds using BFS crawling up to max_depth.
 
     Args:
         start_url: Starting URL for crawling.
         max_depth: Maximum crawl depth (1 = current page only, 2+ = BFS crawl).
+        auto_discover: Whether to run auto-discovery (default: True).
 
     Returns:
         DiscoveredResult with feeds list and selectors dict.
@@ -372,7 +373,7 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> DiscoveredResult:
             response = await asyncio.to_thread(StealthyFetcher().fetch, start_url, headers=BROWSER_HEADERS)
             if response.status == 200:
                 # Call providers.discover() to find feeds
-                feeds = providers_discover(start_url, response, depth=1)
+                feeds = providers_discover(start_url, response, depth=1, discover=auto_discover)
                 if feeds:
                     # Return all discovered feeds - RSSProvider.discover() returns unverified
                     # candidates (valid=False) which are still valid for user review
@@ -562,7 +563,7 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> DiscoveredResult:
         base_host = get_host(final_url)
 
         # Discover feeds using providers.discover()
-        page_feeds = providers_discover(final_url, response, depth)
+        page_feeds = providers_discover(final_url, response, depth, discover=auto_discover)
         all_feeds.extend(page_feeds)
 
         # Queue internal links for next depth

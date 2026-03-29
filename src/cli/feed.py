@@ -9,6 +9,13 @@ from typing import TYPE_CHECKING
 
 import click
 import uvloop
+
+# Patch asyncio's executor shutdown timeout to avoid long hangs during cleanup.
+# Python 3.13's shutdown_default_executor() waits up to 300 seconds for threads
+# to finish, which causes CLI to hang after fetch completes. Reducing to 10 seconds.
+import asyncio.constants
+asyncio.constants.THREAD_JOIN_TIMEOUT = 10
+
 from rich.console import Console
 
 from src.cli.ui import FetchProgress, print_summary
@@ -145,10 +152,9 @@ def feed(ctx: click.Context) -> None:
 @feed.command("add")
 @click.argument("url")
 @click.option(
-    "--discover",
-    default="on",
-    type=click.Choice(["on", "off"]),
-    help="Enable feed discovery before adding (default: on)",
+    "--auto-discover/--no-auto-discover",
+    default=True,
+    help="Enable feed auto-discovery before adding (default: enabled)",
 )
 @click.option(
     "--automatic",
@@ -169,12 +175,12 @@ def feed(ctx: click.Context) -> None:
     help=f"Feed weight for semantic search (default: 0.3)",
 )
 @click.pass_context
-def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discover_depth: int, weight: float | None) -> None:
+def feed_add(ctx: click.Context, url: str, auto_discover: bool, automatic: str, discover_depth: int, weight: float | None) -> None:
     """Add a new feed by URL (auto-detects provider type).
 
     Examples:
 
-      rss-reader feed add example.com --discover on --automatic off
+      rss-reader feed add example.com --auto-discover --automatic off
       rss-reader feed add example.com --automatic on
     """
     feeds: list = []
@@ -185,7 +191,7 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
         console = Console()
         start = time.time()
         with console.status(f"[cyan]Discovering feeds from {url}...") as _status:
-            result = uvloop.run(discover_feeds(url, discover_depth))
+            result = uvloop.run(discover_feeds(url, discover_depth, auto_discover))
             feeds = result.feeds
         elapsed = time.time() - start
     except Exception as e:

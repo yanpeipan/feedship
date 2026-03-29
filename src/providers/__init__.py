@@ -107,5 +107,34 @@ def get_all_providers() -> List[ContentProvider]:
     return PROVIDERS
 
 
+def match(url: str, response: "Response" = None) -> List[ContentProvider]:
+    """Find providers matching a URL.
+
+    Args:
+        url: URL to match against providers.
+        response: Optional HTTP response from discovery phase.
+            If provided, match() uses content_type from response.
+            If None, match() only uses URL.
+
+    Returns:
+        List of ContentProvider that match this URL, sorted by priority descending.
+    """
+    return [p for p in PROVIDERS if p.match(url, response)]
+
+
+def match_first(url: str, response: "Response" = None) -> Optional[ContentProvider]:
+    """Return first (highest priority) provider matching URL, or None.
+
+    Args:
+        url: URL to match against providers.
+        response: Optional HTTP response from discovery phase.
+
+    Returns:
+        Highest priority ContentProvider matching URL, or None if no match.
+    """
+    matched = match(url, response)
+    return matched[0] if matched else None
+
+
 # Load providers at module import time
 load_providers()

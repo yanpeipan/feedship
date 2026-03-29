@@ -93,19 +93,20 @@ def _sync_fetch_page_response(url: str) -> "Response | None":
         return None
 
 
-async def discover_feeds(url: str, max_depth: int = 1) -> DiscoveredResult:
+async def discover_feeds(url: str, max_depth: int = 1, auto_discover: bool = True) -> DiscoveredResult:
     """Discover RSS/Atom/RDF feeds from a website URL.
 
     Args:
         url: Website URL to discover feeds from.
         max_depth: Maximum crawl depth (1 = current page only, 2+ = BFS crawl).
+        auto_discover: Whether to run auto-discovery (default: True).
 
     Returns:
         DiscoveredResult containing list of DiscoveredFeed objects found.
         For max_depth=1, selectors contains link path prefix counts.
     """
     # Single-page discovery: delegate to deep_crawl (handles subdirectory probing)
-    return await deep_crawl(url, max_depth)
+    return await deep_crawl(url, max_depth, auto_discover)
 
 
 # Public exports

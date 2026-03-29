@@ -6,6 +6,13 @@ import time
 
 import click
 import uvloop
+
+# Patch asyncio's executor shutdown timeout to avoid long hangs during cleanup.
+# Python 3.13's shutdown_default_executor() waits up to 300 seconds for threads
+# to finish, which causes CLI to hang. Reducing to 10 seconds.
+import asyncio.constants
+asyncio.constants.THREAD_JOIN_TIMEOUT = 10
+
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
