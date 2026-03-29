@@ -194,25 +194,27 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
             click.secho(f"Discovery error: {e}, falling back to provider", fg="yellow")
             feeds = []
 
-    # Fallback: try providers if no feeds discovered
-    if not feeds:
-        from src.providers import discover as discover_providers
-        from src.providers.rss_provider import RSSProvider
+    # Try providers to augment discovered feeds
+    from src.providers import discover as discover_providers
+    from src.providers.rss_provider import RSSProvider
 
-        matched = discover_providers(url)
-        for provider in matched:
-            try:
-                feed = provider.feed_meta(url)
-                feeds.append(DiscoveredFeed(
-                    url=feed.url,
-                    title=feed.name,
-                    feed_type="rss" if isinstance(provider, RSSProvider) else "webpage",
-                    source="provider_match",
-                    page_url=url,
-                ))
-                click.secho(f"Matched via provider: {provider.__class__.__name__}", fg="cyan")
-            except Exception:
-                pass
+    matched = discover_providers(url)
+    for provider in matched:
+        try:
+            feed = provider.feed_meta(url)
+            # Skip if already discovered
+            if any(f.url == feed.url for f in feeds):
+                continue
+            feeds.append(DiscoveredFeed(
+                url=feed.url,
+                title=feed.name,
+                feed_type="rss" if isinstance(provider, RSSProvider) else "webpage",
+                source="provider_match",
+                page_url=url,
+            ))
+            click.secho(f"Matched via provider: {provider.__class__.__name__}", fg="cyan")
+        except Exception:
+            pass
 
     if feeds:
         click.secho(f"Discovered {len(feeds)} feed(s) in {elapsed:.1f}s", fg="cyan")
