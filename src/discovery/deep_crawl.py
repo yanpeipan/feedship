@@ -151,12 +151,13 @@ async def _validate_and_extract_title(url: str) -> tuple[bool, str | None, str |
             elif '/rdf' in lower_url:
                 feed_type = 'rdf'
 
-        if feed_type is None:
-            return False, None, None, None
-
-        # Extract title from response body
+        # Extract title from response body (only for feeds)
         title = None
         body = response.body
+        if feed_type is None:
+            # Not a feed but we have the body - return it for selectors
+            return False, None, None, body
+
         try:
             feed = feedparser.parse(body)
             if feed.feed:
