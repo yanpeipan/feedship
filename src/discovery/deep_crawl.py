@@ -206,10 +206,6 @@ async def _find_feed_links_on_page(html: str, page_url: str) -> list[DiscoveredF
 
             parsed = _urlparse(absolute)
 
-            # Skip non-HTTP(S)
-            if parsed.scheme not in ('http', 'https'):
-                continue
-
             # Skip different hosts
             if parsed.netloc.lower() != _urlparse(page_url).netloc.lower():
                 continue
@@ -468,10 +464,6 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> list[DiscoveredFeed]
                     absolute = urljoin(page_url, href)
 
                 parsed = urlparse(absolute)
-
-                # Skip non-HTTP(S)
-                if parsed.scheme not in ('http', 'https'):
-                    continue
 
                 # Skip different hosts
                 if parsed.netloc.lower() != base_host:
