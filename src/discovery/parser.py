@@ -1,12 +1,26 @@
 """HTML link element parser for feed autodiscovery (DISC-01, DISC-03)."""
 from __future__ import annotations
 
+import re
 from typing import Optional
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from scrapling import Selector
 
 from src.discovery.models import DiscoveredFeed
+
+# Trafilatura-style link validation regex (for <a href> fallback when no <link> found)
+LINK_VALIDATION_RE = re.compile(
+    r"\.(?:atom|rdf|rss|xml)$|"
+    r"\b(?:atom|rss)\b|"
+    r"\?type=100$|"
+    r"feeds/posts/default/?$|"
+    r"\?feed=(?:atom|rdf|rss|rss2)|"
+    r"feed$"
+)
+
+# Blacklist paths containing "comments"
+BLACKLIST = re.compile(r"\bcomments\b")
 
 
 def resolve_url(page_url: str, href: str, base_href: str | None = None) -> str:
@@ -25,6 +39,20 @@ def resolve_url(page_url: str, href: str, base_href: str | None = None) -> str:
     return urljoin(page_url, href)
 
 
+# Comprehensive feed MIME types (from trafilatura)
+FEED_TYPE_MAP = {
+    'application/rss+xml': 'rss',
+    'application/atom+xml': 'atom',
+    'application/rdf+xml': 'rdf',
+    'application/feed+json': 'json',
+    'application/json': 'json',
+    'text/rss+xml': 'rss',
+    'text/atom+xml': 'atom',
+    'text/xml': None,  # generic XML - defer to URL pattern
+    'application/xml': None,
+}
+
+
 def extract_feed_type(content_type: str) -> str | None:
     """Extract feed type from Content-Type string.
 
@@ -32,9 +60,12 @@ def extract_feed_type(content_type: str) -> str | None:
         content_type: Content-Type header value.
 
     Returns:
-        'rss', 'atom', 'rdf' or None if not a feed type.
+        'rss', 'atom', 'rdf', 'json' or None if not a feed type.
     """
     ct_lower = content_type.lower()
+    if ct_lower in FEED_TYPE_MAP:
+        return FEED_TYPE_MAP[ct_lower]
+    # Fallback: check for keywords in content-type
     if 'rss' in ct_lower:
         return 'rss'
     if 'atom' in ct_lower:
@@ -82,7 +113,7 @@ def parse_link_elements(html: str, page_url: str) -> list[DiscoveredFeed]:
         absolute_url = resolve_url(page_url, href, base_href)
 
         # Extract title if present
-        title: Optional[str] = link.attrib['title']
+        title: Optional[str] = link.attrib.get('title')
 
         feeds.append(DiscoveredFeed(
             url=absolute_url,
@@ -91,5 +122,32 @@ def parse_link_elements(html: str, page_url: str) -> list[DiscoveredFeed]:
             source='autodiscovery',
             page_url=page_url,
         ))
+
+    # Trafilatura fallback: if no <link> tags found, try <a href> with regex
+    if not feeds:
+        page_netloc = urlparse(page_url).netloc.lower()
+        for anchor in page.css('a[href]'):
+            href = anchor.attrib.get('href', '')
+            if not href or href.startswith(('javascript:', 'mailto:', '#')):
+                continue
+            # Check if URL matches feed pattern
+            if LINK_VALIDATION_RE.search(href.lower()):
+                absolute_url = resolve_url(page_url, href, base_href)
+                # Blacklist /comments/ paths
+                if BLACKLIST.search(absolute_url):
+                    continue
+                # Skip external domains
+                if urlparse(absolute_url).netloc.lower() != page_netloc:
+                    continue
+                # Extract text content as potential title
+                anchor_text = anchor.text
+                title = anchor_text.strip() if anchor_text else None
+                feeds.append(DiscoveredFeed(
+                    url=absolute_url,
+                    title=title,
+                    feed_type='rss',  # best guess, validated later
+                    source='autodiscovery_fallback',
+                    page_url=page_url,
+                ))
 
     return feeds
