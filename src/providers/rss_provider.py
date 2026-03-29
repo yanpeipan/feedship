@@ -5,9 +5,11 @@ Priority is 50 (higher than DefaultProvider at 0, lower than GitHubReleaseProvid
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextvars import ContextVar
-from typing import List, Optional
+from typing import Any, List, Optional, TYPE_CHECKING
+from urllib.parse import urljoin, urlparse
 
 import xml.etree.ElementTree as ET
 
@@ -16,6 +18,10 @@ from trafilatura import fetch_url
 
 from src.providers import PROVIDERS
 from src.providers.base import Article, ContentProvider, CrawlResult, Raw
+from src.discovery.models import DiscoveredFeed
+
+if TYPE_CHECKING:
+    from scrapling.engines.toolbelt.custom import Response
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +29,7 @@ logger = logging.getLogger(__name__)
 _feed_title_var: ContextVar[str | None] = ContextVar("feed_title", default=None)
 
 # Browser-like User-Agent header to avoid 403 bot blocks
-BROWSER_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-}
+from src.constants import BROWSER_HEADERS
 
 
 def fetch_feed_content(
@@ -156,38 +160,34 @@ class RSSProvider:
         """Return the feed title from the last crawl() call in this context, or None."""
         return _feed_title_var.get()
 
-    def match(self, url: str) -> bool:
+    def match(self, url: str, response: "Response" = None) -> bool:
         """Check if URL points to RSS/Atom feed via Content-Type header.
 
         Args:
             url: URL to check.
+            response: Optional HTTP response from discovery phase.
+                If provided, uses content_type from response directly (no new request).
+                If None, only uses URL pattern matching (no new request).
 
         Returns:
             True if URL returns application/rss+xml, application/atom+xml,
             or application/xml Content-Type. Also returns True for 403 errors
             to allow fallback to Scrapling for Cloudflare-protected feeds.
         """
-        from scrapling import Fetcher
-
-        try:
-            response = Fetcher.get(url, headers=BROWSER_HEADERS)
-            # Check for 403 - Cloudflare may block HEAD but allow GET with Scrapling
+        if response:
+            # 403 triggers Cloudflare fallback - allow crawl
             if response.status == 403:
-                logger.debug("RSSProvider.match(%s) got 403 on HEAD, allowing match for crawl fallback", url)
                 return True
-            content_type = response.headers.get("content-type", "").lower()
-            # Check for RSS/Atom content types
-            if "application/rss" in content_type:
+            # Use response content-type directly (discovery already fetched)
+            content_type = response.headers.get('content-type', '') or ""
+            if "application/rss" in content_type or "application/atom" in content_type:
                 return True
-            if "application/atom" in content_type:
-                return True
-            # Also accept generic XML types for feeds
             if "application/xml" in content_type or "text/xml" in content_type:
                 return True
             return False
-        except Exception as e:
-            logger.debug("RSSProvider.match(%s) failed: %s", url, e)
-            return False
+
+        # response为空时只用URL判断，不发请求
+        return False
 
     def priority(self) -> int:
         """Return provider priority.
@@ -384,48 +384,135 @@ class RSSProvider:
             content=content,
         )
 
-    def feed_meta(self, url: str) -> "Feed":
-        """Fetch feed metadata via lightweight GET request.
+    def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
+        """Validate URL is an RSS/Atom feed and return as DiscoveredFeed.
 
         Args:
-            url: URL of the feed to get metadata for.
+            url: URL of the feed to validate.
+            response: Pre-fetched HTTP response (may be None).
 
         Returns:
-            Feed object with name populated from feed title.
+            DiscoveredFeed with valid=True if URL is a valid RSS/Atom feed.
 
         Raises:
             ValueError: If feed cannot be fetched or parsed.
         """
         from scrapling import Fetcher
-        from src.models import Feed
-        from src.application.config import get_timezone
-        from datetime import datetime
 
         try:
-            # Lightweight fetch - just need title
-            response = Fetcher.get(url, headers=BROWSER_HEADERS)
+            # Use pre-fetched response if available
+            if response is None:
+                response = Fetcher.get(url, headers=BROWSER_HEADERS)
 
             # Parse just enough to get feed title
             parsed = feedparser.parse(response.body)
-            title = parsed.feed.get("title") if parsed.feed else url
+            title = parsed.feed.get("title") if parsed.feed else None
 
-            # Get headers for future conditional requests
-            etag = response.headers.get("etag")
-            last_modified = response.headers.get("last-modified")
-
-            now = datetime.now(get_timezone()).isoformat()
-
-            return Feed(
-                id="",
-                name=title,
+            return DiscoveredFeed(
                 url=url,
-                etag=etag,
-                last_modified=last_modified,
-                last_fetched=now,
-                created_at=now,
+                title=title,
+                feed_type="rss",
+                source=f"provider_{self.__class__.__name__}",
+                page_url=url,
+                valid=True,
             )
         except Exception as e:
             raise ValueError(f"Failed to fetch feed metadata: {e}")
+
+    def discover(self, url: str, response: "Response" = None, depth: int = 1) -> List["DiscoveredFeed"]:
+        """Discover feed URLs from a page.
+
+        Args:
+            url: Current page URL.
+            response: Pre-fetched HTTP response (may be None).
+            depth: Current crawl depth (1 = initial URL, can make HTTP requests;
+                   >1 = BFS deeper, should use response only if available).
+
+        Returns:
+            List of discovered DiscoveredFeed (unverified, validation happens in caller).
+        """
+        from src.discovery.models import DiscoveredFeed
+        from src.discovery.common_paths import generate_feed_candidates, matches_feed_path_pattern
+
+        feeds: List[DiscoveredFeed] = []
+
+        # If response is a feed type, return it as validated
+        if response:
+            content_type = response.headers.get('content-type', '') or ""
+            if any(ft in content_type for ft in ('rss', 'atom', 'rdf', 'xml')):
+                return [DiscoveredFeed(
+                    url=url,
+                    title=None,
+                    feed_type='rss' if 'rss' in content_type else 'atom' if 'atom' in content_type else 'rdf',
+                    source='RSSProvider',
+                    page_url=url,
+                    valid=True,
+                )]
+
+        # Parse HTML page for feed discovery
+        html = None
+        if response:
+            try:
+                html = response.text
+            except Exception:
+                pass
+
+        if not html:
+            return feeds
+
+        # Parse <link rel="alternate"> tags
+        from scrapling import Selector
+        page = Selector(content=html)
+
+        # Check for <base href> override
+        base_override: str | None = None
+        head = page.find('head')
+        if head:
+            base_tag = head.find('base[href]')
+            if base_tag:
+                base_override = base_tag.attrib['href']
+
+        # Find feed link tags
+        for link_tag in page.css('link[rel="alternate"]'):
+            href = link_tag.attrib.get('href', '')
+            if not href:
+                continue
+
+            # Resolve relative URLs
+            if base_override:
+                absolute = urljoin(base_override, href)
+            else:
+                absolute = urljoin(url, href)
+
+            # Validate it looks like a feed
+            parsed = urlparse(absolute)
+            path = parsed.path.lower()
+            if not matches_feed_path_pattern(path):
+                continue
+
+            feeds.append(DiscoveredFeed(
+                url=absolute,
+                title=link_tag.attrib.get('title'),
+                feed_type='rss',
+                source='RSSProvider',
+                page_url=url,
+                valid=False,  # Unverified - caller will validate
+            ))
+
+        # Probe well-known paths (only at depth=1)
+        if depth == 1:
+            candidates = generate_feed_candidates(url, html)
+            for candidate in candidates:
+                feeds.append(DiscoveredFeed(
+                    url=candidate,
+                    title=None,
+                    feed_type='rss',
+                    source='RSSProvider',
+                    page_url=url,
+                    valid=False,
+                ))
+
+        return feeds
 
 # Register this provider - it will be sorted by priority() after all modules load
 PROVIDERS.append(RSSProvider())

@@ -5,6 +5,7 @@ import asyncio
 import logging
 import time
 from collections import deque
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import feedparser
@@ -18,9 +19,9 @@ _scrapling_logger.disabled = True
 from robotexclusionrulesparser import RobotExclusionRulesParser
 
 from src.discovery.common_paths import matches_feed_path_pattern, generate_feed_candidates
-from src.discovery.models import DiscoveredFeed
+from src.discovery.models import DiscoveredFeed, DiscoveredResult
 from src.discovery.parser import parse_link_elements, resolve_url
-from src.providers.rss_provider import BROWSER_HEADERS
+from src.constants import BROWSER_HEADERS
 
 
 def compute_link_selectors(html: str, page_url: str) -> dict[str, Selector]:
@@ -230,6 +231,7 @@ async def _probe_well_known_paths(page_url: str, html: str | None = None) -> lis
             feed_type=feed_type,
             source='well_known_path',
             page_url=page_url,
+            valid=True,
         ))
 
     return results
@@ -300,6 +302,7 @@ async def _find_feed_links_on_page(html: str, page_url: str) -> list[DiscoveredF
                     feed_type=feed_type or 'rss',
                     source='css_selector',
                     page_url=page_url,
+                    valid=True,
                 ))
 
     return results
@@ -329,6 +332,7 @@ async def _discover_feeds_on_page(html: str, page_url: str) -> list[DiscoveredFe
                 feed_type=vt[1] or 'rss',
                 source=f.source,
                 page_url=f.page_url,
+                valid=True,
             )
             for f, vt in zip(discovered, val_results) if vt[0]
         ]
@@ -344,7 +348,7 @@ async def _discover_feeds_on_page(html: str, page_url: str) -> list[DiscoveredFe
     return await _probe_well_known_paths(page_url, html)
 
 
-async def deep_crawl(start_url: str, max_depth: int = 1) -> tuple[list[DiscoveredFeed], dict[str, int]]:
+async def deep_crawl(start_url: str, max_depth: int = 1) -> DiscoveredResult:
     """Discover feeds using BFS crawling up to max_depth.
 
     Args:
@@ -352,45 +356,33 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> tuple[list[Discovere
         max_depth: Maximum crawl depth (1 = current page only, 2+ = BFS crawl).
 
     Returns:
-        Tuple of (list of DiscoveredFeed objects, selectors dict).
+        DiscoveredResult with feeds list and selectors dict.
         For max_depth=1, selectors contains link path prefix counts.
         For max_depth>1, selectors is empty (expensive to compute).
     """
-    selectors: dict[str, Selector] = {}
+    # Import here to avoid circular imports
+    from src.providers import discover as providers_discover
+    from src.discovery.models import LinkSelector as LinkSelectorModel
+
+    selectors: dict[str, LinkSelectorModel] = {}
     if max_depth <= 1:
-        # First, check if the starting URL is already a direct feed URL
-        # This handles the case where user passes a feed URL directly (e.g., /rss/)
-        is_valid_feed, feed_type, title, body = await _validate_and_extract_title(start_url)
-        if is_valid_feed:
-            # Compute selectors from the fetched body
-            if body:
-                try:
-                    html_text = body.decode('utf-8') if isinstance(body, bytes) else body
-                    selectors = compute_link_selectors(html_text, start_url)
-                except Exception:
-                    pass
-            return ([DiscoveredFeed(
-                url=start_url,
-                title=title,
-                feed_type=feed_type or 'rss',
-                source='direct_url',
-                page_url=start_url,
-            )], selectors)
-
-        # Not a direct feed - use the body we already fetched for selectors
-        if body:
-            try:
-                html = body.decode('utf-8') if isinstance(body, bytes) else body
-                page_url = start_url
-                selectors = compute_link_selectors(html, page_url)
-                feeds = await _discover_feeds_on_page(html, page_url)
+        # Use providers.discover() for feed discovery
+        # Fetch page to get response for providers
+        try:
+            response = await asyncio.to_thread(Fetcher.get, start_url, headers=BROWSER_HEADERS)
+            if response.status == 200:
+                # Call providers.discover() to find feeds
+                feeds = providers_discover(start_url, response, depth=1)
                 if feeds:
-                    return (feeds, selectors)
-            except Exception:
-                pass
+                    # Only keep feeds already marked valid=True (e.g., GitHubReleaseProvider)
+                    valid_feeds = [f for f in feeds if f.valid]
+                    if valid_feeds:
+                        return DiscoveredResult(url=start_url, max_depth=max_depth, feeds=valid_feeds, selectors=selectors)
+        except Exception:
+            pass
 
-        # Fall back to well-known path probing
-        return (await _probe_well_known_paths(start_url), selectors)
+        # max_depth <= 1 must return here - never fall through to BFS
+        return DiscoveredResult(url=start_url, max_depth=max_depth, feeds=[], selectors=selectors)
 
     # Deep crawl (max_depth > 1)
     # Normalize start URL
@@ -400,7 +392,7 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> tuple[list[Discovere
     # This handles sites that return 403/404 on main page but have feeds at well-known paths
     start_feeds = await _probe_well_known_paths(start_url)
     if start_feeds:
-        return (start_feeds, selectors)
+        return DiscoveredResult(url=start_url, max_depth=max_depth, feeds=start_feeds, selectors=selectors)
 
     # BFS queue: (url, depth)
     queue: deque[tuple[str, int]] = deque()
@@ -425,8 +417,8 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> tuple[list[Discovere
         """Extract host from URL."""
         return urlparse(url).netloc.lower()
 
-    async def _fetch_page(url: str) -> tuple[str | None, str]:
-        """Fetch a page and return (html, final_url)."""
+    async def _fetch_page(url: str) -> tuple[str | None, str, Any]:
+        """Fetch a page and return (html, final_url, response)."""
         async with semaphore:
             host = get_host(url)
 
@@ -443,10 +435,10 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> tuple[list[Discovere
                     Fetcher.get, url, headers=BROWSER_HEADERS
                 )
                 if response.status != 200:
-                    return None, url
-                return response.text, response.url
+                    return None, url, None
+                return response.text, response.url, response
             except Exception:
-                return None, url
+                return None, url, None
 
     async def _check_robots(url: str, depth: int) -> bool:
         """Check if robots.txt allows crawling a URL.
@@ -557,7 +549,7 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> tuple[list[Discovere
             continue
 
         # Fetch page
-        html, final_url = await _fetch_page(url)
+        html, final_url, response = await _fetch_page(url)
         if html is None:
             continue
 
@@ -570,8 +562,8 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> tuple[list[Discovere
         # Extract links for next depth
         base_host = get_host(final_url)
 
-        # Discover feeds on current page
-        page_feeds = await _discover_feeds_on_page(html, final_url)
+        # Discover feeds using providers.discover()
+        page_feeds = providers_discover(final_url, response, depth)
         all_feeds.extend(page_feeds)
 
         # Queue internal links for next depth
@@ -591,4 +583,4 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> tuple[list[Discovere
             seen.add(feed.url)
             unique_feeds.append(feed)
 
-    return (unique_feeds, selectors)
+    return DiscoveredResult(url=start_url, max_depth=max_depth, feeds=unique_feeds, selectors=selectors)

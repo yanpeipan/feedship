@@ -16,8 +16,8 @@ class ContentProvider(Protocol):
     def parse(self, raw: Raw) -> Article:
         """Convert raw item to Article dict."""
 
-    def feed_meta(self, url: str) -> FeedMeta:
-        """Fetch feed metadata (title, etag) WITHOUT crawling full content."""
+    def parse_feed(self, url: str) -> FeedMeta:
+        """Parse feed metadata (title, etag) WITHOUT crawling full content."""
 ```
 
 ## Providers
@@ -28,7 +28,7 @@ Fallback provider for RSS 2.0, Atom 1.0, RDF feeds.
 
 - `match(url)` returns `False` (only matched as fallback)
 - `priority()` returns `50` (lowest)
-- `feed_meta()` does lightweight HEAD request only
+- `parse_feed()` does lightweight HEAD request only
 - Supports ETag/Last-Modified conditional fetching
 
 ### GitHubReleaseProvider (priority 200)

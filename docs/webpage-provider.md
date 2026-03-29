@@ -15,7 +15,7 @@ Radar 当前通过 `RSSProvider` 订阅 RSS/Atom Feed，对于没有 RSS 的**JS
 - 使用 **Scrapling DynamicFetcher**（Playwright 后端）渲染页面
 - 通过**站点配置**（CSS Selector）提取文章列表项
 - **Readability 兜底**：无配置的站点也能提取内容
-- 复用现有 Provider 架构（match / priority / crawl / parse / feed_meta）
+- 复用现有 Provider 架构（match / priority / crawl / parse / parse_feed）
 
 ---
 
@@ -51,7 +51,7 @@ class WebpageProvider:
     def parse(self, raw: Raw) -> Article:
         # dict → Article dataclass
 
-    def feed_meta(self, url: str) -> Feed:
+    def parse_feed(self, url: str) -> Feed:
         # 抓取页面提取 <title>，返回 Feed 对象
 ```
 
@@ -136,7 +136,7 @@ feed add https://www.jiqizhixin.com/
   ├─ discover_or_default(url)
   │    → WebpageProvider (priority=100, match=True)
   │
-  ├─ provider.feed_meta(url)
+  ├─ provider.parse_feed(url)
   │    → DynamicFetcher 抓页面
   │    → 提取 <title> → "机器之心"
   │    → 返回 Feed(name="机器之心", url=...)

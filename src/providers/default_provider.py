@@ -7,10 +7,14 @@ providers have failed.
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, List, Optional, TYPE_CHECKING
 
 from src.providers import PROVIDERS
 from src.providers.base import Article, ContentProvider, CrawlResult, Raw
+
+if TYPE_CHECKING:
+    from scrapling.engines.toolbelt.custom import Response
+    from src.discovery.models import DiscoveredFeed
 
 
 class DefaultProvider:
@@ -21,11 +25,12 @@ class DefaultProvider:
     should not be called on this provider in practice.
     """
 
-    def match(self, url: str) -> bool:
+    def match(self, url: str, response: "Response" = None) -> bool:
         """Never matches - only used as fallback.
 
         Args:
             url: URL to match (ignored).
+            response: Optional HTTP response (ignored).
 
         Returns:
             Always False - this provider is only a fallback.
@@ -87,11 +92,27 @@ class DefaultProvider:
             "DefaultProvider is fallback only and should not be called"
         )
 
-    def feed_meta(self, url: str) -> "Feed":
+    def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
         """Not implemented - DefaultProvider is fallback only.
 
         Args:
-            url: URL to get feed meta for (ignored).
+            url: URL to parse feed for (ignored).
+            response: Ignored.
+
+        Returns:
+            Never returns - raises NotImplementedError.
+        """
+        raise NotImplementedError(
+            "DefaultProvider is fallback only and should not be called"
+        )
+
+    def discover(self, url: str, response: "Response" = None, depth: int = 1) -> List["DiscoveredFeed"]:
+        """Not implemented - DefaultProvider is fallback only.
+
+        Args:
+            url: URL to discover feeds for (ignored).
+            response: Ignored.
+            depth: Ignored.
 
         Returns:
             Never returns - raises NotImplementedError.

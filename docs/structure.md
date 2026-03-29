@@ -45,6 +45,6 @@ src/
 1. **DB via context manager**: `with get_db() as conn:` not bare `get_connection()`
 2. **No circular imports**: shared logic in base.py
 3. **CLI is thin**: business logic in application/
-4. **feed_meta() ≠ crawl()**: metadata separate from content
+4. **parse_feed() ≠ crawl()**: metadata separate from content
 5. **Single DAL**: storage/ owns all SQL
 6. **uvloop at boundaries**: `uvloop.run()` only at CLI entry points, `asyncio.to_thread()` for blocking I/O

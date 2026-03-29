@@ -23,7 +23,7 @@ class FeedNotFoundError(Exception):
 def add_feed(url: str, weight: float | None = None, feed_meta_data: "FeedMetaData | None" = None) -> tuple[Feed, bool]:
     """Add a new feed by URL.
 
-    Uses provider.feed_meta to fetch metadata and provider.crawl to validate.
+    Uses provider.parse_feed to fetch metadata and provider.crawl to validate.
 
     Args:
         url: The URL of the feed to add.
@@ -64,7 +64,7 @@ def add_feed(url: str, weight: float | None = None, feed_meta_data: "FeedMetaDat
 
     for provider in providers:
         try:
-            feed_meta = provider.feed_meta(url)
+            feed_meta = provider.parse_feed(url)
             entries = provider.crawl(url)
             if entries:
                 break  # Success

@@ -15,10 +15,14 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional, TYPE_CHECKING
 
 from src.providers import PROVIDERS
 from src.providers.base import Article, ContentProvider, CrawlResult, Raw
+from src.discovery.models import DiscoveredFeed
+
+if TYPE_CHECKING:
+    from scrapling.engines.toolbelt.custom import Response
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +193,16 @@ class WebpageProvider:
     def __init__(self) -> None:
         self._df_initialized = False
 
-    def match(self, url: str) -> bool:
+    def match(self, url: str, response: "Response" = None) -> bool:
+        """Check if URL is a webpage (not a direct feed URL).
+
+        Args:
+            url: URL to check.
+            response: Optional HTTP response (ignored - URL-only matching).
+
+        Returns:
+            True if URL looks like a webpage (not a feed URL).
+        """
         if not url.startswith("http"):
             return False
         lower = url.lower()
@@ -331,13 +344,22 @@ class WebpageProvider:
             pub_date=pub_date, description=description, content=content,
         )
 
-    def feed_meta(self, url: str) -> "Feed":
+    def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
+        """Validate webpage URL and return as DiscoveredFeed (fallback only).
+
+        Args:
+            url: Webpage URL to validate.
+            response: Pre-fetched HTTP response (may be None).
+
+        Returns:
+            DiscoveredFeed with valid=False (webpage is not a feed).
+        """
         from src.models import Feed
-        from src.application.config import get_timezone
         from trafilatura import extract
 
         # Try Trafilatura on the page itself to extract title
         page_body = self._fetch_page(url)
+        title = None
         if page_body:
             result = extract(
                 page_body,
@@ -349,30 +371,43 @@ class WebpageProvider:
             if result:
                 try:
                     data = json.loads(result) if isinstance(result, str) else result
-                    if data.get("title"):
-                        now = datetime.now(get_timezone()).isoformat()
-                        return Feed(
-                            id="", name=data["title"], url=url,
-                            etag=None, last_modified=None,
-                            last_fetched=now, created_at=now,
-                        )
+                    title = data.get("title")
                 except (json.JSONDecodeError, TypeError):
                     pass
 
         # Fallback: use page <title>
-        from scrapling import DynamicFetcher, Selector
-        try:
-            r = self._df()().fetch(url, timeout=30000)
-            body = r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
-            root = Selector(body)
-            title_els = root.css("title")
-            title = title_els[0].text.strip() if title_els and title_els[0].text else url
-            title = re.sub(r"\s*[-–|]\s*[^-|]+$", "", title).strip()
-        except Exception:
-            title = url
+        if not title:
+            from scrapling import DynamicFetcher, Selector
+            try:
+                r = self._df()().fetch(url, timeout=30000)
+                body = r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
+                root = Selector(body)
+                title_els = root.css("title")
+                title = title_els[0].text.strip() if title_els and title_els[0].text else url
+                title = re.sub(r"\s*[-–|]\s*[^-|]+$", "", title).strip()
+            except Exception:
+                title = url
 
-        now = datetime.now(get_timezone()).isoformat()
-        return Feed(id="", name=title, url=url, etag=None,
-                     last_modified=None, last_fetched=now, created_at=now)
+        return DiscoveredFeed(
+            url=url,
+            title=title,
+            feed_type="webpage",
+            source=f"provider_{self.__class__.__name__}",
+            page_url=url,
+            valid=False,  # Webpage is not a feed, just discovered page
+        )
+
+    def discover(self, url: str, response: "Response" = None, depth: int = 1) -> List["DiscoveredFeed"]:
+        """Discover feed URLs - WebpageProvider is a fallback, no discovery needed.
+
+        Args:
+            url: Current page URL.
+            response: Pre-fetched HTTP response (may be None).
+            depth: Current crawl depth.
+
+        Returns:
+            Empty list - WebpageProvider doesn't discover additional feeds.
+        """
+        return []
 
 PROVIDERS.append(WebpageProvider())

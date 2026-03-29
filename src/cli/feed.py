@@ -181,40 +181,16 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
     result = None
     elapsed = 0.0
 
-    if discover == "on":
-        # Run feed discovery (continue even if it fails or finds nothing)
-        try:
-            console = Console()
-            start = time.time()
-            with console.status(f"[cyan]Discovering feeds from {url}...") as _status:
-                result = uvloop.run(discover_feeds(url, discover_depth))
-                feeds = result.feeds
-            elapsed = time.time() - start
-        except Exception as e:
-            click.secho(f"Discovery error: {e}, falling back to provider", fg="yellow")
-            feeds = []
-
-    # Try providers to augment discovered feeds
-    from src.providers import discover as discover_providers
-    from src.providers.rss_provider import RSSProvider
-
-    matched = discover_providers(url)
-    for provider in matched:
-        try:
-            feed = provider.feed_meta(url)
-            # Skip if already discovered
-            if any(f.url == feed.url for f in feeds):
-                continue
-            feeds.append(DiscoveredFeed(
-                url=feed.url,
-                title=feed.name,
-                feed_type="rss" if isinstance(provider, RSSProvider) else "webpage",
-                source="provider_match",
-                page_url=url,
-            ))
-            click.secho(f"Matched via provider: {provider.__class__.__name__}", fg="cyan")
-        except Exception:
-            pass
+    try:
+        console = Console()
+        start = time.time()
+        with console.status(f"[cyan]Discovering feeds from {url}...") as _status:
+            result = uvloop.run(discover_feeds(url, discover_depth))
+            feeds = result.feeds
+        elapsed = time.time() - start
+    except Exception as e:
+        click.secho(f"Discovery error: {e}", err=True, fg="red")
+        sys.exit(1)
 
     if feeds:
         click.secho(f"Discovered {len(feeds)} feed(s) in {elapsed:.1f}s", fg="cyan")

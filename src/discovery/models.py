@@ -44,11 +44,13 @@ class DiscoveredFeed:
         url: Absolute URL of the discovered feed.
         title: Title of the feed if available from autodiscovery link, else None.
         feed_type: Feed type string ('rss', 'atom', 'rdf') detected from type attribute.
-        source: How the feed was discovered ('autodiscovery' or 'well_known_path').
+        source: How the feed was discovered ('autodiscovery', 'well_known_path', etc.).
         page_url: The original page URL where this feed was discovered.
+        valid: Whether the feed has been validated (True) or is unverified (False).
     """
     url: str
     title: Optional[str]
     feed_type: str  # 'rss', 'atom', or 'rdf'
-    source: str  # 'autodiscovery' or 'well_known_path'
+    source: str  # 'autodiscovery', 'well_known_path', etc.
     page_url: str  # Original page URL
+    valid: bool = False  # Default to False, validated feeds set True

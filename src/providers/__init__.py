@@ -9,9 +9,13 @@ import glob
 import importlib
 import logging
 from pathlib import Path
-from typing import List
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from src.providers.base import ContentProvider
+from src.discovery.models import DiscoveredFeed
+
+if TYPE_CHECKING:
+    from scrapling.engines.toolbelt.custom import Response
 
 logger = logging.getLogger(__name__)
 
@@ -51,18 +55,47 @@ def load_providers() -> None:
     logger.info("Loaded %d providers", len(PROVIDERS))
 
 
-def discover(url: str) -> List[ContentProvider]:
-    """Find providers matching a URL.
+def discover(url: str, response: "Response" = None, depth: int = 1, discover: bool = True) -> List["DiscoveredFeed"]:
+    """Find and fetch feeds from providers matching a URL.
 
     Args:
         url: URL to match against providers.
+        response: Optional HTTP response from discovery phase.
+            If provided, match() uses content_type from response.
+            If None, match() only uses URL.
+        depth: Current crawl depth (1 = initial URL, can make HTTP requests;
+               >1 = BFS deeper, should use response only if available).
+        discover: Whether to run provider discovery (default: True).
+            When False, only uses parse_feed() for validation.
 
     Returns:
-        List of matching providers sorted by priority (descending).
-        Empty list if no providers match.
+        List of DiscoveredFeed from matching providers sorted by priority.
+        Empty list if no providers match or all discover() calls return empty.
     """
-    matched = [p for p in PROVIDERS if p.match(url)]
-    return matched
+    matched = [p for p in PROVIDERS if p.match(url, response)]
+    feeds = []
+    seen = set()
+    for provider in matched:
+        # Validate URL via parse_feed (returns DiscoveredFeed)
+        try:
+            discovered = provider.parse_feed(url, response)
+            if discovered and discovered.url not in seen:
+                seen.add(discovered.url)
+                feeds.append(discovered)
+        except Exception:
+            pass
+
+        # Discover additional feeds if enabled
+        if discover:
+            try:
+                discovered = provider.discover(url, response, depth)
+                for feed in discovered:
+                    if feed.url not in seen:
+                        seen.add(feed.url)
+                        feeds.append(feed)
+            except Exception:
+                pass
+    return feeds
 
 
 def get_all_providers() -> List[ContentProvider]:

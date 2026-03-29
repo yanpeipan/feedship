@@ -10,13 +10,17 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import List, Optional
+from typing import Any, List, Optional, TYPE_CHECKING
 from urllib.parse import urlparse
 
 from github import Github, RateLimitExceededException, GithubException
 
 from src.providers import PROVIDERS
 from src.providers.base import Article, ContentProvider, CrawlResult, Raw
+from src.discovery.models import DiscoveredFeed
+
+if TYPE_CHECKING:
+    from scrapling.engines.toolbelt.custom import Response
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +35,12 @@ class GitHubReleaseProvider:
     using the GitHub API. Higher priority (300) than GitHubProvider (100).
     """
 
-    def match(self, url: str) -> bool:
+    def match(self, url: str, response: "Response" = None) -> bool:
         """Check if URL is a GitHub repository URL.
 
         Args:
             url: URL to check.
+            response: Optional HTTP response (ignored - URL-only matching).
 
         Returns:
             True if URL is a GitHub repo URL (github.com with owner/repo path).
@@ -163,36 +168,45 @@ class GitHubReleaseProvider:
             content=content,
         )
 
-    def feed_meta(self, url: str) -> "Feed":
-        """Fetch repository metadata from GitHub.
+    def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
+        """Validate GitHub repository URL and return as DiscoveredFeed.
 
         Args:
             url: GitHub repository URL.
+            response: Unused for GitHub (PyGithub provides data directly).
 
         Returns:
-            Feed object with name and url populated.
+            DiscoveredFeed with valid=True if URL is a valid GitHub repo.
         """
         from src.utils.github import parse_github_url
-        from src.models import Feed
-        from src.application.config import get_timezone
-        from datetime import datetime
 
         owner, repo = parse_github_url(url)
         client = _get_github_client()
         gh_repo = client.get_repo(f"{owner}/{repo}")
 
         repo_name = gh_repo.full_name or f"{owner}/{repo}"
-        now = datetime.now(get_timezone()).isoformat()
 
-        return Feed(
-            id="",  # ID not assigned - this is metadata only
-            name=repo_name,
+        return DiscoveredFeed(
             url=url,
-            etag=None,
-            last_modified=None,
-            last_fetched=now,
-            created_at=now,
+            title=repo_name,
+            feed_type="github_release",
+            source=f"provider_{self.__class__.__name__}",
+            page_url=url,
+            valid=True,
         )
+
+    def discover(self, url: str, response: "Response" = None, depth: int = 1) -> List["DiscoveredFeed"]:
+        """Discover feed URLs - GitHub releases don't need additional discovery.
+
+        Args:
+            url: Current page URL.
+            response: Pre-fetched HTTP response (may be None).
+            depth: Current crawl depth.
+
+        Returns:
+            Empty list - GitHub releases are found via parse_feed() instead.
+        """
+        return []
 
 # Register this provider - highest priority (300)
 PROVIDERS.append(GitHubReleaseProvider())

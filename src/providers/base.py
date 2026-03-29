@@ -5,7 +5,11 @@ Defines the ContentProvider protocol that all providers must implement.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, List, Optional, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from scrapling.engines.toolbelt.custom import Response
+    from src.discovery.models import DiscoveredFeed
 
 # Forward declarations for Article and Raw types
 # Raw will be defined by concrete providers based on their crawl() return type
@@ -29,11 +33,13 @@ class ContentProvider(Protocol):
     allows isinstance() checks for protocol conformance.
     """
 
-    def match(self, url: str) -> bool:
+    def match(self, url: str, response: "Response" = None) -> bool:
         """Return True if this provider handles the URL.
 
         Args:
             url: URL to check.
+            response: Optional HTTP response from discovery phase.
+                If None, provider should not make HTTP requests - only use URL.
 
         Returns:
             True if this provider can handle the URL, False otherwise.
@@ -93,14 +99,29 @@ class ContentProvider(Protocol):
         """
         ...
 
-    def feed_meta(self, url: str) -> "Feed":
-        """Fetch feed metadata from URL without storing.
+    def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
+        """Validate URL is a feed and return as DiscoveredFeed.
 
         Args:
-            url: URL of the feed to get metadata for.
+            url: URL of the feed to parse metadata for.
+            response: Pre-fetched HTTP response (may be None).
 
         Returns:
-            Feed object with name, url, and basic metadata populated.
+            DiscoveredFeed with valid=True if URL is a valid feed.
             Raises exception if URL cannot be fetched or parsed.
+        """
+        ...
+
+    def discover(self, url: str, response: "Response" = None, depth: int = 1) -> List["DiscoveredFeed"]:
+        """Discover feed URLs from a page.
+
+        Args:
+            url: Current page URL.
+            response: Pre-fetched HTTP response (may be None).
+            depth: Current crawl depth (1 = initial, can make HTTP requests;
+                   >1 = BFS deeper, should use response only if available).
+
+        Returns:
+            List of discovered DiscoveredFeed (unverified, validation happens in caller).
         """
         ...
