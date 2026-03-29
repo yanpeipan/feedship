@@ -113,7 +113,7 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-03-29 - Refactored RSSProvider.discover() to use trafilatura.fetch_url() + xml.etree
+Last activity: 2026-03-29 - Merged validate+extract into single HTTP request in deep_crawl (260329-m9b)
 
 ## Quick Tasks Completed
 
@@ -123,5 +123,6 @@ Last activity: 2026-03-29 - Refactored RSSProvider.discover() to use trafilatura
 | 260329a | Refactor WebpageProvider: SITE_CONFIGS → config.yaml; zero domain hardcoding in Python | 2026-03-29 | 42a0a6b |
 | 260329b | Replace httpx with scrapling Fetcher in providers and discovery (rss_provider, fetcher, deep_crawl) | 2026-03-29 | 6283e09 |
 | 260329m9a | Refactor RSSProvider.discover(): trafilatura.fetch_url() + xml.etree for title extraction | 2026-03-29 | 0ce4e21 |
+| 260329m9b | Merge validate+extract into single HTTP request in deep_crawl | 2026-03-29 | 54a551b |
 
 - Phase 44-01: Wired article search with --rerank flag, combine_scores weight config for semantic (gamma=0.2, delta=0.0) and FTS5 (gamma=0.0, delta=0.2) paths
