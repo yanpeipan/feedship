@@ -424,6 +424,45 @@ class RSSProvider:
         except Exception as e:
             raise ValueError(f"Failed to fetch feed metadata: {e}")
 
+    def discover(self, url: str) -> "List[DiscoveredFeed]":
+        """Return DiscoveredFeed for an RSS/Atom feed URL.
+
+        Args:
+            url: Feed URL.
+
+        Returns:
+            List containing a single DiscoveredFeed for the feed.
+        """
+        from scrapling import Fetcher
+        from src.discovery.models import DiscoveredFeed
+
+        try:
+            # Lightweight fetch - just need title and type
+            response = Fetcher.get(url, headers=BROWSER_HEADERS)
+            content_type = response.headers.get("content-type", "").lower()
+
+            # Determine feed type
+            if "atom" in content_type:
+                feed_type = "atom"
+            elif "rdf" in content_type:
+                feed_type = "rdf"
+            else:
+                feed_type = "rss"
+
+            # Parse to get feed title
+            parsed = feedparser.parse(response.body)
+            title = parsed.feed.get("title") if parsed.feed else None
+
+            return [DiscoveredFeed(
+                url=url,
+                title=title,
+                feed_type=feed_type,
+                source="provider",
+                page_url=url,
+            )]
+        except Exception:
+            return []
+
 
 # Register this provider - it will be sorted by priority() after all modules load
 PROVIDERS.append(RSSProvider())

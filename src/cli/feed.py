@@ -199,12 +199,12 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
     from src.providers import discover as provider_discover
     providers = provider_discover(url)
     if providers:
-        feed_meta = providers[0].feed_meta(url)
-        pf = DiscoveredFeed(url=url, title=feed_meta.name)
-        if pf not in feeds:
-            feeds.append(pf)
+        discovered = providers[0].discover(url)
+        for df in discovered:
+            if df not in feeds:
+                feeds.append(df)
     else:
-        pf = DiscoveredFeed(url=url, title=url)
+        pf = DiscoveredFeed(url=url, title=url, feed_type="unknown", source="provider", page_url=url)
         if pf not in feeds:
             feeds.append(pf)
 
