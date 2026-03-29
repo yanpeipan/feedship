@@ -26,7 +26,8 @@ async def _discover_async(url: str, max_depth: int = 1) -> list[DiscoveredFeed]:
     Returns:
         List of DiscoveredFeed objects found on the page.
     """
-    return await discover_feeds(url, max_depth)
+    result = await discover_feeds(url, max_depth)
+    return result.feeds
 
 
 def _display_feeds(feeds: list[DiscoveredFeed], numbered: bool = False) -> None:

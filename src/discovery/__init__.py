@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 from src.discovery.common_paths import FEED_CONTENT_TYPES, generate_feed_candidates
 from src.discovery.deep_crawl import deep_crawl
 from src.discovery.fetcher import validate_feed
-from src.discovery.models import DiscoveredFeed
+from src.discovery.models import DiscoveredFeed, DiscoveredResult
 from src.discovery.parser import parse_link_elements
 from src.providers.rss_provider import BROWSER_HEADERS
 
@@ -69,7 +69,7 @@ async def validate_and_wrap(
     )
 
 
-async def discover_feeds(url: str, max_depth: int = 1) -> list[DiscoveredFeed]:
+async def discover_feeds(url: str, max_depth: int = 1) -> DiscoveredResult:
     """Discover RSS/Atom/RDF feeds from a website URL.
 
     Args:
@@ -77,12 +77,12 @@ async def discover_feeds(url: str, max_depth: int = 1) -> list[DiscoveredFeed]:
         max_depth: Maximum crawl depth (1 = current page only, 2+ = BFS crawl).
 
     Returns:
-        List of DiscoveredFeed objects found on the page.
-        Empty list if no feeds found or page cannot be fetched.
+        DiscoveredResult containing list of DiscoveredFeed objects found.
     """
     # Single-page discovery: delegate to deep_crawl (handles subdirectory probing)
-    return await deep_crawl(url, max_depth)
+    feeds = await deep_crawl(url, max_depth)
+    return DiscoveredResult(url=url, max_depth=max_depth, feeds=feeds)
 
 
 # Public exports
-__all__ = ["discover_feeds", "DiscoveredFeed", "deep_crawl"]
+__all__ = ["discover_feeds", "DiscoveredFeed", "DiscoveredResult", "deep_crawl"]

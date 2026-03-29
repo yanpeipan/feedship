@@ -186,7 +186,8 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
             console = Console()
             start = time.time()
             with console.status(f"[cyan]Discovering feeds from {url}...") as _status:
-                feeds = uvloop.run(discover_feeds(url, discover_depth))
+                result = uvloop.run(discover_feeds(url, discover_depth))
+                feeds = result.feeds
             elapsed = time.time() - start
         except Exception as e:
             click.secho(f"Discovery error: {e}, falling back to provider", fg="yellow")

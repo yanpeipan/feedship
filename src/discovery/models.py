@@ -1,7 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
+
+@dataclass
+class DiscoveredResult:
+    """Result of a feed discovery operation.
+
+    Attributes:
+        url: The URL that was searched for feeds.
+        max_depth: The maximum crawl depth used.
+        feeds: List of discovered feeds.
+    """
+    url: str
+    max_depth: int
+    feeds: list["DiscoveredFeed"] = field(default_factory=list)
+
 
 @dataclass
 class DiscoveredFeed:
