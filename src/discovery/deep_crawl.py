@@ -24,22 +24,22 @@ from src.providers.rss_provider import BROWSER_HEADERS
 
 
 def compute_link_selectors(html: str, page_url: str) -> dict[str, int]:
-    """Compute link path selector counts from HTML.
+    """Compute CSS selectors for link href prefixes from HTML.
 
-    For each link URL like '/news/2026-03-03/xxxxx', extracts parent
-    path segments and counts how many links share each prefix.
+    For each link like '/news/2026-03-03/xxxxx', returns CSS attribute
+    selectors that match links sharing the same path prefix.
 
     Examples:
-        /news/2026-03-03/xxxxx -> '/news/2026-03-03/' : 1
-        /news/2026-03-03/yyyyy -> '/news/2026-03-03/' : 2
-        /news/2026-03-03/     -> '/news/' : 1 (one up)
+        /news/2026-03-03/xxxxx -> 'a[href^="/news/2026-03-03/"]' : 1
+        /news/2026-03-03/yyyyy -> 'a[href^="/news/2026-03-03/"]' : 2
+        /news/                -> 'a[href^="/news/"]' : 1
 
     Args:
         html: Raw HTML content.
         page_url: URL the HTML was fetched from.
 
     Returns:
-        Dict mapping path prefix to count of links under that prefix.
+        Dict mapping CSS selector to count of links matching it.
     """
     from urllib.parse import urlparse as _urlparse
 
@@ -79,11 +79,12 @@ def compute_link_selectors(html: str, page_url: str) -> dict[str, int]:
         if not path:
             path = '/'
 
-        # Count the full path and each parent segment
+        # Count CSS selectors for the full path and each parent segment
         parts = path.split('/')
-        for i in range(len(parts) - 1):
-            parent = '/'.join(parts[:i+1]) + '/'
-            selectors[parent] = selectors.get(parent, 0) + 1
+        for i in range(1, len(parts)):
+            parent = '/'.join(parts[:i]) + '/'
+            selector = f'a[href^="{parent}"]'
+            selectors[selector] = selectors.get(selector, 0) + 1
 
     return selectors
 
