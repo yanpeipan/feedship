@@ -4,7 +4,7 @@ milestone: v2.0
 milestone_name: Search Ranking Architecture
 status: v2.0 milestone complete
 stopped_at: Completed 43-01-PLAN.md
-last_updated: "2026-03-28T12:32:46.245Z"
+last_updated: "2026-03-29T08:13:00Z"
 progress:
   total_phases: 4
   completed_phases: 4
@@ -113,7 +113,7 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-03-29 - Removed all hardcoded site logic from WebpageProvider
+Last activity: 2026-03-29 - Refactored RSSProvider.discover() to use trafilatura.fetch_url() + xml.etree
 
 ## Quick Tasks Completed
 
@@ -122,5 +122,6 @@ Last activity: 2026-03-29 - Removed all hardcoded site logic from WebpageProvide
 | 260328 | Refactor provider priority: GitHubRelease=300, RSS=200, Webpage=100; removed github.com hardcoding | 2026-03-28 | 213ad74 |
 | 260329a | Refactor WebpageProvider: SITE_CONFIGS → config.yaml; zero domain hardcoding in Python | 2026-03-29 | 42a0a6b |
 | 260329b | Replace httpx with scrapling Fetcher in providers and discovery (rss_provider, fetcher, deep_crawl) | 2026-03-29 | 6283e09 |
+| 260329m9a | Refactor RSSProvider.discover(): trafilatura.fetch_url() + xml.etree for title extraction | 2026-03-29 | 0ce4e21 |
 
 - Phase 44-01: Wired article search with --rerank flag, combine_scores weight config for semantic (gamma=0.2, delta=0.0) and FTS5 (gamma=0.0, delta=0.2) paths
