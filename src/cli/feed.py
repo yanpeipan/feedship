@@ -197,8 +197,9 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
             click.secho(f"Discovered {len(feeds)} feed(s) in {elapsed:.1f}s", fg="cyan")
             if result.selectors:
                 click.secho("Link selectors:", fg="cyan")
-                for sel, count in sorted(result.selectors.items(), key=lambda x: -x[1]):
-                    click.echo(f"  {sel}: {count}")
+                for sel in sorted(result.selectors.values(), key=lambda x: -x.count):
+                    click.echo(f"  {sel.path} ({sel.count} links)")
+                    click.echo(f"    example: {sel.link}")
 
     # Automatic or selection
     if not feeds:

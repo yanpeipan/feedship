@@ -3,6 +3,23 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
+
+@dataclass
+class Selector:
+    """Represents a CSS path selector with example link info.
+
+    Attributes:
+        path: The path prefix (e.g., '/news/').
+        link: An example full URL matching this selector.
+        text: The text content of the example link.
+        count: Number of links matching this selector.
+    """
+    path: str
+    link: str
+    text: str
+    count: int
+
+
 @dataclass
 class DiscoveredResult:
     """Result of a feed discovery operation.
@@ -11,12 +28,12 @@ class DiscoveredResult:
         url: The URL that was searched for feeds.
         max_depth: The maximum crawl depth used.
         feeds: List of discovered feeds.
-        selectors: Dict mapping path prefix to link count (for max_depth=1).
+        selectors: Dict mapping path prefix to Selector with path, link, text, count (for max_depth=1).
     """
     url: str
     max_depth: int
     feeds: list["DiscoveredFeed"] = field(default_factory=list)
-    selectors: dict[str, int] = field(default_factory=dict)
+    selectors: dict[str, Selector] = field(default_factory=dict)
 
 
 @dataclass

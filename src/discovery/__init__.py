@@ -86,4 +86,4 @@ async def discover_feeds(url: str, max_depth: int = 1) -> DiscoveredResult:
 
 
 # Public exports
-__all__ = ["discover_feeds", "DiscoveredFeed", "DiscoveredResult", "deep_crawl"]
+__all__ = ["discover_feeds", "DiscoveredFeed", "DiscoveredResult", "Selector", "deep_crawl"]

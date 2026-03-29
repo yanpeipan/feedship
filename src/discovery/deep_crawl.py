@@ -23,27 +23,25 @@ from src.discovery.parser import parse_link_elements, resolve_url
 from src.providers.rss_provider import BROWSER_HEADERS
 
 
-def compute_link_selectors(html: str, page_url: str) -> dict[str, int]:
+def compute_link_selectors(html: str, page_url: str) -> dict[str, Selector]:
     """Compute CSS selectors for link href prefixes from HTML.
 
     For each link like '/news/2026-03-03/xxxxx', returns CSS attribute
     selectors that match links sharing the same path prefix.
-
-    Examples:
-        /news/2026-03-03/xxxxx -> 'a[href^="/news/2026-03-03/"]' : 1
-        /news/2026-03-03/yyyyy -> 'a[href^="/news/2026-03-03/"]' : 2
-        /news/                -> 'a[href^="/news/"]' : 1
 
     Args:
         html: Raw HTML content.
         page_url: URL the HTML was fetched from.
 
     Returns:
-        Dict mapping CSS selector to count of links matching it.
+        Dict mapping CSS selector path (e.g., '/news/') to Selector with
+        path, example link URL, link text, and count.
     """
     from urllib.parse import urlparse as _urlparse
 
-    selectors: dict[str, int] = {}
+    from src.discovery.models import Selector as SelectorModel
+
+    selectors: dict[str, SelectorModel] = {}
     page = Selector(content=html)
 
     # Check for <base href> override
@@ -79,12 +77,22 @@ def compute_link_selectors(html: str, page_url: str) -> dict[str, int]:
         if not path:
             path = '/'
 
+        # Get link text
+        link_text = anchor.text.strip() if hasattr(anchor, 'text') else ''
+
         # Count CSS selectors for the full path and each parent segment
         parts = path.split('/')
         for i in range(1, len(parts)):
             parent = '/'.join(parts[:i]) + '/'
-            selector = f'a[href^="{parent}"]'
-            selectors[selector] = selectors.get(selector, 0) + 1
+            if parent in selectors:
+                selectors[parent].count += 1
+            else:
+                selectors[parent] = SelectorModel(
+                    path=parent,
+                    link=absolute,
+                    text=link_text,
+                    count=1,
+                )
 
     return selectors
 
@@ -345,7 +353,7 @@ async def deep_crawl(start_url: str, max_depth: int = 1) -> tuple[list[Discovere
         For max_depth=1, selectors contains link path prefix counts.
         For max_depth>1, selectors is empty (expensive to compute).
     """
-    selectors: dict[str, int] = {}
+    selectors: dict[str, Selector] = {}
     if max_depth <= 1:
         # First, check if the starting URL is already a direct feed URL
         # This handles the case where user passes a feed URL directly (e.g., /rss/)
