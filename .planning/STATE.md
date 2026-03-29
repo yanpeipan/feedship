@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Search Ranking Architecture
-status: v2.0 milestone complete
-stopped_at: Completed 43-01-PLAN.md
-last_updated: "2026-03-29T08:13:00Z"
+milestone: v2.1
+milestone_name: 使用最佳实践重构 src/discovery & src/providers
+status: Defining requirements
+stopped_at: —
+last_updated: "2026-03-30T03:47:00Z"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -23,11 +23,7 @@ See: .planning/PROJECT.md (v2.0 Search Ranking Architecture)
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| 40. Comprehensive uvloop Audit | Zero asyncio.run(), uvloop at CLI boundaries | UVLOOP-AUDIT-01, 02, 03 | ✅ Complete |
-| 41. ArticleListItem & Semantic Search Core | ArticleListItem with scoring fields; raw cos_sim | SEARCH-00, SEARCH-01, SEARCH-02 | ✅ Complete |
-| 42. Storage Scoring Fixes | BM25 sigmoid; list_articles freshness | SEARCH-03, SEARCH-04 | ✅ Complete |
-| 43. Scoring Infrastructure | Cross-Encoder rerank; combine_scores | SEARCH-05, SEARCH-06 | 🔵 In progress |
-| 44. CLI Integration | Search command wired with weight config | SEARCH-07 | 📋 Planned |
+| — | — | — | 📋 Planning |
 
 ## Performance Metrics
 

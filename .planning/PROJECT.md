@@ -8,7 +8,17 @@
 
 用户能够在一个地方集中管理所有资讯来源，无需逐一访问各个网站。
 
-## Current Milestone: Planning next milestone
+## Current Milestone: v2.1 — 使用最佳实践重构 src/discovery & src/providers
+
+**Goal:** Clean up and harden the feed discovery architecture using best practices.
+
+**Target features:**
+- Refactor `providers.discover()` to use `feed_meta()` pattern for validation
+- Ensure `discover_feeds()` always returns provider-verified feeds
+- Clean up `deep_crawl()` to properly delegate validation to providers
+- Verify async patterns are consistent across all providers
+- Fix edge cases in `match()` logic (response=None handling)
+- Ensure `src/constants.py` is used consistently everywhere
 
 **Last shipped: v2.0 Search Ranking Architecture** (2026-03-28)
 
@@ -239,4 +249,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-*Last updated: 2026-03-28 — v2.0 Search Ranking Architecture shipped*
+*Last updated: 2026-03-30 — v2.1 started*
