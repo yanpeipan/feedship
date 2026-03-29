@@ -59,6 +59,8 @@ def add_feed(url: str, weight: float | None = None, feed_meta_data: "FeedMetaDat
             metadata=feed_meta_data.to_json(),
         )
         upsert_feed(temp_feed)
+    else:
+        feed_id = generate_feed_id()
 
     for provider in providers:
         try:
@@ -80,10 +82,9 @@ def add_feed(url: str, weight: float | None = None, feed_meta_data: "FeedMetaDat
 
     # Check if feed already exists using storage function
     # Create new feed (or update existing)
-    feed_id = generate_feed_id()
     now = datetime.now(get_timezone()).isoformat()
 
-    # Use upsert to insert or update
+    # Use upsert to insert or update (reuses feed_id from pre-insert if present)
     feed = Feed(
         id=feed_id,
         name=feed_meta.name,
@@ -91,6 +92,40 @@ def add_feed(url: str, weight: float | None = None, feed_meta_data: "FeedMetaDat
         etag=feed_meta.etag,
         last_modified=feed_meta.last_modified,
         last_fetched=now,
+        created_at=now,
+        weight=weight if weight is not None else get_default_feed_weight(),
+        metadata=feed_meta_data.to_json() if feed_meta_data else None,
+    )
+    return upsert_feed(feed)
+
+
+def register_feed(feed_url: str, feed_name: str | None = None, weight: float | None = None, feed_meta_data: "FeedMetaData | None" = None) -> tuple[Feed, bool]:
+    """Register a pre-discovered feed without crawling.
+
+    Use for feeds that were already validated (e.g., via discover_feeds).
+    This skips provider discovery and crawling - just saves the feed record.
+    Articles are fetched later via fetch_one/fetch_all.
+
+    Args:
+        feed_url: The URL of the feed to register.
+        feed_name: Optional name. If not provided, URL is used as name.
+        weight: Optional feed weight for semantic search ranking.
+        feed_meta_data: Optional provider-specific metadata (e.g., selectors for WebpageProvider).
+
+    Returns:
+        Tuple of (saved Feed object, is_new).
+    """
+    from src.models import Feed
+    from src.application.config import get_default_feed_weight
+
+    now = datetime.now(get_timezone()).isoformat()
+    feed = Feed(
+        id=generate_feed_id(),
+        name=feed_name or feed_url,
+        url=feed_url,
+        etag=None,
+        last_modified=None,
+        last_fetched=None,
         created_at=now,
         weight=weight if weight is not None else get_default_feed_weight(),
         metadata=feed_meta_data.to_json() if feed_meta_data else None,

@@ -18,6 +18,7 @@ from src.application.feed import (
     add_feed,
     get_feed,
     list_feeds,
+    register_feed,
     remove_feed,
 )
 from src.models import FeedMetaData
@@ -176,8 +177,11 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
       rss-reader feed add example.com --discover on --automatic off
       rss-reader feed add example.com --automatic on
     """
+    feeds: list = []
+
     if discover == "on":
-        # Run discovery first
+        # Run feed discovery (continue even if it fails or finds nothing)
+        elapsed = 0.0
         try:
             console = Console()
             start = time.time()
@@ -185,79 +189,35 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
                 feeds = uvloop.run(discover_feeds(url, discover_depth))
             elapsed = time.time() - start
         except Exception as e:
-            click.secho(f"Error during discovery: {e}", err=True, fg="red")
-            sys.exit(1)
+            click.secho(f"Discovery error: {e}, falling back to provider", fg="yellow")
+            feeds = []
 
-        click.secho(f"Discovered {len(feeds)} feed(s) in {elapsed:.1f}s", fg="cyan")
+        if feeds:
+            click.secho(f"Discovered {len(feeds)} feed(s) in {elapsed:.1f}s", fg="cyan")
 
-        if not feeds:
-            # No RSS/Atom feeds found - try matching providers
-            from src.providers import discover
-            providers = discover(url)
+    # Provider path: always use provider to get feed metadata (parallel with discover)
+    from src.providers import discover as provider_discover
+    providers = provider_discover(url)
+    if providers:
+        feed_meta = providers[0].feed_meta(url)
+        pf = DiscoveredFeed(url=url, title=feed_meta.name)
+        if pf not in feeds:
+            feeds.append(pf)
+    else:
+        pf = DiscoveredFeed(url=url, title=url)
+        if pf not in feeds:
+            feeds.append(pf)
 
-            if providers:
-                provider_name = providers[0].__class__.__name__.replace("Provider", "")
-                click.secho(f"No RSS feeds found. Provider matched: {provider_name}", fg="cyan")
-                selectors = []
-                if provider_name == "Webpage":
-                    selectors = _get_webpage_selectors(url)
-                    if selectors is None:
-                        click.secho("Cannot add feed without interactive selector. Install questionary: uv pip install questionary", fg="yellow")
-                        return
-                feed_meta_data = FeedMetaData(selectors=selectors) if selectors is not None else None
-                feed_obj, is_new = add_feed(url, weight, feed_meta_data)
-                if is_new:
-                    click.secho(f"Added feed: {feed_obj.name} ({provider_name})", fg="green")
-                else:
-                    click.secho(f"Updated feed: {feed_obj.name} ({provider_name})", fg="cyan")
-                return
-            else:
-                click.secho(
-                    f"No feeds found at {url}. Try providing a website URL instead of a feed URL.",
-                    err=True,
-                    fg="yellow",
-                )
-                sys.exit(1)
+    # Automatic or selection
+    if not feeds:
+        click.secho("No feeds discovered.", fg="yellow")
+        return
 
-        if automatic == "on":
-            # Auto-add all discovered feeds
-            added_count = 0
-            updated_count = 0
-            for feed in feeds:
-                _, is_new = add_feed(feed.url, weight)
-                if is_new:
-                    added_count += 1
-                else:
-                    updated_count += 1
-            if updated_count > 0:
-                click.secho(f"Added {added_count}, updated {updated_count} feed(s).", fg="green")
-            else:
-                click.secho(f"Added {added_count} feed(s) automatically.", fg="green")
-            return
-
-        # Single feed: auto-add without prompting
-        if len(feeds) == 1:
-            feed = feeds[0]
-            _, is_new = add_feed(feed.url, weight)
-            if is_new:
-                click.secho(f"Added feed: {feed.url}", fg="green")
-            else:
-                click.secho(f"Updated feed: {feed.url}", fg="cyan")
-            return
-
-        # Multiple feeds: show numbered list and prompt for selection
-        _display_feeds(feeds, numbered=True)
-        selected = _prompt_selection(feeds)
-        if not selected:
-            click.secho("No feeds selected. Feed not added.", fg="yellow")
-            return
-
-        # Add selected feeds
+    if automatic == "on":
         added_count = 0
         updated_count = 0
-        for idx in selected:
-            feed = feeds[idx]
-            _, is_new = add_feed(feed.url, weight)
+        for feed in feeds:
+            _, is_new = register_feed(feed.url, feed.title, weight)
             if is_new:
                 added_count += 1
             else:
@@ -265,32 +225,30 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
         if updated_count > 0:
             click.secho(f"Added {added_count}, updated {updated_count} feed(s).", fg="green")
         else:
-            click.secho(f"Added {added_count} feed(s).", fg="green")
+            click.secho(f"Added {added_count} feed(s) automatically.", fg="green")
         return
 
-    # Original behavior when --discover off
-    # Determine provider first to check for WebpageProvider path filtering
-    from src.providers import discover
-    providers = discover(url)
-    if providers:
-        provider_name = providers[0].__class__.__name__.replace("Provider", "")
+    # Show feed list and prompt for selection
+    _display_feeds(feeds, numbered=True)
+    selected = _prompt_selection(feeds)
+    if not selected:
+        click.secho("No feeds selected. Feed not added.", fg="yellow")
+        return
+
+    # Register selected feeds (no crawl - defer to background fetch)
+    added_count = 0
+    updated_count = 0
+    for idx in selected:
+        feed = feeds[idx]
+        _, is_new = register_feed(feed.url, feed.title, weight)
+        if is_new:
+            added_count += 1
+        else:
+            updated_count += 1
+    if updated_count > 0:
+        click.secho(f"Added {added_count}, updated {updated_count} feed(s).", fg="green")
     else:
-        provider_name = "Unknown"
-
-    selectors = []
-    if provider_name == "Webpage":
-        selectors = _get_webpage_selectors(url)
-        if selectors is None:
-            click.secho("Cannot add feed without interactive selector. Install questionary: uv pip install questionary", fg="yellow")
-            return
-
-    feed_meta_data = FeedMetaData(selectors=selectors) if selectors is not None else None
-    feed_obj, is_new = add_feed(url, weight, feed_meta_data)
-
-    if is_new:
-        click.secho(f"Added feed: {feed_obj.name} ({provider_name})", fg="green")
-    else:
-        click.secho(f"Updated feed: {feed_obj.name} ({provider_name})", fg="cyan")
+        click.secho(f"Added {added_count} feed(s).", fg="green")
 
 
 @feed.command("list")

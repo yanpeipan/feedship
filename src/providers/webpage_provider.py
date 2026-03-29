@@ -218,6 +218,7 @@ class WebpageProvider:
 
     def _crawl_discovery(self, url: str) -> List[Raw]:
         """Generic fallback: discover article links → Trafilatura on each."""
+        from urllib.parse import urljoin
         from scrapling import DynamicFetcher, Selector
         from trafilatura import extract
 
@@ -239,14 +240,15 @@ class WebpageProvider:
         # Apply path filters from feed metadata
         selectors = _load_feed_selectors(url)
         if selectors:
-            link_urls = [url for url, _ in scored_links]
+            link_urls = [path for path, _ in scored_links]
             filtered_urls = _filter_links_by_paths(link_urls, selectors)
             filtered_set = set(filtered_urls)
-            filtered_links = [(url, score) for url, score in scored_links if url in filtered_set]
+            filtered_links = [(path, score) for path, score in scored_links if path in filtered_set]
             # Fallback: if filtering removes all links, use unfiltered
             scored_links = filtered_links if filtered_links else scored_links
 
-        article_urls = [url for url, _ in scored_links[:20]]
+        # Convert relative paths to absolute URLs for _fetch_page
+        article_urls = [urljoin(url, path) for path, _ in scored_links[:20]]
 
         results = []
         for article_url in article_urls:
@@ -299,12 +301,18 @@ class WebpageProvider:
             return None
 
     async def crawl_async(self, url: str, etag: Optional[str] = None,
-                          last_modified: Optional[str] = None) -> CrawlResult:
+                          last_modified: Optional[str] = None, timeout: float = 120.0) -> CrawlResult:
         import asyncio
         _ = etag, last_modified
         loop = asyncio.get_running_loop()
         try:
-            entries = await loop.run_in_executor(None, self.crawl, url)
+            entries = await asyncio.wait_for(
+                loop.run_in_executor(None, self.crawl, url),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("crawl_async(%s) timed out after %.0fs", url, timeout)
+            entries = []
         except Exception as e:
             logger.error("crawl_async(%s) failed: %s", url, e)
             entries = []
