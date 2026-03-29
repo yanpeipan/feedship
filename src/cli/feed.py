@@ -5,7 +5,6 @@ from __future__ import annotations
 import sys
 import logging
 import time
-from urllib.parse import urlparse
 from typing import TYPE_CHECKING
 
 import click
@@ -202,7 +201,7 @@ def feed_add(ctx: click.Context, url: str, discover: str, automatic: str, discov
                     click.echo(f"  {sel.path} ({sel.count} links)")
                     if sel.text:
                         click.echo(f"    text: {sel.text}")
-                    click.echo(f"    example: {sel.link.replace('https://' + urlparse(sel.link).netloc, '', 1)}")
+                    click.echo(f"    example: {sel.link}")
 
     # Automatic or selection
     if not feeds:
