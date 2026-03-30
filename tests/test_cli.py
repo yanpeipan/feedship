@@ -321,3 +321,155 @@ class TestFeedDiscovery:
         assert 'github.com/cli/cli' in result.output
         assert 'Discovered 1 feed' in result.output
 
+
+class TestFetchCommands:
+    """Tests for fetch CLI commands: fetch --all, fetch <id>."""
+
+    def test_fetch_all_empty(self, cli_runner, initialized_db):
+        """fetch --all with no feeds outputs 'No feeds subscribed'."""
+        result = cli_runner.invoke(cli, ['fetch', '--all'])
+        assert result.exit_code == 0
+        assert 'No feeds subscribed' in result.output
+
+    def test_fetch_all_with_feeds(self, cli_runner, initialized_db):
+        """fetch --all with feeds invokes fetch_all_async and shows results."""
+        # Add feeds via storage
+        feed1 = Feed(
+            id="fetch-all-feed-1",
+            name="Fetch All Feed 1",
+            url="https://example.com/feed1.xml",
+            etag=None,
+            last_modified=None,
+            last_fetched=None,
+            created_at="2024-01-01T00:00:00+00:00",
+        )
+        feed2 = Feed(
+            id="fetch-all-feed-2",
+            name="Fetch All Feed 2",
+            url="https://example.com/feed2.xml",
+            etag=None,
+            last_modified=None,
+            last_fetched=None,
+            created_at="2024-01-02T00:00:00+00:00",
+        )
+        add_feed(feed1)
+        add_feed(feed2)
+
+        # Mock fetch_all_async to return a generator yielding results
+        async def mock_fetch_all_async(concurrency=10):
+            yield {"feed_id": "fetch-all-feed-1", "feed_name": "Fetch All Feed 1", "new_articles": 2}
+            yield {"feed_id": "fetch-all-feed-2", "feed_name": "Fetch All Feed 2", "new_articles": 0}
+
+        with patch("src.application.fetch.fetch_all_async", mock_fetch_all_async):
+            result = cli_runner.invoke(cli, ['fetch', '--all'])
+        assert result.exit_code == 0
+        assert 'Fetched' in result.output
+
+    def test_fetch_single_by_id(self, cli_runner, initialized_db):
+        """fetch <feed_id> fetches single feed and shows article count."""
+        # Add feed via storage
+        feed = Feed(
+            id="fetch-single-feed",
+            name="Fetch Single Feed",
+            url="https://example.com/single.xml",
+            etag=None,
+            last_modified=None,
+            last_fetched=None,
+            created_at="2024-01-01T00:00:00+00:00",
+        )
+        add_feed(feed)
+
+        with patch("src.application.fetch.fetch_one_async_by_id", return_value={"new_articles": 1}):
+            result = cli_runner.invoke(cli, ['fetch', 'fetch-single-feed'])
+        assert result.exit_code == 0
+        assert 'Fetched 1' in result.output
+
+    def test_fetch_single_by_id_not_found(self, cli_runner, initialized_db):
+        """fetch with non-existent ID returns exit code 1 and 'not found'."""
+        result = cli_runner.invoke(cli, ['fetch', 'nonexistent-id'])
+        assert result.exit_code == 1
+        assert 'not found' in result.output.lower()
+
+    def test_fetch_multiple_ids(self, cli_runner, initialized_db):
+        """fetch <id1> <id2> fetches multiple feeds."""
+        # Add feeds via storage
+        feed1 = Feed(
+            id="fetch-multi-feed-1",
+            name="Fetch Multi Feed 1",
+            url="https://example.com/multi1.xml",
+            etag=None,
+            last_modified=None,
+            last_fetched=None,
+            created_at="2024-01-01T00:00:00+00:00",
+        )
+        feed2 = Feed(
+            id="fetch-multi-feed-2",
+            name="Fetch Multi Feed 2",
+            url="https://example.com/multi2.xml",
+            etag=None,
+            last_modified=None,
+            last_fetched=None,
+            created_at="2024-01-02T00:00:00+00:00",
+        )
+        add_feed(feed1)
+        add_feed(feed2)
+
+        # Mock fetch_ids_async to return a generator yielding results
+        async def mock_fetch_ids_async(ids, concurrency=10):
+            yield {"feed_id": "fetch-multi-feed-1", "new_articles": 1}
+            yield {"feed_id": "fetch-multi-feed-2", "new_articles": 2}
+
+        with patch("src.application.fetch.fetch_ids_async", mock_fetch_ids_async):
+            result = cli_runner.invoke(cli, ['fetch', 'fetch-multi-feed-1', 'fetch-multi-feed-2'])
+        assert result.exit_code == 0
+
+
+class TestDiscoverCommands:
+    """Tests for discover CLI command."""
+
+    def test_discover_success(self, cli_runner, initialized_db):
+        """discover <url> outputs discovered feed URL when feeds found."""
+        from src.discovery.models import DiscoveredResult, DiscoveredFeed
+
+        mock_result = DiscoveredResult(
+            url="https://example.com",
+            max_depth=1,
+            feeds=[
+                DiscoveredFeed(
+                    url="https://example.com/feed.xml",
+                    title="Example RSS Feed",
+                    feed_type="rss",
+                    source="RSSProvider",
+                    page_url="https://example.com",
+                    valid=True,
+                ),
+            ],
+            selectors={},
+        )
+
+        async def mock_discover_feeds(url, depth):
+            return mock_result
+
+        with patch("src.cli.discover.discover_feeds", mock_discover_feeds):
+            result = cli_runner.invoke(cli, ['discover', 'https://example.com'])
+        assert result.exit_code == 0
+        assert 'feed.xml' in result.output
+
+    def test_discover_no_feeds(self, cli_runner, initialized_db):
+        """discover <url> with no feeds outputs 'No feeds discovered'."""
+        from src.discovery.models import DiscoveredResult
+
+        mock_result = DiscoveredResult(
+            url="https://no-feeds.com",
+            max_depth=1,
+            feeds=[],
+            selectors={},
+        )
+
+        async def mock_discover_feeds(url, depth):
+            return mock_result
+
+        with patch("src.cli.discover.discover_feeds", mock_discover_feeds):
+            result = cli_runner.invoke(cli, ['discover', 'https://no-feeds.com'])
+        assert result.exit_code == 0
+        assert 'No feeds discovered' in result.output
