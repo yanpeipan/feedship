@@ -11,17 +11,18 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Optional
 
-from src.providers.base import ContentProvider
 from src.discovery.models import DiscoveredFeed
+from src.providers.base import ContentProvider
 
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
+
     from src.models import FeedType
 
 logger = logging.getLogger(__name__)
 
 # Discovered providers, populated at import time
-PROVIDERS: List[ContentProvider] = []
+PROVIDERS: list[ContentProvider] = []
 
 
 def load_providers() -> None:
@@ -56,7 +57,7 @@ def load_providers() -> None:
     logger.info("Loaded %d providers", len(PROVIDERS))
 
 
-def discover(url: str, response: "Response" = None, depth: int = 1, discover: bool = True, feed_type: "FeedType" = None) -> List["DiscoveredFeed"]:
+def discover(url: str, response: Response = None, depth: int = 1, discover: bool = True, feed_type: FeedType = None) -> list[DiscoveredFeed]:
     """Find and fetch feeds from providers matching a URL.
 
     Args:
@@ -91,7 +92,7 @@ def discover(url: str, response: "Response" = None, depth: int = 1, discover: bo
                 # Validate discovered feeds in parallel using ThreadPoolExecutor
                 import concurrent.futures
 
-                def _validate_one(feed: "DiscoveredFeed") -> "DiscoveredFeed | None":
+                def _validate_one(feed: DiscoveredFeed) -> DiscoveredFeed | None:
                     if feed.url in seen:
                         return None
                     try:
@@ -114,7 +115,7 @@ def discover(url: str, response: "Response" = None, depth: int = 1, discover: bo
     return feeds
 
 
-def get_all_providers() -> List[ContentProvider]:
+def get_all_providers() -> list[ContentProvider]:
     """Return all loaded providers sorted by priority.
 
     Returns:
@@ -123,7 +124,7 @@ def get_all_providers() -> List[ContentProvider]:
     return PROVIDERS
 
 
-def match(url: str, response: "Response" = None, feed_type: "FeedType" = None) -> List[ContentProvider]:
+def match(url: str, response: Response = None, feed_type: FeedType = None) -> list[ContentProvider]:
     """Find providers matching a URL.
 
     Args:
@@ -139,7 +140,7 @@ def match(url: str, response: "Response" = None, feed_type: "FeedType" = None) -
     return [p for p in PROVIDERS if p.match(url, response, feed_type)]
 
 
-def match_first(url: str, response: "Response" = None, feed_type: "FeedType" = None) -> Optional[ContentProvider]:
+def match_first(url: str, response: Response = None, feed_type: FeedType = None) -> ContentProvider | None:
     """Return first (highest priority) provider matching URL, or None.
 
     Args:

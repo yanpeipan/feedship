@@ -10,11 +10,10 @@ import logging
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-from src.models import Feed
 
 from nanoid import generate
+
+from src.models import Feed
 
 # Asyncio lock for serializing database writes from async context
 _db_write_lock: asyncio.Lock | None = None
@@ -31,7 +30,6 @@ def _get_db_write_lock() -> asyncio.Lock:
 logger = logging.getLogger(__name__)
 
 import platformdirs
-
 
 # Cross-platform database path using platformdirs
 _DB_DIR = platformdirs.user_data_dir(appname="rss-reader", appauthor=False)
@@ -167,6 +165,7 @@ def store_article(
         article_id: The ID of the stored article.
     """
     from datetime import datetime
+
     from src.application.config import get_timezone
 
     tz = get_timezone()
@@ -486,11 +485,12 @@ def list_articles(limit: int = 20, feed_id: Optional[str] = None, since: Optiona
         until: Optional end date (inclusive), format YYYY-MM-DD.
         on: Optional list of specific dates to match.
     """
+    import math
     from datetime import datetime, timezone
+
     from src.application.articles import ArticleListItem
     from src.application.config import get_timezone
     from src.storage.vector import _pub_date_to_timestamp
-    import math
 
     tz = get_timezone()
 
@@ -685,9 +685,10 @@ def search_articles(query: str, limit: int = 20, feed_id: Optional[str] = None, 
         until: Optional end date (inclusive), format YYYY-MM-DD.
         on: Optional list of specific dates to match.
     """
+    import math
+
     from src.application.articles import ArticleListItem
     from src.application.config import get_bm25_factor, get_timezone
-    import math
 
     if not query or not query.strip():
         return []

@@ -6,12 +6,12 @@ Test Conventions (from Phase 26):
 3. HTTP MOCKING WITH httpx_mock - use pytest-httpx's httpx_mock fixture for HTTP requests
 4. CLI TESTING WITH CliRunner
 """
-import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.models import Feed
-
 
 # =============================================================================
 # RSSProvider Tests
@@ -165,8 +165,8 @@ class TestRSSProvider:
 
     def test_rss_provider_parse(self):
         """Create mock response and verify parse() returns Article with correct fields."""
-        from src.providers.rss_provider import RSSProvider
         from src.providers.base import Article
+        from src.providers.rss_provider import RSSProvider
 
         # Create mock content object with .value attribute (feedparser style)
         mock_content_item = MagicMock()
@@ -215,8 +215,8 @@ class TestRSSProvider:
 
     def test_rss_provider_parse_feed(self):
         """Mock Fetcher.get to return 200 with sample RSS XML bytes containing feed title, verify parse_feed() returns DiscoveredFeed with correct fields."""
-        from src.providers.rss_provider import RSSProvider
         from src.discovery.models import DiscoveredFeed
+        from src.providers.rss_provider import RSSProvider
 
         rss_xml = b"""<?xml version="1.0" encoding="UTF-8"?>
         <rss version="2.0">

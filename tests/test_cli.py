@@ -1,10 +1,12 @@
 """Integration tests for CLI commands using CliRunner."""
+from unittest.mock import MagicMock, patch
+
 import pytest
 from click.testing import CliRunner
-from unittest.mock import patch, MagicMock
+
 from src.cli import cli
-from src.storage.sqlite import init_db, add_feed, store_article
 from src.models import Feed
+from src.storage.sqlite import add_feed, init_db, store_article
 
 
 class TestFeedCommands:
@@ -12,7 +14,7 @@ class TestFeedCommands:
 
     def test_feed_add_success(self, cli_runner, initialized_db, monkeypatch):
         """feed add <url> succeeds and outputs 'Added feed'."""
-        from src.discovery.models import DiscoveredResult, DiscoveredFeed
+        from src.discovery.models import DiscoveredFeed, DiscoveredResult
 
         # Mock discover_feeds to return a simple RSS feed directly
         mock_result = DiscoveredResult(
@@ -43,7 +45,7 @@ class TestFeedCommands:
 
     def test_feed_add_duplicate_returns_error(self, cli_runner, initialized_db, monkeypatch):
         """feed add with duplicate URL returns exit code 1."""
-        from src.discovery.models import DiscoveredResult, DiscoveredFeed
+        from src.discovery.models import DiscoveredFeed, DiscoveredResult
 
         mock_result = DiscoveredResult(
             url="https://example.com/dup.xml",
@@ -111,7 +113,7 @@ class TestFeedCommands:
 
     def test_feed_remove_success(self, cli_runner, initialized_db, monkeypatch):
         """feed remove <id> removes feed and outputs 'Removed feed'."""
-        from src.discovery.models import DiscoveredResult, DiscoveredFeed
+        from src.discovery.models import DiscoveredFeed, DiscoveredResult
 
         mock_result = DiscoveredResult(
             url="https://example.com/remove.xml",
@@ -257,7 +259,7 @@ class TestFeedDiscovery:
 
     def test_feed_add_openai_discovers_news_rss(self, cli_runner, initialized_db, monkeypatch):
         """feed add https://openai.com discovers news/rss.xml via CSS selector discovery."""
-        from src.discovery.models import DiscoveredResult, DiscoveredFeed
+        from src.discovery.models import DiscoveredFeed, DiscoveredResult
 
         # Mock discover_feeds to return openai.com discovery result
         mock_result = DiscoveredResult(
@@ -296,7 +298,7 @@ class TestFeedDiscovery:
 
     def test_feed_add_github_cli_discovers_release_feed(self, cli_runner, initialized_db, monkeypatch):
         """feed add https://github.com/cli/cli discovers GitHubReleaseProvider feed."""
-        from src.discovery.models import DiscoveredResult, DiscoveredFeed
+        from src.discovery.models import DiscoveredFeed, DiscoveredResult
 
         # Mock discover_feeds to return GitHub release feed
         mock_result = DiscoveredResult(
@@ -433,7 +435,7 @@ class TestDiscoverCommands:
 
     def test_discover_success(self, cli_runner, initialized_db):
         """discover <url> outputs discovered feed URL when feeds found."""
-        from src.discovery.models import DiscoveredResult, DiscoveredFeed
+        from src.discovery.models import DiscoveredFeed, DiscoveredResult
 
         mock_result = DiscoveredResult(
             url="https://example.com",

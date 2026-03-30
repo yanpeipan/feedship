@@ -9,16 +9,17 @@ from __future__ import annotations
 # Prevent sentence-transformers from making network calls to huggingface.co
 # Model is cached locally - no need to verify with remote server
 import os
+
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
-import chromadb
-from chromadb import PersistentClient
-from chromadb.config import Settings
+import threading
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+
 import platformdirs
-import threading
+from chromadb import PersistentClient
+from chromadb.config import Settings
 
 # Module-level singleton client
 _chroma_client: PersistentClient | None = None
@@ -87,7 +88,7 @@ def _get_chroma_client() -> PersistentClient:
     return _chroma_client
 
 
-def get_embedding_function() -> "SentenceTransformer":
+def get_embedding_function() -> SentenceTransformer:
     """Get the SentenceTransformer embedding function.
 
     Uses 'all-MiniLM-L6-v2' model which produces 384-dimensional vectors
@@ -281,9 +282,9 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
     Returns:
         List of ArticleListItem with keys: id, feed_id, feed_name, title, link, guid, pub_date, score
     """
-    from src.application.articles import ArticleListItem
-
     import logging
+
+    from src.application.articles import ArticleListItem
     logger = logging.getLogger(__name__)
 
     # Build ChromaDB where clause for date filtering

@@ -1,16 +1,16 @@
 """Discover RSS/Atom/RDF feeds from a website URL without subscribing."""
 
-import sys
+# Patch asyncio's executor shutdown timeout to avoid long hangs during cleanup.
+# Python 3.13's shutdown_default_executor() waits up to 300 seconds for threads
+# to finish, which causes CLI to hang. Reducing to 10 seconds.
+import asyncio.constants
 import logging
+import sys
 import time
 
 import click
 import uvloop
 
-# Patch asyncio's executor shutdown timeout to avoid long hangs during cleanup.
-# Python 3.13's shutdown_default_executor() waits up to 300 seconds for threads
-# to finish, which causes CLI to hang. Reducing to 10 seconds.
-import asyncio.constants
 asyncio.constants.THREAD_JOIN_TIMEOUT = 10
 
 from rich.console import Console  # noqa: E402
@@ -18,7 +18,7 @@ from rich.table import Table  # noqa: E402
 from rich.text import Text  # noqa: E402
 
 from src.cli.ui import DiscoverProgress  # noqa: E402
-from src.discovery import discover_feeds, DiscoveredFeed  # noqa: E402
+from src.discovery import DiscoveredFeed, discover_feeds  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

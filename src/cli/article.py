@@ -1,15 +1,16 @@
 """Article management commands for Radar CLI."""
 
-import sys
+import logging
 import platform
 import subprocess
-import logging
-from typing import Optional
+import sys
+
 import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from src.application.articles import get_article_detail, list_articles, ArticleListItem
+
+from src.application.articles import ArticleListItem, get_article_detail, list_articles
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ def _format_date(pub_date: int | str | None) -> str:
         return "-"
     if isinstance(pub_date, int):
         from datetime import datetime
+
         from src.application.config import get_timezone
         tz = get_timezone()
         dt = datetime.fromtimestamp(pub_date, tz=tz)
@@ -73,6 +75,7 @@ def open_in_browser(url: str) -> None:
 
 from src.cli import cli  # noqa: E402
 
+
 @cli.group()
 @click.pass_context
 def article(ctx: click.Context) -> None:
@@ -87,7 +90,7 @@ def article(ctx: click.Context) -> None:
 @click.option("--on", multiple=True, help="Specific date (YYYY-MM-DD), can repeat")
 @click.pass_context
 
-def article_list(ctx: click.Context, limit: int, feed_id: Optional[str], since: Optional[str], until: Optional[str], on: tuple) -> None:
+def article_list(ctx: click.Context, limit: int, feed_id: str | None, since: str | None, until: str | None, on: tuple) -> None:
     """List recent articles from all feeds or a specific feed."""
     try:
         on_list = list(on) if on else None
@@ -165,9 +168,10 @@ def article_open(ctx: click.Context, article_id: str) -> None:
 @click.option("--until", default=None, help="End date (YYYY-MM-DD)")
 @click.option("--on", multiple=True, help="Specific date (YYYY-MM-DD), can repeat")
 @click.pass_context
-def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional[str], semantic: bool, rerank: bool, since: Optional[str], until: Optional[str], on: tuple) -> None:
+def article_search(ctx: click.Context, query: str, limit: int, feed_id: str | None, semantic: bool, rerank: bool, since: str | None, until: str | None, on: tuple) -> None:
     try:
         import asyncio
+
         from src.application.combine import combine_scores
 
         on_list = list(on) if on else None

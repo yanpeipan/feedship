@@ -2,29 +2,30 @@
 
 from __future__ import annotations
 
-import sys
-import logging
-import time
-import click
-import uvloop
-
 # Patch asyncio's executor shutdown timeout to avoid long hangs during cleanup.
 # Python 3.13's shutdown_default_executor() waits up to 300 seconds for threads
 # to finish, which causes CLI to hang after fetch completes. Reducing to 10 seconds.
 import asyncio.constants
+import logging
+import sys
+import time
+
+import click
+import uvloop
+
 asyncio.constants.THREAD_JOIN_TIMEOUT = 10
 
 from rich.console import Console  # noqa: E402
 
-from src.cli.ui import FetchProgress, print_summary  # noqa: E402
-from src.cli.discover import _display_feeds  # noqa: E402
-from src.discovery import discover_feeds, DiscoveredFeed  # noqa: E402
 from src.application.feed import (  # noqa: E402
     get_feed,
     list_feeds,
     register_feed,
     remove_feed,
 )
+from src.cli.discover import _display_feeds  # noqa: E402
+from src.cli.ui import FetchProgress, print_summary  # noqa: E402
+from src.discovery import DiscoveredFeed, discover_feeds  # noqa: E402
 from src.models import FeedMetaData  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -358,7 +359,11 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, ids: tuple) 
       rss-reader fetch <feed_id> [<feed_id>...]  Fetch specific feeds by ID
     """
     # Lazy import to avoid torch dependency for non-fetch commands
-    from src.application.fetch import fetch_all_async, fetch_ids_async, fetch_one_async_by_id
+    from src.application.fetch import (
+        fetch_all_async,
+        fetch_ids_async,
+        fetch_one_async_by_id,
+    )
 
     # Case 1: ID arguments provided
     if ids:

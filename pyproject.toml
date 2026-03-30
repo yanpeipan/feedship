@@ -76,3 +76,29 @@ markers = [
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle errors & warnings
+    "F",       # Pyflakes
+    "I",       # isort import sorting
+    "UP",      # pyupgrade modernization
+    "B",       # flake8-bugbear common traps
+    "C4",      # flake8-comprehensions comprehension improvements
+    "SIM",     # flake8-simplify simplify code
+]
+ignore = ["E501"]  # line too long
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "E402"]
+"src/cli/*.py" = ["E402"]
+"tests/**/*.py" = ["E402", "F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true

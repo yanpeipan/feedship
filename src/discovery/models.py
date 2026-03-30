@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.models import FeedMetaData
@@ -35,7 +35,7 @@ class DiscoveredResult:
     """
     url: str
     max_depth: int
-    feeds: list["DiscoveredFeed"] = field(default_factory=list)
+    feeds: list[DiscoveredFeed] = field(default_factory=list)
     selectors: dict[str, LinkSelector] = field(default_factory=dict)
 
 
@@ -53,9 +53,9 @@ class DiscoveredFeed:
         metadata: Optional provider-specific metadata (e.g., path selectors).
     """
     url: str
-    title: Optional[str]
+    title: str | None
     feed_type: str  # 'rss', 'atom', or 'rdf'
     source: str  # 'autodiscovery', 'well_known_path', etc.
     page_url: str  # Original page URL
     valid: bool = False  # Default to False, validated feeds set True
-    metadata: Optional["FeedMetaData"] = None
+    metadata: FeedMetaData | None = None

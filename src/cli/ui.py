@@ -6,7 +6,14 @@ import time
 from typing import TYPE_CHECKING
 
 import click
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
 
 if TYPE_CHECKING:
     from src.discovery import DiscoveredFeed
@@ -41,7 +48,7 @@ class FetchProgress:
         self._error_count = 0
         self._errors: list[str] = []
 
-    def __enter__(self) -> "FetchProgress":
+    def __enter__(self) -> FetchProgress:
         """Enter context manager, start progress bar."""
         self._progress = Progress(
             SpinnerColumn(),
@@ -142,7 +149,7 @@ class DiscoverProgress:
         self._start_time: float = 0
         self._feeds_found = 0
 
-    def __enter__(self) -> "DiscoverProgress":
+    def __enter__(self) -> DiscoverProgress:
         """Enter context manager, start progress bar."""
         self._progress = Progress(
             SpinnerColumn(),
@@ -161,7 +168,7 @@ class DiscoverProgress:
         if self._progress:
             self._progress.__exit__(exc_type, exc_val, exc_tb)
 
-    def update(self, feed: "DiscoveredFeed") -> None:
+    def update(self, feed: DiscoveredFeed) -> None:
         """Update progress after each feed discovered.
 
         Args:

@@ -1,7 +1,8 @@
 """Tests for async concurrent fetch and SQLite serialization."""
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from src.application.fetch import fetch_all_async, fetch_one_async
 from src.models import Feed
@@ -116,7 +117,7 @@ async def test_fetch_one_async_no_provider():
 @pytest.mark.asyncio
 async def test_db_lock_serialization():
     """Verify store_article_async uses asyncio.Lock for serialization."""
-    from src.storage.sqlite import store_article_async, _get_db_write_lock
+    from src.storage.sqlite import _get_db_write_lock, store_article_async
 
     # Verify the lock exists and is an asyncio.Lock
     lock = _get_db_write_lock()

@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Optional
 
-from src.application.config import get_timezone, get_default_feed_weight
+from src.application.config import get_default_feed_weight, get_timezone
 from src.models import Feed, FeedMetaData
 from src.providers import discover
-from src.storage import list_feeds as storage_list_feeds, get_feed as storage_get_feed, remove_feed as storage_remove_feed, update_feed as storage_update_feed, upsert_feed
+from src.storage import get_feed as storage_get_feed
+from src.storage import list_feeds as storage_list_feeds
+from src.storage import remove_feed as storage_remove_feed
+from src.storage import update_feed as storage_update_feed
+from src.storage import upsert_feed
 from src.utils import generate_article_id, generate_feed_id
 
 logger = logging.getLogger(__name__)
@@ -19,7 +22,7 @@ class FeedNotFoundError(Exception):
     """Raised when a feed is not found in the database."""
 
 
-def add_feed(url: str, weight: float | None = None, feed_meta_data: "FeedMetaData | None" = None) -> tuple[Feed, bool]:
+def add_feed(url: str, weight: float | None = None, feed_meta_data: FeedMetaData | None = None) -> tuple[Feed, bool]:
     """Add a new feed by URL.
 
     Uses provider.parse_feed to fetch metadata and provider.crawl to validate.
@@ -110,7 +113,7 @@ def add_feed(url: str, weight: float | None = None, feed_meta_data: "FeedMetaDat
     return upsert_feed(feed)
 
 
-def register_feed(feed_url: str, feed_name: str | None = None, weight: float | None = None, feed_meta_data: "FeedMetaData | None" = None) -> tuple[Feed, bool]:
+def register_feed(feed_url: str, feed_name: str | None = None, weight: float | None = None, feed_meta_data: FeedMetaData | None = None) -> tuple[Feed, bool]:
     """Register a pre-discovered feed without crawling.
 
     Use for feeds that were already validated (e.g., via discover_feeds).
@@ -127,8 +130,9 @@ def register_feed(feed_url: str, feed_name: str | None = None, weight: float | N
         Tuple of (saved Feed object, is_new).
     """
     import json as json_module
-    from src.models import Feed
+
     from src.application.config import get_default_feed_weight
+    from src.models import Feed
 
     # Preserve existing metadata selectors if new metadata doesn't have selectors
     # This prevents overwriting existing selectors when updating via CLI
@@ -173,7 +177,7 @@ def list_feeds() -> list[Feed]:
     return storage_list_feeds()
 
 
-def get_feed(feed_id: str) -> Optional[Feed]:
+def get_feed(feed_id: str) -> Feed | None:
     """Get a single feed by ID.
 
     Args:

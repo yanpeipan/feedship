@@ -6,12 +6,17 @@ Provides functions for listing and retrieving articles from the database.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from src.storage import (
-    list_articles as storage_list_articles,
     get_article as storage_get_article,
+)
+from src.storage import (
     get_article_detail as storage_get_article_detail,
+)
+from src.storage import (
+    list_articles as storage_list_articles,
+)
+from src.storage import (
     search_articles as storage_search_articles,
 )
 
@@ -34,11 +39,11 @@ class ArticleListItem:
     id: str
     feed_id: str
     feed_name: str
-    title: Optional[str]
-    link: Optional[str]
+    title: str | None
+    link: str | None
     guid: str
-    pub_date: Optional[str]
-    description: Optional[str]
+    pub_date: str | None
+    description: str | None
     vec_sim: float = 0.0
     bm25_score: float = 0.0
     freshness: float = 0.0
@@ -50,10 +55,10 @@ class ArticleListItem:
 
 def list_articles(
     limit: int = 20,
-    feed_id: Optional[str] = None,
-    since: Optional[str] = None,
-    until: Optional[str] = None,
-    on: Optional[list[str]] = None,
+    feed_id: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    on: list[str] | None = None,
 ) -> list[ArticleListItem]:
     """List articles ordered by publication date.
 
@@ -70,7 +75,7 @@ def list_articles(
     return storage_list_articles(limit=limit, feed_id=feed_id, since=since, until=until, on=on)
 
 
-def get_article(article_id: str) -> Optional[ArticleListItem]:
+def get_article(article_id: str) -> ArticleListItem | None:
     """Get a single article by ID.
 
     Args:
@@ -82,7 +87,7 @@ def get_article(article_id: str) -> Optional[ArticleListItem]:
     return storage_get_article(article_id)
 
 
-def get_article_detail(article_id: str) -> Optional[dict]:
+def get_article_detail(article_id: str) -> dict | None:
     """Get full article details including content.
 
     Args:
@@ -98,10 +103,10 @@ def get_article_detail(article_id: str) -> Optional[dict]:
 def search_articles(
     query: str,
     limit: int = 20,
-    feed_id: Optional[str] = None,
-    since: Optional[str] = None,
-    until: Optional[str] = None,
-    on: Optional[list[str]] = None,
+    feed_id: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    on: list[str] | None = None,
 ) -> list[ArticleListItem]:
     """Search articles using FTS5 full-text search.
 

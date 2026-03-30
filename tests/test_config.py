@@ -1,6 +1,7 @@
 """Tests for src.config module."""
-import pytest
 from zoneinfo import ZoneInfo
+
+import pytest
 
 
 def test_get_timezone_returns_zoneinfo():

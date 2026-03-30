@@ -7,13 +7,14 @@ providers have failed.
 """
 from __future__ import annotations
 
-from typing import Any, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from src.providers import PROVIDERS
-from src.providers.base import Article, ContentProvider, FetchedResult, Raw
+from src.providers.base import Article, FetchedResult, Raw
 
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
+
     from src.discovery.models import DiscoveredFeed
     from src.models import FeedType
 
@@ -26,7 +27,7 @@ class DefaultProvider:
     should not be called on this provider in practice.
     """
 
-    def match(self, url: str, response: "Response" = None, feed_type: "FeedType" = None) -> bool:
+    def match(self, url: str, response: Response = None, feed_type: FeedType = None) -> bool:
         """Never matches - only used as fallback.
 
         Args:
@@ -63,7 +64,7 @@ class DefaultProvider:
             "DefaultProvider is fallback only and should not be called"
         )
 
-    def parse_articles(self, entries: List[Raw]) -> List[Article]:
+    def parse_articles(self, entries: list[Raw]) -> list[Article]:
         """Not implemented - should not be called.
 
         Args:
@@ -76,7 +77,7 @@ class DefaultProvider:
             "DefaultProvider is fallback only and should not be called"
         )
 
-    def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
+    def parse_feed(self, url: str, response: Response = None) -> DiscoveredFeed:
         """DefaultProvider is fallback only - always returns invalid.
 
         Args:
@@ -95,7 +96,7 @@ class DefaultProvider:
             valid=False,
         )
 
-    def discover(self, url: str, response: "Response" = None, depth: int = 1) -> List["DiscoveredFeed"]:
+    def discover(self, url: str, response: Response = None, depth: int = 1) -> list[DiscoveredFeed]:
         """Not implemented - DefaultProvider is fallback only.
 
         Args:

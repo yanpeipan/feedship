@@ -5,10 +5,11 @@ Defines the ContentProvider protocol that all providers must implement.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Optional, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
+
     from src.discovery.models import DiscoveredFeed
     from src.models import Feed, FeedType
 
@@ -21,9 +22,9 @@ Raw = dict      # Raw crawl result
 @dataclass
 class FetchedResult:
     """Result of a fetch operation, including feed metadata for conditional fetching."""
-    articles: List[Article]
-    etag: Optional[str] = None
-    last_modified: Optional[str] = None
+    articles: list[Article]
+    etag: str | None = None
+    last_modified: str | None = None
 
 
 @runtime_checkable
@@ -38,7 +39,7 @@ class ContentProvider(Protocol):
     allows isinstance() checks for protocol conformance.
     """
 
-    def match(self, url: str, response: "Response" = None, feed_type: "FeedType" = None) -> bool:
+    def match(self, url: str, response: Response = None, feed_type: FeedType = None) -> bool:
         """Return True if this provider handles the URL.
 
         Args:
@@ -65,7 +66,7 @@ class ContentProvider(Protocol):
         """
         ...
 
-    def fetch_articles(self, feed: "Feed") -> FetchedResult:
+    def fetch_articles(self, feed: Feed) -> FetchedResult:
         """Fetch and parse content from Feed.
 
         Args:
@@ -76,7 +77,7 @@ class ContentProvider(Protocol):
         """
         ...
 
-    def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
+    def parse_feed(self, url: str, response: Response = None) -> DiscoveredFeed:
         """Validate URL is a feed and return as DiscoveredFeed.
 
         IMPORTANT: This method raises an exception if the URL cannot be validated.
@@ -95,7 +96,7 @@ class ContentProvider(Protocol):
         """
         ...
 
-    def discover(self, url: str, response: "Response" = None, depth: int = 1) -> List["DiscoveredFeed"]:
+    def discover(self, url: str, response: Response = None, depth: int = 1) -> list[DiscoveredFeed]:
         """Discover feed URLs from a page.
 
         Args:

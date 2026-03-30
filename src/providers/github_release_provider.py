@@ -9,17 +9,18 @@ GitHubProvider to handle non-release repository URLs.
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-from github import RateLimitExceededException, GithubException
+from github import GithubException, RateLimitExceededException
 
+from src.discovery.models import DiscoveredFeed
 from src.providers import PROVIDERS
 from src.providers.base import Article, FetchedResult, Raw
-from src.discovery.models import DiscoveredFeed
 
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
+
     from src.models import FeedType
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ class GitHubReleaseProvider:
     using the GitHub API. Higher priority (300) than GitHubProvider (100).
     """
 
-    def match(self, url: str, response: "Response" = None, feed_type: "FeedType" = None) -> bool:
+    def match(self, url: str, response: Response = None, feed_type: FeedType = None) -> bool:
         """Check if URL is a GitHub repository URL.
 
         Args:
@@ -122,7 +123,7 @@ class GitHubReleaseProvider:
             logger.error("GitHubReleaseProvider.fetch_articles(%s) failed: %s", feed.url, e)
             return FetchedResult(articles=[])
 
-    def parse_articles(self, entries: List[Raw]) -> List[Article]:
+    def parse_articles(self, entries: list[Raw]) -> list[Article]:
         """Convert GitHub release dicts to Article dicts.
 
         Args:
@@ -161,7 +162,7 @@ class GitHubReleaseProvider:
             ))
         return articles
 
-    def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
+    def parse_feed(self, url: str, response: Response = None) -> DiscoveredFeed:
         """Validate GitHub repository URL and return as DiscoveredFeed.
 
         Args:
@@ -199,7 +200,7 @@ class GitHubReleaseProvider:
                 valid=False,
             )
 
-    def discover(self, url: str, response: "Response" = None, depth: int = 1) -> List["DiscoveredFeed"]:
+    def discover(self, url: str, response: Response = None, depth: int = 1) -> list[DiscoveredFeed]:
         """Discover feed URLs - GitHub releases don't need additional discovery.
 
         Args:

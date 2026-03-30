@@ -1,11 +1,10 @@
 """HTML link element parser for feed autodiscovery (DISC-01, DISC-03)."""
 from __future__ import annotations
 
-from typing import Optional
 from urllib.parse import urljoin, urlparse
 
 from scrapling import Selector
-from trafilatura.feeds import FEED_TYPES, BLACKLIST, LINK_VALIDATION_RE
+from trafilatura.feeds import BLACKLIST, FEED_TYPES, LINK_VALIDATION_RE
 
 from src.discovery.models import DiscoveredFeed
 
@@ -88,7 +87,7 @@ def parse_link_elements(html: str, page_url: str) -> list[DiscoveredFeed]:
         absolute_url = resolve_url(page_url, href, base_href)
 
         # Extract title if present
-        title: Optional[str] = link.attrib.get('title')
+        title: str | None = link.attrib.get('title')
 
         feeds.append(DiscoveredFeed(
             url=absolute_url,

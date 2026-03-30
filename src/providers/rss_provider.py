@@ -6,17 +6,18 @@ Priority is 50 (higher than DefaultProvider at 0, lower than GitHubReleaseProvid
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlparse
 
 import feedparser
 
+from src.discovery.models import DiscoveredFeed
 from src.providers import PROVIDERS
 from src.providers.base import Article, FetchedResult
-from src.discovery.models import DiscoveredFeed
 
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
+
     from src.models import FeedType
 
 logger = logging.getLogger(__name__)
@@ -38,9 +39,9 @@ class RSSProvider:
     def _fetch_feed_content_sync(
         self,
         url: str,
-        etag: Optional[str] = None,
-        last_modified: Optional[str] = None,
-    ) -> "Response":
+        etag: str | None = None,
+        last_modified: str | None = None,
+    ) -> Response:
         """Fetch feed content synchronously with conditional request support.
 
         Args:
@@ -72,7 +73,7 @@ class RSSProvider:
         )
         return response
 
-    def match(self, url: str, response: "Response" = None, feed_type: "FeedType" = None) -> bool:
+    def match(self, url: str, response: Response = None, feed_type: FeedType = None) -> bool:
         """Check if URL points to RSS/Atom feed via Content-Type header.
 
         Args:
@@ -150,7 +151,7 @@ class RSSProvider:
             logger.error("RSSProvider.fetch_articles(%s) failed: %s", feed.url, e)
             return FetchedResult(articles=[])
 
-    def parse_articles(self, response: "Response") -> List[Article]:
+    def parse_articles(self, response: Response) -> list[Article]:
         """Parse RSS/Atom feed content and convert to Article dicts.
 
         Args:
@@ -206,7 +207,7 @@ class RSSProvider:
             ))
         return articles
 
-    def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
+    def parse_feed(self, url: str, response: Response = None) -> DiscoveredFeed:
         """Validate URL is an RSS/Atom feed and return as DiscoveredFeed.
 
         Args:
@@ -258,7 +259,7 @@ class RSSProvider:
                 valid=False,
             )
 
-    def discover(self, url: str, response: "Response" = None, depth: int = 1) -> List["DiscoveredFeed"]:
+    def discover(self, url: str, response: Response = None, depth: int = 1) -> list[DiscoveredFeed]:
         """Discover feed URLs from a page.
 
         Args:
@@ -270,7 +271,7 @@ class RSSProvider:
         Returns:
             List of discovered DiscoveredFeed (unverified, validation happens in caller).
         """
-        feeds: List["DiscoveredFeed"] = []
+        feeds: list[DiscoveredFeed] = []
 
         # Phase 1: If response is a feed type, return it as validated
         feed_result = self._check_feed_content_type(url, response)
@@ -278,7 +279,7 @@ class RSSProvider:
             return [feed_result]
 
         # Phase 2: Parse HTML page
-        from src.utils.scraping_utils import parse_html_body, find_base_href
+        from src.utils.scraping_utils import find_base_href, parse_html_body
         html = parse_html_body(response)
         if not html:
             return feeds
@@ -298,7 +299,7 @@ class RSSProvider:
 
         return feeds
 
-    def _check_feed_content_type(self, url: str, response: "Response" = None) -> "DiscoveredFeed | None":
+    def _check_feed_content_type(self, url: str, response: Response = None) -> DiscoveredFeed | None:
         """Check if response Content-Type indicates a feed.
 
         Args:
@@ -325,7 +326,7 @@ class RSSProvider:
             )
         return None
 
-    def _find_link_alternate_tags(self, page: "Selector", url: str, base_override: str | None = None) -> list["DiscoveredFeed"]:
+    def _find_link_alternate_tags(self, page: Selector, url: str, base_override: str | None = None) -> list[DiscoveredFeed]:
         """Find <link rel="alternate"> tags pointing to feeds.
 
         Args:
@@ -336,10 +337,10 @@ class RSSProvider:
         Returns:
             List of discovered feeds from link tags.
         """
-        from src.discovery.models import DiscoveredFeed
         from src.discovery.common_paths import matches_feed_path_pattern
+        from src.discovery.models import DiscoveredFeed
 
-        feeds: List["DiscoveredFeed"] = []
+        feeds: list[DiscoveredFeed] = []
         for link_tag in page.css('link[rel="alternate"]'):
             href = link_tag.attrib.get('href', '')
             if not href:
@@ -361,7 +362,7 @@ class RSSProvider:
             ))
         return feeds
 
-    def _find_css_selector_links(self, page: "Selector", url: str, base_override: str | None = None) -> list["DiscoveredFeed"]:
+    def _find_css_selector_links(self, page: Selector, url: str, base_override: str | None = None) -> list[DiscoveredFeed]:
         """Find feed links via CSS selectors (a[href*="rss"], a[href*="feed"], etc).
 
         Args:
@@ -372,8 +373,8 @@ class RSSProvider:
         Returns:
             List of discovered feeds from CSS selector links.
         """
-        from src.discovery.models import DiscoveredFeed
         from src.discovery.common_paths import matches_feed_path_pattern
+        from src.discovery.models import DiscoveredFeed
 
         feed_selectors = [
             'a[href*="rss"]',
@@ -382,7 +383,7 @@ class RSSProvider:
             'a[href$=".xml"]',
         ]
 
-        feeds: List["DiscoveredFeed"] = []
+        feeds: list[DiscoveredFeed] = []
         found_urls: set = set()
         page_host = urlparse(url).netloc.lower()
 
@@ -420,7 +421,7 @@ class RSSProvider:
         return feeds
 
 
-def _probe_well_known_paths(url: str, html: str | None) -> list["DiscoveredFeed"]:
+def _probe_well_known_paths(url: str, html: str | None) -> list[DiscoveredFeed]:
     """Probe well-known feed paths on a page URL and validate them in parallel.
 
     Args:
@@ -431,6 +432,7 @@ def _probe_well_known_paths(url: str, html: str | None) -> list["DiscoveredFeed"
         List of DiscoveredFeed found via well-known path probing (only validated ones).
     """
     import concurrent.futures
+
     from src.discovery.common_paths import generate_feed_candidates
 
     candidates = generate_feed_candidates(url, html)

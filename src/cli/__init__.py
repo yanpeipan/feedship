@@ -28,10 +28,11 @@ def cli(ctx: click.Context, verbose: bool) -> None:
     init_db()
 
 # Import submodules to trigger @cli.command decorators
-from src.cli import feed  # noqa: F401, E402
-from src.cli import article  # noqa: F401, E402
-from src.cli import discover  # noqa: F401, E402
-
+from src.cli import (
+    article,  # noqa: F401, E402
+    discover,  # noqa: F401, E402
+    feed,  # noqa: F401, E402
+)
 
 if __name__ == "__main__":
     cli()

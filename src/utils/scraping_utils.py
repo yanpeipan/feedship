@@ -6,8 +6,8 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from scrapling.engines.toolbelt.custom import Response
     from scrapling import Selector
+    from scrapling.engines.toolbelt.custom import Response
 
 _logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ def fetch_with_fallback(
     url: str,
     headers: dict | None = None,
     timeout: int = 30,
-) -> "Response | None":
+) -> Response | None:
     """Fetch a URL with automatic fallback from basic Fetcher to stealth fetcher.
 
     Strategy:
@@ -82,7 +82,7 @@ def fetch_with_fallback(
         return None
 
 
-def parse_html_body(response: "Response") -> str | None:
+def parse_html_body(response: Response) -> str | None:
     """Parse HTML body from HTTP response.
 
     Args:
@@ -101,7 +101,7 @@ def parse_html_body(response: "Response") -> str | None:
     return None
 
 
-def find_base_href(page: "Selector") -> str | None:
+def find_base_href(page: Selector) -> str | None:
     """Extract <base href> override from page head.
 
     Args:

@@ -6,7 +6,6 @@ reusable by other callers without CLI dependencies.
 
 from __future__ import annotations
 
-from datetime import timezone
 from typing import Any
 from urllib.parse import urlparse
 
@@ -179,6 +178,7 @@ def _format_date_for_display(pub_date: int | str | None) -> str:
         return "-"
     if isinstance(pub_date, int):
         from datetime import datetime
+
         from src.application.config import get_timezone
         tz = get_timezone()
         dt = datetime.fromtimestamp(pub_date, tz=tz)

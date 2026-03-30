@@ -1,8 +1,8 @@
 """Application configuration loaded from config.yaml via dynaconf."""
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from dynaconf import Dynaconf
-from zoneinfo import ZoneInfo
 
 _settings: Dynaconf | None = None
 

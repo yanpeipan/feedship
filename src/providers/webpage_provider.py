@@ -15,15 +15,16 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Any, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from src.providers import PROVIDERS
-from src.providers.base import Article, ContentProvider, FetchedResult, Raw
 from src.discovery.models import DiscoveredFeed
+from src.providers import PROVIDERS
+from src.providers.base import Article, FetchedResult, Raw
 
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
-    from src.models import FeedMetaData, FeedType
+
+    from src.models import FeedType
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ def _root_domain(domain: str) -> str:
     return ".".join(parts[-2:]) if len(parts) >= 2 else domain.lower()
 
 
-def _discover_links(root, page_url: str) -> List[tuple[str, int]]:
+def _discover_links(root, page_url: str) -> list[tuple[str, int]]:
     """Count internal links by path and return sorted by count descending."""
     from urllib.parse import urljoin, urlparse
 
@@ -86,7 +87,9 @@ def _analyze_link_paths(url: str, limit: int = 15) -> dict[str, int]:
         Dict of path_pattern -> count, sorted by count descending.
     """
     from urllib.parse import urljoin, urlparse
+
     from scrapling import Selector
+
     from src.utils.scraping_utils import fetch_with_fallback
 
     try:
@@ -167,8 +170,9 @@ def _load_feed_selectors(url: str) -> list[str]:
     import json
     try:
         import sqlite3
-        from src.storage.sqlite.impl import get_db_path
+
         from src.models import FeedMetaData
+        from src.storage.sqlite.impl import get_db_path
         conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         cursor.execute("SELECT metadata FROM feeds WHERE url = ?", (url,))
@@ -194,7 +198,7 @@ class WebpageProvider:
     def __init__(self) -> None:
         self._df_initialized = False
 
-    def match(self, url: str, response: "Response" = None, feed_type: "FeedType" = None) -> bool:
+    def match(self, url: str, response: Response = None, feed_type: FeedType = None) -> bool:
         """Check if URL is a webpage (not a direct feed URL).
 
         Args:
@@ -232,10 +236,11 @@ class WebpageProvider:
             logger.error("WebpageProvider.fetch_articles(%s) failed: %s", feed.url, e)
             return FetchedResult(articles=[])
 
-    def _crawl_discovery(self, url: str) -> List[Raw]:
+    def _crawl_discovery(self, url: str) -> list[Raw]:
         """Generic fallback: discover article links → Trafilatura on each."""
         from urllib.parse import urljoin
-        from scrapling import DynamicFetcher, Selector
+
+        from scrapling import Selector
         from trafilatura import extract
 
         Fetcher = self._df()
@@ -308,7 +313,7 @@ class WebpageProvider:
 
         return results
 
-    def _fetch_page(self, url: str) -> Optional[str]:
+    def _fetch_page(self, url: str) -> str | None:
         Fetcher = self._df()
         try:
             r = Fetcher().fetch(url, timeout=30000)
@@ -316,7 +321,7 @@ class WebpageProvider:
         except Exception:
             return None
 
-    def parse_articles(self, entries: List[Raw]) -> List[Article]:
+    def parse_articles(self, entries: list[Raw]) -> list[Article]:
         from src.utils import generate_article_id
         articles = []
         for raw in entries:
@@ -332,7 +337,7 @@ class WebpageProvider:
             ))
         return articles
 
-    def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
+    def parse_feed(self, url: str, response: Response = None) -> DiscoveredFeed:
         """Validate webpage URL and return as DiscoveredFeed (fallback only).
 
         Args:
@@ -342,7 +347,6 @@ class WebpageProvider:
         Returns:
             DiscoveredFeed with valid=False (webpage is not a feed).
         """
-        from src.models import Feed
         from trafilatura import extract
 
         # Try Trafilatura on the page itself to extract title
@@ -365,7 +369,7 @@ class WebpageProvider:
 
         # Fallback: use page <title>
         if not title:
-            from scrapling import DynamicFetcher, Selector
+            from scrapling import Selector
             try:
                 r = self._df()().fetch(url, timeout=30000)
                 body = r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
@@ -385,7 +389,7 @@ class WebpageProvider:
             valid=False,  # Webpage is not a feed, just discovered page
         )
 
-    def discover(self, url: str, response: "Response" = None, depth: int = 1) -> List["DiscoveredFeed"]:
+    def discover(self, url: str, response: Response = None, depth: int = 1) -> list[DiscoveredFeed]:
         """Discover feed URLs - WebpageProvider is a fallback, no discovery needed.
 
         Args:

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from src.application.articles import ArticleListItem
 
-
 # Global cache for model and tokenizer (lazy loaded)
 _model = None
 _tokenizer = None

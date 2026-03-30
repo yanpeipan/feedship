@@ -9,7 +9,6 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import feedparser
-
 from scrapling import Selector
 from trafilatura.feeds import FEED_TYPES
 
@@ -18,9 +17,8 @@ _scrapling_logger = logging.getLogger("scrapling")
 _scrapling_logger.disabled = True
 from robotexclusionrulesparser import RobotExclusionRulesParser
 
-from src.discovery.common_paths import generate_feed_candidates
-from src.discovery.models import DiscoveredFeed, DiscoveredResult
 from src.constants import BROWSER_HEADERS
+from src.discovery.models import DiscoveredFeed, DiscoveredResult
 from src.utils.scraping_utils import fetch_with_fallback
 
 
@@ -198,116 +196,6 @@ async def _quick_validate_feed(url: str) -> tuple[bool, str | None]:
     return is_valid, feed_type
 
 
-async def _probe_well_known_paths(page_url: str, html: str | None = None) -> list[DiscoveredFeed]:
-    """Probe well-known feed paths on a page URL.
-
-    Args:
-        page_url: Base page URL to probe.
-        html: Optional HTML content for dynamic subdirectory discovery.
-
-    Returns:
-        List of DiscoveredFeed found via well-known path probing.
-    """
-    # Generate candidates
-    candidates = generate_feed_candidates(page_url, html)
-
-    # Validate all candidates concurrently (was sequential - major bottleneck)
-    validation_tasks = [_quick_validate_feed(c) for c in candidates]
-    validation_results = await asyncio.gather(*validation_tasks)
-
-    valid_candidates = []
-    for candidate, (is_valid, feed_type) in zip(candidates, validation_results):
-        if is_valid:
-            valid_candidates.append((candidate, feed_type or 'rss'))
-
-    if not valid_candidates:
-        return []
-
-    results = []
-    for candidate, feed_type in valid_candidates:
-        results.append(DiscoveredFeed(
-            url=candidate,
-            title=None,
-            feed_type=feed_type,
-            source='well_known_path',
-            page_url=page_url,
-            valid=True,
-        ))
-
-    return results
-
-
-async def _find_feed_links_on_page(html: str, page_url: str) -> list[DiscoveredFeed]:
-    """Find feed links on a page using CSS selectors.
-
-    Uses CSS attribute selectors to find links containing feed-related
-    patterns (rss, feed, atom, .xml) directly on the page.
-
-    Args:
-        html: Raw HTML content.
-        page_url: URL the HTML was fetched from.
-
-    Returns:
-        List of DiscoveredFeed found via CSS selector link discovery.
-    """
-    from urllib.parse import urlparse as _urlparse
-
-    results = []
-    page = Selector(content=html)
-
-    # Check for <base href> override
-    base_override: str | None = None
-    head = page.find('head')
-    if head:
-        base_tag = head.find('base[href]')
-        if base_tag:
-            base_override = base_tag.attrib['href']
-
-    # Use CSS selectors to find feed-like links directly
-    feed_selectors = [
-        'a[href*="rss"]',
-        'a[href*="feed"]',
-        'a[href*="atom"]',
-        'a[href$=".xml"]',
-    ]
-
-    found_urls: set[str] = set()
-
-    for selector in feed_selectors:
-        for anchor in page.css(selector):
-            href = anchor.attrib.get('href', '')
-
-            # Resolve relative URLs
-            if base_override:
-                absolute = urljoin(base_override, href)
-            else:
-                absolute = urljoin(page_url, href)
-
-            parsed = _urlparse(absolute)
-
-            # Skip different hosts
-            if parsed.netloc.lower() != _urlparse(page_url).netloc.lower():
-                continue
-
-            if absolute in found_urls:
-                continue
-            found_urls.add(absolute)
-
-            # Validate via HTTP (quick HEAD + Content-Type only)
-            is_valid, feed_type = await _quick_validate_feed(absolute)
-            if is_valid:
-                results.append(DiscoveredFeed(
-                    url=absolute,
-                    title=None,
-                    feed_type=feed_type or 'rss',
-                    source='css_selector',
-                    page_url=page_url,
-                    valid=True,
-                ))
-
-    return results
-
-
 async def deep_crawl(start_url: str, max_depth: int = 1, auto_discover: bool = True) -> DiscoveredResult:
     """Discover feeds using BFS crawling up to max_depth.
 
@@ -322,8 +210,8 @@ async def deep_crawl(start_url: str, max_depth: int = 1, auto_discover: bool = T
         For max_depth>1, selectors is empty (expensive to compute).
     """
     # Import here to avoid circular imports
-    from src.providers import discover as providers_discover
     from src.discovery.models import LinkSelector as LinkSelectorModel
+    from src.providers import discover as providers_discover
 
     selectors: dict[str, LinkSelectorModel] = {}
     if max_depth <= 1:
@@ -334,7 +222,24 @@ async def deep_crawl(start_url: str, max_depth: int = 1, auto_discover: bool = T
                 # providers_discover returns only valid=True feeds
                 feeds = providers_discover(start_url, response, depth=1, discover=auto_discover)
                 if feeds:
-                    return DiscoveredResult(url=start_url, max_depth=max_depth, feeds=feeds, selectors=selectors)
+                    # Normalize URLs and deduplicate
+                    seen: set[str] = set()
+                    unique_feeds: list[DiscoveredFeed] = []
+                    for feed in feeds:
+                        normalized = normalize_url_for_visit(feed.url)
+                        if normalized not in seen:
+                            seen.add(normalized)
+                            # Update URL to normalized form
+                            feed = DiscoveredFeed(
+                                url=normalized,
+                                title=feed.title,
+                                feed_type=feed.feed_type,
+                                source=feed.source,
+                                page_url=feed.page_url,
+                                valid=feed.valid,
+                            )
+                            unique_feeds.append(feed)
+                    return DiscoveredResult(url=start_url, max_depth=max_depth, feeds=unique_feeds, selectors=selectors)
         except Exception:
             pass
 

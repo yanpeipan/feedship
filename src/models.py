@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 
 class FeedType(Enum):
@@ -35,11 +34,11 @@ class Feed:
     name: str
     url: str
     created_at: str
-    etag: Optional[str] = None
-    last_modified: Optional[str] = None
-    last_fetched: Optional[str] = None
-    metadata: Optional[str] = None  # JSON string with provider-specific data
-    weight: Optional[float] = None  # Feed weight for semantic search ranking (default 0.3)
+    etag: str | None = None
+    last_modified: str | None = None
+    last_fetched: str | None = None
+    metadata: str | None = None  # JSON string with provider-specific data
+    weight: float | None = None  # Feed weight for semantic search ranking (default 0.3)
 
 
 @dataclass
@@ -50,8 +49,8 @@ class FeedMetaData:
         selectors: Optional list of path prefix filters for WebpageProvider.
         feed_type: Optional feed type ('rss', 'atom', 'rdf', 'webpage', 'github_release').
     """
-    selectors: Optional[list[str]] = None
-    feed_type: Optional[str] = None
+    selectors: list[str] | None = None
+    feed_type: str | None = None
 
     def to_json(self) -> str:
         """Serialize to JSON string, excluding None values."""
@@ -80,8 +79,8 @@ class Article:
     feed_id: str
     guid: str
     created_at: str
-    title: Optional[str] = None
-    link: Optional[str] = None
-    pub_date: Optional[str] = None
-    description: Optional[str] = None
-    content: Optional[str] = None
+    title: str | None = None
+    link: str | None = None
+    pub_date: str | None = None
+    description: str | None = None
+    content: str | None = None
