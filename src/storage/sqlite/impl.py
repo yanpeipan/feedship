@@ -542,11 +542,12 @@ def list_articles(
         conditions.append("a.pub_date <= ?")
         params.append(_date_to_timestamp_end(until, tz))
     if on:
-        # Convert each date to start-of-day timestamp (for exact date match)
-        on_timestamps = [_date_to_timestamp(d, tz) for d in on]
-        placeholders = ",".join("?" * len(on_timestamps))
-        conditions.append(f"a.pub_date IN ({placeholders})")
-        params.extend(on_timestamps)
+        # Match articles within each specified date (start-of-day to end-of-day)
+        for d in on:
+            start = _date_to_timestamp(d, tz)
+            end = _date_to_timestamp_end(d, tz)
+            conditions.append("a.pub_date BETWEEN ? AND ?")
+            params.extend([start, end])
     where_clause = " AND ".join(conditions) if conditions else "1=1"
 
     with get_db() as conn:
