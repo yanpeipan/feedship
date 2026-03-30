@@ -45,8 +45,8 @@ ENV/
 Thumbs.db
 
 # Project specific
-.planning/debug/*.md
-.planning/.*
+.planning/
+.claude/
 
 # Ignore dynaconf secret files
 .secrets.*
