@@ -47,6 +47,13 @@ Thumbs.db
 # Project specific
 .planning/
 .claude/
+.claude-flow/
+.swarm/
+data/
+
+# Runtime files
+.coverage
+.mcp.json
 
 # Lock files (use pyproject.toml for dependency versions)
 uv.lock
