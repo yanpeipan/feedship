@@ -6,11 +6,9 @@ reusable by other callers without CLI dependencies.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import timezone
 from typing import Any
 from urllib.parse import urlparse
-
-from src.storage.sqlite import get_article, get_feed
 
 
 def format_articles(items: list[dict[str, Any]], verbose: bool = False) -> list[dict[str, Any]]:

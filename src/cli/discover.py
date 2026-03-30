@@ -13,12 +13,12 @@ import uvloop
 import asyncio.constants
 asyncio.constants.THREAD_JOIN_TIMEOUT = 10
 
-from rich.console import Console
-from rich.table import Table
-from rich.text import Text
+from rich.console import Console  # noqa: E402
+from rich.table import Table  # noqa: E402
+from rich.text import Text  # noqa: E402
 
-from src.cli.ui import DiscoverProgress
-from src.discovery import discover_feeds, DiscoveredFeed
+from src.cli.ui import DiscoverProgress  # noqa: E402
+from src.discovery import discover_feeds, DiscoveredFeed  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ def _display_feeds(feeds: list[DiscoveredFeed], numbered: bool = False) -> None:
     console.print(table)
 
 
-from src.cli import cli
+from src.cli import cli  # noqa: E402
 
 
 @cli.command("discover")

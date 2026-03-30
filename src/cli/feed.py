@@ -1,12 +1,10 @@
-"""Feed management commands for RSS reader CLI."""
+"""Feed management commands for Radar CLI."""
 
 from __future__ import annotations
 
 import sys
 import logging
 import time
-from typing import TYPE_CHECKING
-
 import click
 import uvloop
 
@@ -16,22 +14,18 @@ import uvloop
 import asyncio.constants
 asyncio.constants.THREAD_JOIN_TIMEOUT = 10
 
-from rich.console import Console
+from rich.console import Console  # noqa: E402
 
-from src.cli.ui import FetchProgress, print_summary
-from src.cli.discover import _display_feeds
-from src.discovery import discover_feeds, DiscoveredFeed
-from src.application.feed import (
-    add_feed,
+from src.cli.ui import FetchProgress, print_summary  # noqa: E402
+from src.cli.discover import _display_feeds  # noqa: E402
+from src.discovery import discover_feeds, DiscoveredFeed  # noqa: E402
+from src.application.feed import (  # noqa: E402
     get_feed,
     list_feeds,
     register_feed,
     remove_feed,
 )
-from src.models import FeedMetaData
-
-if TYPE_CHECKING:
-    from src.application.feed import Feed
+from src.models import FeedMetaData  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +133,7 @@ def _get_webpage_selectors(url: str) -> list[str] | None:
     return result
 
 
-from src.cli import cli
+from src.cli import cli  # noqa: E402
 
 
 @cli.group()
@@ -172,7 +166,7 @@ def feed(ctx: click.Context) -> None:
     "--weight",
     default=None,
     type=float,
-    help=f"Feed weight for semantic search (default: 0.3)",
+    help="Feed weight for semantic search (default: 0.3)",
 )
 @click.pass_context
 def feed_add(ctx: click.Context, url: str, auto_discover: bool, automatic: str, discover_depth: int, weight: float | None) -> None:

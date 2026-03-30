@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime
 from typing import Optional
@@ -40,7 +39,6 @@ def add_feed(url: str, weight: float | None = None, feed_meta_data: "FeedMetaDat
     providers = discover(url)
 
     feed_meta = None
-    entries = None
     last_error = None
 
     # If we have metadata with selectors, insert feed first so selectors are available during crawl
@@ -224,7 +222,6 @@ def fetch_one(feed_or_id: str | Feed) -> dict:
         return {"new_articles": 0, "error": f"No provider for {feed.url}"}
 
     provider = providers[0]  # highest priority match
-    provider_name = provider.__class__.__name__.replace("Provider", "")
 
     # Crawl using the discovered provider
     try:

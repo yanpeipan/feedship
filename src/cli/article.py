@@ -1,4 +1,4 @@
-"""Article management commands for RSS reader CLI."""
+"""Article management commands for Radar CLI."""
 
 import sys
 import platform
@@ -9,7 +9,7 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from src.application.articles import get_article_detail, list_articles, search_articles, ArticleListItem
+from src.application.articles import get_article_detail, list_articles, ArticleListItem
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +62,16 @@ def print_articles(items: list[ArticleListItem]) -> None:
 
 def open_in_browser(url: str) -> None:
     system = platform.system()
-    if system == "Darwin": subprocess.run(["open", url])
-    elif system == "Linux": subprocess.run(["xdg-open", url])
-    elif system == "Windows": subprocess.run(["start", "", url], shell=True)
-    else: raise RuntimeError(f"Unsupported platform: {system}")
+    if system == "Darwin":
+        subprocess.run(["open", url])
+    elif system == "Linux":
+        subprocess.run(["xdg-open", url])
+    elif system == "Windows":
+        subprocess.run(["start", "", url], shell=True)
+    else:
+        raise RuntimeError(f"Unsupported platform: {system}")
 
-from src.cli import cli
+from src.cli import cli  # noqa: E402
 
 @cli.group()
 @click.pass_context
@@ -91,7 +95,8 @@ def article_list(ctx: click.Context, limit: int, feed_id: Optional[str], since: 
         print_articles(articles)
     except Exception as e:
         click.secho(f"Error: Failed to list articles: {e}", err=True, fg="red")
-        logger.exception("Failed to list articles"); sys.exit(1)
+        logger.exception("Failed to list articles")
+        sys.exit(1)
 
 @article.command("view")
 @click.argument("article_id")
@@ -99,7 +104,9 @@ def article_list(ctx: click.Context, limit: int, feed_id: Optional[str], since: 
 def article_view(ctx: click.Context, article_id: str) -> None:
     try:
         article = get_article_detail(article_id)
-        if not article: click.secho(f"Article not found: {article_id}", fg="red"); sys.exit(1)
+        if not article:
+            click.secho(f"Article not found: {article_id}", fg="red")
+            sys.exit(1)
         console = Console()
         meta_table = Table(show_header=False, box=None)
         meta_table.add_row("Source:", article["feed_name"] or "Unknown")
@@ -115,12 +122,14 @@ def article_view(ctx: click.Context, article_id: str) -> None:
         title = article["title"] or "No title"
         console.print(Panel(meta_table, title=title, subtitle=f"{article['feed_name']} | {_format_date(article['pub_date'])}"))
         if article["content"]:
-            console.print(); console.print(article["content"])
+            console.print()
+            console.print(article["content"])
         else:
             console.print(Panel("[dim]No content available[/dim]", border_style="yellow"))
     except Exception as e:
         click.secho(f"Error: Failed to view article: {e}", err=True, fg="red")
-        logger.exception("Failed to view article"); sys.exit(1)
+        logger.exception("Failed to view article")
+        sys.exit(1)
 
 @article.command("open")
 @click.argument("article_id")
@@ -128,15 +137,22 @@ def article_view(ctx: click.Context, article_id: str) -> None:
 def article_open(ctx: click.Context, article_id: str) -> None:
     try:
         article = get_article_detail(article_id)
-        if not article: click.secho(f"Article not found: {article_id}", fg="red"); sys.exit(1)
+        if not article:
+            click.secho(f"Article not found: {article_id}", fg="red")
+            sys.exit(1)
         link = article.get("link")
-        if not link: click.secho("No link available for this article", fg="red"); sys.exit(1)
-        open_in_browser(link); click.secho(f"Opened {link} in browser", fg="green")
+        if not link:
+            click.secho("No link available for this article", fg="red")
+            sys.exit(1)
+        open_in_browser(link)
+        click.secho(f"Opened {link} in browser", fg="green")
     except RuntimeError as e:
-        click.secho(f"Error: {e}", err=True, fg="red"); sys.exit(1)
+        click.secho(f"Error: {e}", err=True, fg="red")
+        sys.exit(1)
     except Exception as e:
         click.secho(f"Error: Failed to open article: {e}", err=True, fg="red")
-        logger.exception("Failed to open article"); sys.exit(1)
+        logger.exception("Failed to open article")
+        sys.exit(1)
 
 
 @cli.command("search")
@@ -182,7 +198,8 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: Optional
         print_articles(articles)
     except Exception as e:
         click.secho(f"Search unavailable: {e}.", err=True, fg="yellow")
-        logger.exception("Failed to search articles"); sys.exit(1)
+        logger.exception("Failed to search articles")
+        sys.exit(1)
 
 @article.command("related")
 @click.argument("article-id")
@@ -196,4 +213,5 @@ def article_related(ctx: click.Context, article_id: str, limit: int) -> None:
         print_articles(articles)
     except Exception as e:
         click.secho(f"Error: Failed to find related articles: {e}", err=True, fg="red")
-        logger.exception("Failed to find related articles"); sys.exit(1)
+        logger.exception("Failed to find related articles")
+        sys.exit(1)

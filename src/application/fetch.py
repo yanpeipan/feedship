@@ -9,11 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional
-
 from src.application.feed import FeedNotFoundError, fetch_one, get_feed
 from src.application.config import get_timezone
-from src.models import Feed, FeedType, FeedMetaData
+from src.models import Feed, FeedType
 from src.providers import match_first
 from src.storage import list_feeds as storage_list_feeds, update_feed as storage_update_feed
 from src.utils import generate_article_id
