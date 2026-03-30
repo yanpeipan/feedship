@@ -1,4 +1,5 @@
 """Integration tests for CLI commands using CliRunner."""
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -39,11 +40,17 @@ class TestFeedCommands:
         monkeypatch.setattr("src.cli.feed.discover_feeds", mock_discover_feeds)
 
         # Use 'a' to select all feeds automatically
-        result = cli_runner.invoke(cli, ['feed', 'add', '--no-auto-discover', 'https://example.com/feed.xml'], input='a\n')
+        result = cli_runner.invoke(
+            cli,
+            ["feed", "add", "--no-auto-discover", "https://example.com/feed.xml"],
+            input="a\n",
+        )
         assert result.exit_code == 0
-        assert 'Added' in result.output
+        assert "Added" in result.output
 
-    def test_feed_add_duplicate_returns_error(self, cli_runner, initialized_db, monkeypatch):
+    def test_feed_add_duplicate_returns_error(
+        self, cli_runner, initialized_db, monkeypatch
+    ):
         """feed add with duplicate URL returns exit code 1."""
         from src.discovery.models import DiscoveredFeed, DiscoveredResult
 
@@ -69,18 +76,26 @@ class TestFeedCommands:
         monkeypatch.setattr("src.cli.feed.discover_feeds", mock_discover_feeds)
 
         # Add feed first
-        cli_runner.invoke(cli, ['feed', 'add', '--no-auto-discover', 'https://example.com/dup.xml'], input='a\n')
+        cli_runner.invoke(
+            cli,
+            ["feed", "add", "--no-auto-discover", "https://example.com/dup.xml"],
+            input="a\n",
+        )
         # Try to add same URL again - duplicate is updated silently (upsert behavior)
-        result = cli_runner.invoke(cli, ['feed', 'add', '--no-auto-discover', 'https://example.com/dup.xml'], input='a\n')
+        result = cli_runner.invoke(
+            cli,
+            ["feed", "add", "--no-auto-discover", "https://example.com/dup.xml"],
+            input="a\n",
+        )
         # Duplicate is handled gracefully as an update
         assert result.exit_code == 0
-        assert 'updated' in result.output.lower()
+        assert "updated" in result.output.lower()
 
     def test_feed_list_empty(self, cli_runner, initialized_db):
         """feed list with no feeds outputs 'No feeds subscribed'."""
-        result = cli_runner.invoke(cli, ['feed', 'list'])
+        result = cli_runner.invoke(cli, ["feed", "list"])
         assert result.exit_code == 0
-        assert 'No feeds subscribed' in result.output
+        assert "No feeds subscribed" in result.output
 
     def test_feed_list_with_feeds(self, cli_runner, initialized_db):
         """feed list shows feed names when feeds exist."""
@@ -106,10 +121,10 @@ class TestFeedCommands:
         add_feed(feed1)
         add_feed(feed2)
 
-        result = cli_runner.invoke(cli, ['feed', 'list'])
+        result = cli_runner.invoke(cli, ["feed", "list"])
         assert result.exit_code == 0
-        assert 'Test Feed 1' in result.output
-        assert 'Test Feed 2' in result.output
+        assert "Test Feed 1" in result.output
+        assert "Test Feed 2" in result.output
 
     def test_feed_remove_success(self, cli_runner, initialized_db, monkeypatch):
         """feed remove <id> removes feed and outputs 'Removed feed'."""
@@ -137,20 +152,25 @@ class TestFeedCommands:
         monkeypatch.setattr("src.cli.feed.discover_feeds", mock_discover_feeds)
 
         # Add feed first
-        cli_runner.invoke(cli, ['feed', 'add', '--no-auto-discover', 'https://example.com/remove.xml'], input='a\n')
+        cli_runner.invoke(
+            cli,
+            ["feed", "add", "--no-auto-discover", "https://example.com/remove.xml"],
+            input="a\n",
+        )
         # Get the feed ID from the database
         from src.storage.sqlite import list_feeds
+
         feeds = list_feeds()
         feed_id = feeds[0].id if feeds else None
-        result = cli_runner.invoke(cli, ['feed', 'remove', feed_id])
+        result = cli_runner.invoke(cli, ["feed", "remove", feed_id])
         assert result.exit_code == 0
-        assert 'Removed feed' in result.output
+        assert "Removed feed" in result.output
 
     def test_feed_remove_not_found(self, cli_runner, initialized_db):
         """feed remove with non-existent ID returns exit code 1 and 'not found'."""
-        result = cli_runner.invoke(cli, ['feed', 'remove', 'non-existent-id'])
+        result = cli_runner.invoke(cli, ["feed", "remove", "non-existent-id"])
         assert result.exit_code == 1
-        assert 'not found' in result.output.lower()
+        assert "not found" in result.output.lower()
 
 
 class TestArticleCommands:
@@ -158,9 +178,9 @@ class TestArticleCommands:
 
     def test_article_list_empty(self, cli_runner, initialized_db):
         """article list with no articles outputs 'No articles found'."""
-        result = cli_runner.invoke(cli, ['article', 'list'])
+        result = cli_runner.invoke(cli, ["article", "list"])
         assert result.exit_code == 0
-        assert 'No articles found' in result.output
+        assert "No articles found" in result.output
 
     def test_article_list_with_articles(self, cli_runner, initialized_db):
         """article list shows article title when articles exist."""
@@ -184,9 +204,9 @@ class TestArticleCommands:
             pub_date="2024-01-15T10:00:00+00:00",
         )
 
-        result = cli_runner.invoke(cli, ['article', 'list'])
+        result = cli_runner.invoke(cli, ["article", "list"])
         assert result.exit_code == 0
-        assert 'Article List Test Title' in result.output
+        assert "Article List Test Title" in result.output
 
     def test_article_view_success(self, cli_runner, initialized_db):
         """article view <id> shows article detail with title."""
@@ -210,15 +230,15 @@ class TestArticleCommands:
             pub_date="2024-01-15T10:00:00+00:00",
         )
 
-        result = cli_runner.invoke(cli, ['article', 'view', article_id[:8]])
+        result = cli_runner.invoke(cli, ["article", "view", article_id[:8]])
         assert result.exit_code == 0
-        assert 'Article View Test Title' in result.output
+        assert "Article View Test Title" in result.output
 
     def test_article_view_not_found(self, cli_runner, initialized_db):
         """article view with non-existent ID returns exit code 1 and 'not found'."""
-        result = cli_runner.invoke(cli, ['article', 'view', 'non-existent-id'])
+        result = cli_runner.invoke(cli, ["article", "view", "non-existent-id"])
         assert result.exit_code == 1
-        assert 'not found' in result.output.lower()
+        assert "not found" in result.output.lower()
 
     def test_article_search_found(self, cli_runner, initialized_db):
         """search <query> shows article title when matches found."""
@@ -242,22 +262,24 @@ class TestArticleCommands:
             pub_date="2024-01-15T10:00:00+00:00",
         )
 
-        result = cli_runner.invoke(cli, ['search', 'Python'])
+        result = cli_runner.invoke(cli, ["search", "Python"])
         assert result.exit_code == 0
-        assert 'Python Tutorial Article' in result.output
+        assert "Python Tutorial Article" in result.output
 
     def test_article_search_not_found(self, cli_runner, initialized_db):
         """search with no matches outputs 'No articles found'."""
         # Use query without hyphens since FTS5 interprets hyphens as exclusion operators
-        result = cli_runner.invoke(cli, ['search', 'nonexistent query xyz'])
+        result = cli_runner.invoke(cli, ["search", "nonexistent query xyz"])
         assert result.exit_code == 0
-        assert 'No articles found' in result.output
+        assert "No articles found" in result.output
 
 
 class TestFeedDiscovery:
     """Tests for feed discovery functionality."""
 
-    def test_feed_add_openai_discovers_news_rss(self, cli_runner, initialized_db, monkeypatch):
+    def test_feed_add_openai_discovers_news_rss(
+        self, cli_runner, initialized_db, monkeypatch
+    ):
         """feed add https://openai.com discovers news/rss.xml via CSS selector discovery."""
         from src.discovery.models import DiscoveredFeed, DiscoveredResult
 
@@ -291,12 +313,16 @@ class TestFeedDiscovery:
 
         monkeypatch.setattr("src.cli.feed.discover_feeds", mock_discover_feeds)
 
-        result = cli_runner.invoke(cli, ['feed', 'add', 'https://openai.com'], input='c\n')
+        result = cli_runner.invoke(
+            cli, ["feed", "add", "https://openai.com"], input="c\n"
+        )
         assert result.exit_code == 0
-        assert 'news/rss.xml' in result.output
-        assert 'Discovered 2 feed' in result.output
+        assert "news/rss.xml" in result.output
+        assert "Discovered 2 feed" in result.output
 
-    def test_feed_add_github_cli_discovers_release_feed(self, cli_runner, initialized_db, monkeypatch):
+    def test_feed_add_github_cli_discovers_release_feed(
+        self, cli_runner, initialized_db, monkeypatch
+    ):
         """feed add https://github.com/cli/cli discovers GitHubReleaseProvider feed."""
         from src.discovery.models import DiscoveredFeed, DiscoveredResult
 
@@ -322,10 +348,12 @@ class TestFeedDiscovery:
 
         monkeypatch.setattr("src.cli.feed.discover_feeds", mock_discover_feeds)
 
-        result = cli_runner.invoke(cli, ['feed', 'add', 'https://github.com/cli/cli'], input='c\n')
+        result = cli_runner.invoke(
+            cli, ["feed", "add", "https://github.com/cli/cli"], input="c\n"
+        )
         assert result.exit_code == 0
-        assert 'github.com/cli/cli' in result.output
-        assert 'Discovered 1 feed' in result.output
+        assert "github.com/cli/cli" in result.output
+        assert "Discovered 1 feed" in result.output
 
 
 class TestFetchCommands:
@@ -333,9 +361,9 @@ class TestFetchCommands:
 
     def test_fetch_all_empty(self, cli_runner, initialized_db):
         """fetch --all with no feeds outputs 'No feeds subscribed'."""
-        result = cli_runner.invoke(cli, ['fetch', '--all'])
+        result = cli_runner.invoke(cli, ["fetch", "--all"])
         assert result.exit_code == 0
-        assert 'No feeds subscribed' in result.output
+        assert "No feeds subscribed" in result.output
 
     def test_fetch_all_with_feeds(self, cli_runner, initialized_db):
         """fetch --all with feeds invokes fetch_all_async and shows results."""
@@ -363,13 +391,21 @@ class TestFetchCommands:
 
         # Mock fetch_all_async to return a generator yielding results
         async def mock_fetch_all_async(concurrency=10):
-            yield {"feed_id": "fetch-all-feed-1", "feed_name": "Fetch All Feed 1", "new_articles": 2}
-            yield {"feed_id": "fetch-all-feed-2", "feed_name": "Fetch All Feed 2", "new_articles": 0}
+            yield {
+                "feed_id": "fetch-all-feed-1",
+                "feed_name": "Fetch All Feed 1",
+                "new_articles": 2,
+            }
+            yield {
+                "feed_id": "fetch-all-feed-2",
+                "feed_name": "Fetch All Feed 2",
+                "new_articles": 0,
+            }
 
         with patch("src.application.fetch.fetch_all_async", mock_fetch_all_async):
-            result = cli_runner.invoke(cli, ['fetch', '--all'])
+            result = cli_runner.invoke(cli, ["fetch", "--all"])
         assert result.exit_code == 0
-        assert 'Fetched' in result.output
+        assert "Fetched" in result.output
 
     def test_fetch_single_by_id(self, cli_runner, initialized_db):
         """fetch <feed_id> fetches single feed and shows article count."""
@@ -385,16 +421,19 @@ class TestFetchCommands:
         )
         add_feed(feed)
 
-        with patch("src.application.fetch.fetch_one_async_by_id", return_value={"new_articles": 1}):
-            result = cli_runner.invoke(cli, ['fetch', 'fetch-single-feed'])
+        with patch(
+            "src.application.fetch.fetch_one_async_by_id",
+            return_value={"new_articles": 1},
+        ):
+            result = cli_runner.invoke(cli, ["fetch", "fetch-single-feed"])
         assert result.exit_code == 0
-        assert 'Fetched 1' in result.output
+        assert "Fetched 1" in result.output
 
     def test_fetch_single_by_id_not_found(self, cli_runner, initialized_db):
         """fetch with non-existent ID returns exit code 1 and 'not found'."""
-        result = cli_runner.invoke(cli, ['fetch', 'nonexistent-id'])
+        result = cli_runner.invoke(cli, ["fetch", "nonexistent-id"])
         assert result.exit_code == 1
-        assert 'not found' in result.output.lower()
+        assert "not found" in result.output.lower()
 
     def test_fetch_multiple_ids(self, cli_runner, initialized_db):
         """fetch <id1> <id2> fetches multiple feeds."""
@@ -426,7 +465,9 @@ class TestFetchCommands:
             yield {"feed_id": "fetch-multi-feed-2", "new_articles": 2}
 
         with patch("src.application.fetch.fetch_ids_async", mock_fetch_ids_async):
-            result = cli_runner.invoke(cli, ['fetch', 'fetch-multi-feed-1', 'fetch-multi-feed-2'])
+            result = cli_runner.invoke(
+                cli, ["fetch", "fetch-multi-feed-1", "fetch-multi-feed-2"]
+            )
         assert result.exit_code == 0
 
 
@@ -457,9 +498,9 @@ class TestDiscoverCommands:
             return mock_result
 
         with patch("src.cli.discover.discover_feeds", mock_discover_feeds):
-            result = cli_runner.invoke(cli, ['discover', 'https://example.com'])
+            result = cli_runner.invoke(cli, ["discover", "https://example.com"])
         assert result.exit_code == 0
-        assert 'feed.xml' in result.output
+        assert "feed.xml" in result.output
 
     def test_discover_no_feeds(self, cli_runner, initialized_db):
         """discover <url> with no feeds outputs 'No feeds discovered'."""
@@ -476,6 +517,6 @@ class TestDiscoverCommands:
             return mock_result
 
         with patch("src.cli.discover.discover_feeds", mock_discover_feeds):
-            result = cli_runner.invoke(cli, ['discover', 'https://no-feeds.com'])
+            result = cli_runner.invoke(cli, ["discover", "https://no-feeds.com"])
         assert result.exit_code == 0
-        assert 'No feeds discovered' in result.output
+        assert "No feeds discovered" in result.output

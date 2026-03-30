@@ -3,6 +3,7 @@
 Handles feed fetching and parsing for standard RSS/Atom feeds.
 Priority is 50 (higher than DefaultProvider at 0, lower than GitHubReleaseProvider at 200).
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,14 +17,15 @@ from src.providers import PROVIDERS
 from src.providers.base import Article, FetchedResult
 
 if TYPE_CHECKING:
+    from scrapling import Selector
     from scrapling.engines.toolbelt.custom import Response
 
-    from src.models import FeedType
+    from src.models import Feed, FeedType
 
 logger = logging.getLogger(__name__)
 
 # Browser-like User-Agent header to avoid 403 bot blocks
-from src.constants import BROWSER_HEADERS
+from src.constants import BROWSER_HEADERS  # noqa: E402
 
 
 class RSSProvider:
@@ -73,7 +75,9 @@ class RSSProvider:
         )
         return response
 
-    def match(self, url: str, response: Response = None, feed_type: FeedType = None) -> bool:
+    def match(
+        self, url: str, response: Response = None, feed_type: FeedType = None
+    ) -> bool:
         """Check if URL points to RSS/Atom feed via Content-Type header.
 
         Args:
@@ -90,6 +94,7 @@ class RSSProvider:
         """
         # If feed_type is specified and is not RSS, reject
         from src.models import FeedType
+
         if feed_type is not None and feed_type != FeedType.RSS:
             return False
 
@@ -98,22 +103,18 @@ class RSSProvider:
             if response.status == 403:
                 return True
             # Use response content-type directly (discovery already fetched)
-            content_type = response.headers.get('content-type', '') or ""
+            content_type = response.headers.get("content-type", "") or ""
             if "application/rss" in content_type or "application/atom" in content_type:
                 return True
             if "application/xml" in content_type or "text/xml" in content_type:
                 return True
             # Also match HTML pages to enable feed discovery on webpages
             # This allows RSSProvider to discover feeds on pages like openai.com
-            if "text/html" in content_type:
-                return True
-            return False
+            return "text/html" in content_type
 
         # When response is None, match HTTP URLs to allow feed discovery on any page
         # This enables RSSProvider to discover feeds on webpages like openai.com
-        if url.startswith("http"):
-            return True
-        return False
+        return url.startswith("http")
 
     def priority(self) -> int:
         """Return provider priority.
@@ -135,13 +136,21 @@ class RSSProvider:
             FetchedResult with articles and updated etag/last_modified.
         """
         try:
-            response = self._fetch_feed_content_sync(feed.url, feed.etag, feed.last_modified)
+            response = self._fetch_feed_content_sync(
+                feed.url, feed.etag, feed.last_modified
+            )
             if response.status == 304:
                 logger.info("RSS feed %s returned 304 Not Modified", feed.url)
-                return FetchedResult(articles=[], etag=feed.etag, last_modified=feed.last_modified)
+                return FetchedResult(
+                    articles=[], etag=feed.etag, last_modified=feed.last_modified
+                )
 
             articles = self.parse_articles(response)
-            logger.debug("RSSProvider.fetch_articles(%s) returned %d entries", feed.url, len(articles))
+            logger.debug(
+                "RSSProvider.fetch_articles(%s) returned %d entries",
+                feed.url,
+                len(articles),
+            )
             return FetchedResult(
                 articles=articles,
                 etag=response.headers.get("etag"),
@@ -194,17 +203,21 @@ class RSSProvider:
             content_val = None
             if hasattr(raw, "content") and raw.content:
                 content_val = raw.content[0].value if raw.content else None
-            elif hasattr(raw, "summary_detail") and hasattr(raw.summary_detail, "value"):
+            elif hasattr(raw, "summary_detail") and hasattr(
+                raw.summary_detail, "value"
+            ):
                 content_val = raw.summary_detail.value
 
-            articles.append(Article(
-                title=title,
-                link=link,
-                guid=guid,
-                pub_date=pub_date,
-                description=description,
-                content=content_val,
-            ))
+            articles.append(
+                Article(
+                    title=title,
+                    link=link,
+                    guid=guid,
+                    pub_date=pub_date,
+                    description=description,
+                    content=content_val,
+                )
+            )
         return articles
 
     def parse_feed(self, url: str, response: Response = None) -> DiscoveredFeed:
@@ -259,7 +272,9 @@ class RSSProvider:
                 valid=False,
             )
 
-    def discover(self, url: str, response: Response = None, depth: int = 1) -> list[DiscoveredFeed]:
+    def discover(
+        self, url: str, response: Response = None, depth: int = 1
+    ) -> list[DiscoveredFeed]:
         """Discover feed URLs from a page.
 
         Args:
@@ -280,12 +295,14 @@ class RSSProvider:
 
         # Phase 2: Parse HTML page
         from src.utils.scraping_utils import find_base_href, parse_html_body
+
         html = parse_html_body(response)
         if not html:
             return feeds
 
         # Phase 3: Find <link rel="alternate"> tags
         from scrapling import Selector
+
         page = Selector(content=html)
         base_override = find_base_href(page)
         feeds.extend(self._find_link_alternate_tags(page, url, base_override))
@@ -299,7 +316,9 @@ class RSSProvider:
 
         return feeds
 
-    def _check_feed_content_type(self, url: str, response: Response = None) -> DiscoveredFeed | None:
+    def _check_feed_content_type(
+        self, url: str, response: Response = None
+    ) -> DiscoveredFeed | None:
         """Check if response Content-Type indicates a feed.
 
         Args:
@@ -313,20 +332,29 @@ class RSSProvider:
             return None
 
         from src.discovery.models import DiscoveredFeed
-        content_type = response.headers.get('content-type', '') or ""
-        if any(ft in content_type for ft in ('rss', 'atom', 'rdf', 'xml')):
-            feed_type = 'rss' if 'rss' in content_type else 'atom' if 'atom' in content_type else 'rdf'
+
+        content_type = response.headers.get("content-type", "") or ""
+        if any(ft in content_type for ft in ("rss", "atom", "rdf", "xml")):
+            feed_type = (
+                "rss"
+                if "rss" in content_type
+                else "atom"
+                if "atom" in content_type
+                else "rdf"
+            )
             return DiscoveredFeed(
                 url=url,
                 title=None,
                 feed_type=feed_type,
-                source='RSSProvider',
+                source="RSSProvider",
                 page_url=url,
                 valid=True,
             )
         return None
 
-    def _find_link_alternate_tags(self, page: Selector, url: str, base_override: str | None = None) -> list[DiscoveredFeed]:
+    def _find_link_alternate_tags(
+        self, page: Selector, url: str, base_override: str | None = None
+    ) -> list[DiscoveredFeed]:
         """Find <link rel="alternate"> tags pointing to feeds.
 
         Args:
@@ -342,27 +370,33 @@ class RSSProvider:
 
         feeds: list[DiscoveredFeed] = []
         for link_tag in page.css('link[rel="alternate"]'):
-            href = link_tag.attrib.get('href', '')
+            href = link_tag.attrib.get("href", "")
             if not href:
                 continue
 
-            absolute = urljoin(base_override, href) if base_override else urljoin(url, href)
+            absolute = (
+                urljoin(base_override, href) if base_override else urljoin(url, href)
+            )
             parsed = urlparse(absolute)
             path = parsed.path.lower()
             if not matches_feed_path_pattern(path):
                 continue
 
-            feeds.append(DiscoveredFeed(
-                url=absolute,
-                title=link_tag.attrib.get('title'),
-                feed_type='rss',
-                source='RSSProvider',
-                page_url=url,
-                valid=False,
-            ))
+            feeds.append(
+                DiscoveredFeed(
+                    url=absolute,
+                    title=link_tag.attrib.get("title"),
+                    feed_type="rss",
+                    source="RSSProvider",
+                    page_url=url,
+                    valid=False,
+                )
+            )
         return feeds
 
-    def _find_css_selector_links(self, page: Selector, url: str, base_override: str | None = None) -> list[DiscoveredFeed]:
+    def _find_css_selector_links(
+        self, page: Selector, url: str, base_override: str | None = None
+    ) -> list[DiscoveredFeed]:
         """Find feed links via CSS selectors (a[href*="rss"], a[href*="feed"], etc).
 
         Args:
@@ -390,11 +424,15 @@ class RSSProvider:
         for selector in feed_selectors:
             try:
                 for anchor in page.css(selector):
-                    href = anchor.attrib.get('href', '')
+                    href = anchor.attrib.get("href", "")
                     if not href:
                         continue
 
-                    absolute = urljoin(base_override, href) if base_override else urljoin(url, href)
+                    absolute = (
+                        urljoin(base_override, href)
+                        if base_override
+                        else urljoin(url, href)
+                    )
                     parsed = urlparse(absolute)
 
                     # Skip different hosts
@@ -408,14 +446,16 @@ class RSSProvider:
                     if not matches_feed_path_pattern(path):
                         continue
 
-                    feeds.append(DiscoveredFeed(
-                        url=absolute,
-                        title=None,
-                        feed_type='rss',
-                        source='RSSProvider',
-                        page_url=url,
-                        valid=False,
-                    ))
+                    feeds.append(
+                        DiscoveredFeed(
+                            url=absolute,
+                            title=None,
+                            feed_type="rss",
+                            source="RSSProvider",
+                            page_url=url,
+                            valid=False,
+                        )
+                    )
             except Exception:
                 continue
         return feeds
@@ -458,6 +498,7 @@ def _probe_well_known_paths(url: str, html: str | None) -> list[DiscoveredFeed]:
                 pass
 
     return results
+
 
 # Register this provider - it will be sorted by priority() after all modules load
 PROVIDERS.append(RSSProvider())

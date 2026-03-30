@@ -1,10 +1,12 @@
 """Application configuration loaded from config.yaml via dynaconf."""
+
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from dynaconf import Dynaconf
 
 _settings: Dynaconf | None = None
+
 
 def _get_settings() -> Dynaconf:
     global _settings

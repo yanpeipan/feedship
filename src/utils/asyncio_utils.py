@@ -2,6 +2,7 @@
 
 Provides install_uvloop() for event loop setup following uvloop best practices.
 """
+
 from __future__ import annotations
 
 import logging

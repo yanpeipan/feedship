@@ -17,6 +17,7 @@ class LinkSelector:
         text: The text content of the example link.
         count: Number of links matching this selector.
     """
+
     path: str
     link: str
     text: str
@@ -33,6 +34,7 @@ class DiscoveredResult:
         feeds: List of discovered feeds.
         selectors: Dict mapping path prefix to Selector with path, link, text, count (for max_depth=1).
     """
+
     url: str
     max_depth: int
     feeds: list[DiscoveredFeed] = field(default_factory=list)
@@ -52,6 +54,7 @@ class DiscoveredFeed:
         valid: Whether the feed has been validated (True) or is unverified (False).
         metadata: Optional provider-specific metadata (e.g., path selectors).
     """
+
     url: str
     title: str | None
     feed_type: str  # 'rss', 'atom', or 'rdf'

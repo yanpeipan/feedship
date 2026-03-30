@@ -2,6 +2,7 @@
 
 Defines the ContentProvider protocol that all providers must implement.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,12 +17,13 @@ if TYPE_CHECKING:
 # Forward declarations for Article and Raw types
 # Raw will be defined by concrete providers based on their crawl() return type
 Article = dict  # Using dict for flexibility; concrete providers define structure
-Raw = dict      # Raw crawl result
+Raw = dict  # Raw crawl result
 
 
 @dataclass
 class FetchedResult:
     """Result of a fetch operation, including feed metadata for conditional fetching."""
+
     articles: list[Article]
     etag: str | None = None
     last_modified: str | None = None
@@ -39,7 +41,9 @@ class ContentProvider(Protocol):
     allows isinstance() checks for protocol conformance.
     """
 
-    def match(self, url: str, response: Response = None, feed_type: FeedType = None) -> bool:
+    def match(
+        self, url: str, response: Response = None, feed_type: FeedType = None
+    ) -> bool:
         """Return True if this provider handles the URL.
 
         Args:
@@ -96,7 +100,9 @@ class ContentProvider(Protocol):
         """
         ...
 
-    def discover(self, url: str, response: Response = None, depth: int = 1) -> list[DiscoveredFeed]:
+    def discover(
+        self, url: str, response: Response = None, depth: int = 1
+    ) -> list[DiscoveredFeed]:
         """Discover feed URLs from a page.
 
         Args:

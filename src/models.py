@@ -11,6 +11,7 @@ from enum import Enum
 
 class FeedType(Enum):
     """Enum for feed types, used to route to the correct provider."""
+
     RSS = "rss"
     GITHUB_RELEASE = "github_release"
 
@@ -49,12 +50,14 @@ class FeedMetaData:
         selectors: Optional list of path prefix filters for WebpageProvider.
         feed_type: Optional feed type ('rss', 'atom', 'rdf', 'webpage', 'github_release').
     """
+
     selectors: list[str] | None = None
     feed_type: str | None = None
 
     def to_json(self) -> str:
         """Serialize to JSON string, excluding None values."""
         import json
+
         data = {k: v for k, v in self.__dict__.items() if v is not None}
         return json.dumps(data) if data else None
 

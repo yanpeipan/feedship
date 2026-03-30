@@ -104,7 +104,9 @@ def discover(ctx: click.Context, url: str, discover_depth: int) -> None:
         elapsed = time.time() - start_time
         _display_feeds(feeds)
         if feeds:
-            click.secho(f"Discovered {len(feeds)} feed(s) in {elapsed:.1f}s", fg="green")
+            click.secho(
+                f"Discovered {len(feeds)} feed(s) in {elapsed:.1f}s", fg="green"
+            )
     except Exception as e:
         click.secho(f"Error: {e}", err=True, fg="red")
         sys.exit(1)

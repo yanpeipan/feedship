@@ -9,6 +9,7 @@ Strategy:
   3. Apply path filters from feed metadata (if set)
   4. Extract content with Trafilatura
 """
+
 from __future__ import annotations
 
 import json
@@ -24,15 +25,13 @@ from src.providers.base import Article, FetchedResult, Raw
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
 
-    from src.models import FeedType
+    from src.models import Feed, FeedType
 
 logger = logging.getLogger(__name__)
 
 
-
-
-
 # ── Link discovery (generic fallback) ─────────────────────────────────────────
+
 
 def _root_domain(domain: str) -> str:
     """Return root domain, e.g. 'example.com' from 'www.example.com'."""
@@ -72,6 +71,7 @@ def _discover_links(root, page_url: str) -> list[tuple[str, int]]:
 
 # ── Path analysis for link filtering ─────────────────────────────────────────
 
+
 def _analyze_link_paths(url: str, limit: int = 15) -> dict[str, int]:
     """Analyze all links on a page and return path patterns with their counts.
 
@@ -99,7 +99,11 @@ def _analyze_link_paths(url: str, limit: int = 15) -> dict[str, int]:
     except Exception:
         return {}
 
-    body = r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
+    body = (
+        r.body.decode("utf-8", errors="replace")
+        if isinstance(r.body, bytes)
+        else str(r.body)
+    )
     root = Selector(body)
 
     path_counts: dict[str, int] = {}
@@ -168,11 +172,13 @@ def _load_feed_selectors(url: str) -> list[str]:
         List of path filter prefixes, or empty list if none found.
     """
     import json
+
     try:
         import sqlite3
 
         from src.models import FeedMetaData
         from src.storage.sqlite.impl import get_db_path
+
         conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         cursor.execute("SELECT metadata FROM feeds WHERE url = ?", (url,))
@@ -189,6 +195,7 @@ def _load_feed_selectors(url: str) -> list[str]:
 
 # ── Main provider ─────────────────────────────────────────────────────────────
 
+
 class WebpageProvider:
     """Generic web page provider using DynamicFetcher + Trafilatura.
 
@@ -198,7 +205,9 @@ class WebpageProvider:
     def __init__(self) -> None:
         self._df_initialized = False
 
-    def match(self, url: str, response: Response = None, feed_type: FeedType = None) -> bool:
+    def match(
+        self, url: str, response: Response = None, feed_type: FeedType = None
+    ) -> bool:
         """Check if URL is a webpage (not a direct feed URL).
 
         Args:
@@ -212,10 +221,20 @@ class WebpageProvider:
         if not url.startswith("http"):
             return False
         lower = url.lower()
-        if any(ext in lower for ext in (".rss", ".atom", "/feed", "/feed.xml",
-                                         "/atom.xml", "/rss.xml", "/index.xml")):
+        if any(
+            ext in lower
+            for ext in (
+                ".rss",
+                ".atom",
+                "/feed",
+                "/feed.xml",
+                "/atom.xml",
+                "/rss.xml",
+                "/index.xml",
+            )
+        ):
             return False
-        return False # 功能还不完善，暂时关闭匹配
+        return False  # 功能还不完善，暂时关闭匹配
 
     def priority(self) -> int:
         return 100
@@ -223,6 +242,7 @@ class WebpageProvider:
     def _df(self):
         if not self._df_initialized:
             from scrapling import DynamicFetcher
+
             self._DynamicFetcher = DynamicFetcher
             self._df_initialized = True
         return self._DynamicFetcher
@@ -251,7 +271,11 @@ class WebpageProvider:
         except Exception:
             return []
 
-        body = r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
+        body = (
+            r.body.decode("utf-8", errors="replace")
+            if isinstance(r.body, bytes)
+            else str(r.body)
+        )
         root = Selector(body)
 
         scored_links = _discover_links(root, url)
@@ -264,7 +288,9 @@ class WebpageProvider:
             link_urls = [path for path, _ in scored_links]
             filtered_urls = _filter_links_by_paths(link_urls, selectors)
             filtered_set = set(filtered_urls)
-            filtered_links = [(path, score) for path, score in scored_links if path in filtered_set]
+            filtered_links = [
+                (path, score) for path, score in scored_links if path in filtered_set
+            ]
             # Fallback: if filtering removes all links, use unfiltered
             scored_links = filtered_links if filtered_links else scored_links
 
@@ -289,6 +315,7 @@ class WebpageProvider:
 
             try:
                 import json
+
                 data = json.loads(result) if isinstance(result, str) else result
             except (json.JSONDecodeError, TypeError):
                 continue
@@ -301,15 +328,17 @@ class WebpageProvider:
             if not text or len(text) < 100:
                 continue
 
-            results.append({
-                "title": title,
-                "link": article_url,
-                "pub_date": date or datetime.now().strftime("%Y-%m-%d"),
-                "tags": [],
-                "description": (description or "")[:500] if description else None,
-                "content": text,
-                "source_url": article_url,
-            })
+            results.append(
+                {
+                    "title": title,
+                    "link": article_url,
+                    "pub_date": date or datetime.now().strftime("%Y-%m-%d"),
+                    "tags": [],
+                    "description": (description or "")[:500] if description else None,
+                    "content": text,
+                    "source_url": article_url,
+                }
+            )
 
         return results
 
@@ -317,24 +346,35 @@ class WebpageProvider:
         Fetcher = self._df()
         try:
             r = Fetcher().fetch(url, timeout=30000)
-            return r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
+            return (
+                r.body.decode("utf-8", errors="replace")
+                if isinstance(r.body, bytes)
+                else str(r.body)
+            )
         except Exception:
             return None
 
     def parse_articles(self, entries: list[Raw]) -> list[Article]:
         from src.utils import generate_article_id
+
         articles = []
         for raw in entries:
             title = raw.get("title")
             link = raw.get("link")
-            guid = generate_article_id(raw) if not link else link
+            guid = link if link else generate_article_id(raw)
             pub_date = raw.get("pub_date")
             description = raw.get("description")
             content = raw.get("content") or raw.get("description")
-            articles.append(Article(
-                title=title, link=link, guid=guid,
-                pub_date=pub_date, description=description, content=content,
-            ))
+            articles.append(
+                Article(
+                    title=title,
+                    link=link,
+                    guid=guid,
+                    pub_date=pub_date,
+                    description=description,
+                    content=content,
+                )
+            )
         return articles
 
     def parse_feed(self, url: str, response: Response = None) -> DiscoveredFeed:
@@ -370,12 +410,21 @@ class WebpageProvider:
         # Fallback: use page <title>
         if not title:
             from scrapling import Selector
+
             try:
                 r = self._df()().fetch(url, timeout=30000)
-                body = r.body.decode("utf-8", errors="replace") if isinstance(r.body, bytes) else str(r.body)
+                body = (
+                    r.body.decode("utf-8", errors="replace")
+                    if isinstance(r.body, bytes)
+                    else str(r.body)
+                )
                 root = Selector(body)
                 title_els = root.css("title")
-                title = title_els[0].text.strip() if title_els and title_els[0].text else url
+                title = (
+                    title_els[0].text.strip()
+                    if title_els and title_els[0].text
+                    else url
+                )
                 title = re.sub(r"\s*[-–|]\s*[^-|]+$", "", title).strip()
             except Exception:
                 title = url
@@ -389,7 +438,9 @@ class WebpageProvider:
             valid=False,  # Webpage is not a feed, just discovered page
         )
 
-    def discover(self, url: str, response: Response = None, depth: int = 1) -> list[DiscoveredFeed]:
+    def discover(
+        self, url: str, response: Response = None, depth: int = 1
+    ) -> list[DiscoveredFeed]:
         """Discover feed URLs - WebpageProvider is a fallback, no discovery needed.
 
         Args:
@@ -401,5 +452,6 @@ class WebpageProvider:
             Empty list - WebpageProvider doesn't discover additional feeds.
         """
         return []
+
 
 PROVIDERS.append(WebpageProvider())

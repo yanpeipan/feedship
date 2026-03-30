@@ -1,4 +1,5 @@
 """Well-known feed URL paths for fallback probing (DISC-02)."""
+
 from __future__ import annotations
 
 import re
@@ -14,6 +15,7 @@ _ROOT_PATH_PATTERNS = (
     "/index.xml",
 )
 
+
 def generate_feed_candidates(base_url: str, _html: str | None = None) -> list[str]:
     """Generate candidate feed URLs from base URL.
 
@@ -28,6 +30,7 @@ def generate_feed_candidates(base_url: str, _html: str | None = None) -> list[st
         List of candidate feed URLs including root-level and subdirectory paths.
     """
     from urllib.parse import urlparse
+
     parsed = urlparse(base_url)
     base = f"{parsed.scheme}://{parsed.netloc}"
     if parsed.port:
@@ -74,6 +77,6 @@ def matches_feed_path_pattern(path: str) -> bool:
 
 
 # Feed MIME types from trafilatura (DISC-04)
-from trafilatura.feeds import FEED_TYPES
+from trafilatura.feeds import FEED_TYPES  # noqa: E402
 
 FEED_CONTENT_TYPES: tuple[str, ...] = tuple(FEED_TYPES)

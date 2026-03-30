@@ -34,6 +34,7 @@ async def fetch_one_async(feed: Feed) -> dict:
     feed_type = None
     if feed.metadata:
         import json
+
         try:
             meta = json.loads(feed.metadata)
             if meta.get("feed_type"):
@@ -57,8 +58,11 @@ async def fetch_one_async(feed: Feed) -> dict:
 
     # Always update feed metadata after successful crawl (persists etag/last_modified even on 304)
     from datetime import datetime
+
     now = datetime.now(get_timezone()).isoformat()
-    storage_update_feed(feed.id, now, etag=result.etag, last_modified=result.last_modified)
+    storage_update_feed(
+        feed.id, now, etag=result.etag, last_modified=result.last_modified
+    )
 
     if not articles:
         return {"new_articles": 0}
@@ -66,14 +70,16 @@ async def fetch_one_async(feed: Feed) -> dict:
     parsed_articles = []
     for article in articles:
         article_guid = article.get("guid") or generate_article_id(article)
-        parsed_articles.append({
-            "guid": article_guid,
-            "title": article.get("title") or "",
-            "content": article.get("content") or article.get("description") or "",
-            "link": article.get("link") or "",
-            "feed_id": feed.id,
-            "pub_date": article.get("pub_date"),
-        })
+        parsed_articles.append(
+            {
+                "guid": article_guid,
+                "title": article.get("title") or "",
+                "content": article.get("content") or article.get("description") or "",
+                "link": article.get("link") or "",
+                "feed_id": feed.id,
+                "pub_date": article.get("pub_date"),
+            }
+        )
 
     if not parsed_articles:
         return {"new_articles": 0}
@@ -81,7 +87,10 @@ async def fetch_one_async(feed: Feed) -> dict:
     # Batch upsert all articles in one transaction
     try:
         from src.storage.sqlite.impl import upsert_articles_async
-        article_id_map = await upsert_articles_async(parsed_articles)  # list of (article_id, guid)
+
+        article_id_map = await upsert_articles_async(
+            parsed_articles
+        )  # list of (article_id, guid)
         new_count = len(article_id_map)
     except Exception as e:
         logger.warning("Failed to store articles for feed %s: %s", feed.id, e)
@@ -91,18 +100,21 @@ async def fetch_one_async(feed: Feed) -> dict:
     if new_count > 0:
         try:
             from src.storage.vector import add_article_embeddings
+
             # Build article dicts for batch embedding
             guid_to_article = {a["guid"]: a for a in parsed_articles}
             embedding_articles = []
             for article_id, guid in article_id_map:
                 a = guid_to_article[guid]
-                embedding_articles.append({
-                    "article_id": article_id,
-                    "title": a["title"],
-                    "content": a["content"],
-                    "url": a["link"],
-                    "pub_date": a["pub_date"],
-                })
+                embedding_articles.append(
+                    {
+                        "article_id": article_id,
+                        "title": a["title"],
+                        "content": a["content"],
+                        "url": a["link"],
+                        "pub_date": a["pub_date"],
+                    }
+                )
             await asyncio.to_thread(add_article_embeddings, embedding_articles)
         except Exception as e:
             logger.warning("Failed to add embeddings for feed %s: %s", feed.id, e)
@@ -149,7 +161,9 @@ async def fetch_all_async(concurrency: int = 10):
             "feed_id": feed.id,
             "feed_name": feed.name,
             "new_articles": result.get("new_articles", 0),
-            "error": result.get("error") if result.get("new_articles", 0) == 0 else None,
+            "error": result.get("error")
+            if result.get("new_articles", 0) == 0
+            else None,
         }
 
 

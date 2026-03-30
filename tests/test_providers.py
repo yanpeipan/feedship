@@ -6,6 +6,7 @@ Test Conventions (from Phase 26):
 3. HTTP MOCKING WITH httpx_mock - use pytest-httpx's httpx_mock fixture for HTTP requests
 4. CLI TESTING WITH CliRunner
 """
+
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -17,12 +18,14 @@ from src.models import Feed
 # RSSProvider Tests
 # =============================================================================
 
+
 class TestRSSProvider:
     """Tests for RSSProvider public interface."""
 
     def test_rss_provider_priority(self):
         """Verify priority() returns 50."""
         from src.providers.rss_provider import RSSProvider
+
         provider = RSSProvider()
         assert provider.priority() == 50
 
@@ -153,15 +156,24 @@ class TestRSSProvider:
         mock_feed.feed = {"title": "Test Feed"}
         mock_feed.entries = [mock_entry1, mock_entry2]
 
-        with patch("scrapling.Fetcher.get", return_value=mock_response):
-            with patch("src.providers.rss_provider.feedparser.parse", return_value=mock_feed):
-                provider = RSSProvider()
-                feed = Feed(id="test", name="Test", url="https://example.com/feed.xml", created_at="2024-01-01T00:00:00")
-                result = provider.fetch_articles(feed)
+        with (
+            patch("scrapling.Fetcher.get", return_value=mock_response),
+            patch(
+                "src.providers.rss_provider.feedparser.parse", return_value=mock_feed
+            ),
+        ):
+            provider = RSSProvider()
+            feed = Feed(
+                id="test",
+                name="Test",
+                url="https://example.com/feed.xml",
+                created_at="2024-01-01T00:00:00",
+            )
+            result = provider.fetch_articles(feed)
 
-                assert len(result.articles) == 2
-                assert result.articles[0].get("title") == "Article 1"
-                assert result.articles[1].get("title") == "Article 2"
+            assert len(result.articles) == 2
+            assert result.articles[0].get("title") == "Article 1"
+            assert result.articles[1].get("title") == "Article 2"
 
     def test_rss_provider_parse(self):
         """Create mock response and verify parse() returns Article with correct fields."""
@@ -201,7 +213,9 @@ class TestRSSProvider:
         mock_response.body = b""
 
         provider = RSSProvider()
-        with patch("src.providers.rss_provider.feedparser.parse", return_value=mock_parsed):
+        with patch(
+            "src.providers.rss_provider.feedparser.parse", return_value=mock_parsed
+        ):
             result = provider.parse_articles(mock_response)
 
         # Result is a list of dicts (Article is dict in this codebase)
@@ -232,25 +246,28 @@ class TestRSSProvider:
         mock_response.body = rss_xml
         mock_response.headers = {"etag": "feed-etag", "last-modified": "feed-lm"}
 
-        with patch("scrapling.Fetcher.get", return_value=mock_response):
-            with patch("src.providers.rss_provider.feedparser.parse") as mock_parse:
-                mock_parsed = MagicMock()
-                mock_parsed.feed = {"title": "Test Feed"}
-                mock_parse.return_value = mock_parsed
+        with (
+            patch("scrapling.Fetcher.get", return_value=mock_response),
+            patch("src.providers.rss_provider.feedparser.parse") as mock_parse,
+        ):
+            mock_parsed = MagicMock()
+            mock_parsed.feed = {"title": "Test Feed"}
+            mock_parse.return_value = mock_parsed
 
-                provider = RSSProvider()
-                result = provider.parse_feed("https://example.com/feed.xml")
+            provider = RSSProvider()
+            result = provider.parse_feed("https://example.com/feed.xml")
 
-                assert isinstance(result, DiscoveredFeed)
-                assert result.title == "Test Feed"
-                assert result.url == "https://example.com/feed.xml"
-                assert result.feed_type == "rss"
-                assert result.valid is True
+            assert isinstance(result, DiscoveredFeed)
+            assert result.title == "Test Feed"
+            assert result.url == "https://example.com/feed.xml"
+            assert result.feed_type == "rss"
+            assert result.valid is True
 
 
 # =============================================================================
 # GitHubReleaseProvider Tests
 # =============================================================================
+
 
 class TestGitHubReleaseProvider:
     """Tests for GitHubReleaseProvider public interface."""
@@ -258,30 +275,35 @@ class TestGitHubReleaseProvider:
     def test_github_release_provider_priority(self):
         """Verify priority() returns 300 (highest - GitHub releases must use this provider)."""
         from src.providers.github_release_provider import GitHubReleaseProvider
+
         provider = GitHubReleaseProvider()
         assert provider.priority() == 300
 
     def test_github_release_provider_match_https(self):
         """Verify match('https://github.com/owner/repo') returns True."""
         from src.providers.github_release_provider import GitHubReleaseProvider
+
         provider = GitHubReleaseProvider()
         assert provider.match("https://github.com/owner/repo") is True
 
     def test_github_release_provider_match_https_with_git(self):
         """Verify match('https://github.com/owner/repo.git') returns True."""
         from src.providers.github_release_provider import GitHubReleaseProvider
+
         provider = GitHubReleaseProvider()
         assert provider.match("https://github.com/owner/repo.git") is True
 
     def test_github_release_provider_match_ssh(self):
         """Verify match('git@github.com:owner/repo.git') returns True."""
         from src.providers.github_release_provider import GitHubReleaseProvider
+
         provider = GitHubReleaseProvider()
         assert provider.match("git@github.com:owner/repo.git") is True
 
     def test_github_release_provider_match_failure(self):
         """Verify match('https://example.com/feed') returns False."""
         from src.providers.github_release_provider import GitHubReleaseProvider
+
         provider = GitHubReleaseProvider()
         assert provider.match("https://example.com/feed") is False
 
@@ -295,7 +317,9 @@ class TestGitHubReleaseProvider:
         mock_release.name = "Release 1.0.0"
         mock_release.body = "Release notes for v1.0.0"
         mock_release.html_url = "https://github.com/owner/repo/releases/tag/v1.0.0"
-        mock_release.published_at.isoformat = MagicMock(return_value="2024-01-15T10:30:00")
+        mock_release.published_at.isoformat = MagicMock(
+            return_value="2024-01-15T10:30:00"
+        )
 
         # Mock repo
         mock_repo = MagicMock()
@@ -305,20 +329,32 @@ class TestGitHubReleaseProvider:
         mock_client = MagicMock()
         mock_client.get_repo = MagicMock(return_value=mock_repo)
 
-        with patch("src.providers.github_release_provider._get_github_client", return_value=mock_client):
-            with patch("src.utils.github.parse_github_url", return_value=("owner", "repo")):
-                provider = GitHubReleaseProvider()
-                feed = Feed(id="test", name="Test", url="https://github.com/owner/repo", created_at="2024-01-01T00:00:00")
-                result = provider.fetch_articles(feed)
+        with (
+            patch(
+                "src.providers.github_release_provider._get_github_client",
+                return_value=mock_client,
+            ),
+            patch("src.utils.github.parse_github_url", return_value=("owner", "repo")),
+        ):
+            provider = GitHubReleaseProvider()
+            feed = Feed(
+                id="test",
+                name="Test",
+                url="https://github.com/owner/repo",
+                created_at="2024-01-01T00:00:00",
+            )
+            result = provider.fetch_articles(feed)
 
-                assert len(result.articles) == 1
-                article = result.articles[0]
-                assert article["title"] == "v1.0.0"
-                assert article["link"] == "https://github.com/owner/repo/releases/tag/v1.0.0"
-                assert article["guid"] == "v1.0.0"
-                assert article["pub_date"] == "2024-01-15T10:30:00"
-                assert article["description"] == "Release notes for v1.0.0"
-                assert article["content"] is None
+            assert len(result.articles) == 1
+            article = result.articles[0]
+            assert article["title"] == "v1.0.0"
+            assert (
+                article["link"] == "https://github.com/owner/repo/releases/tag/v1.0.0"
+            )
+            assert article["guid"] == "v1.0.0"
+            assert article["pub_date"] == "2024-01-15T10:30:00"
+            assert article["description"] == "Release notes for v1.0.0"
+            assert article["content"] is None
 
     def test_github_release_provider_parse(self):
         """Create mock raw dict and verify parse() returns Article with correct fields."""
@@ -349,6 +385,7 @@ class TestGitHubReleaseProvider:
 # ProviderRegistry Tests
 # =============================================================================
 
+
 class TestProviderRegistry:
     """Tests for ProviderRegistry module-level functions."""
 
@@ -366,7 +403,14 @@ class TestProviderRegistry:
         assert len(matched) >= 0  # May be empty if no feeds discovered
         # The match() part should match GitHubReleaseProvider (check via priority ordering)
         all_providers = providers.get_all_providers()
-        github_provider = next((p for p in all_providers if p.__class__.__name__ == "GitHubReleaseProvider"), None)
+        github_provider = next(
+            (
+                p
+                for p in all_providers
+                if p.__class__.__name__ == "GitHubReleaseProvider"
+            ),
+            None,
+        )
         assert github_provider is not None
         # Verify GitHubReleaseProvider has highest priority among matching providers
         assert github_provider.priority() == 300
@@ -409,7 +453,14 @@ class TestProviderRegistry:
 
         # GitHubReleaseProvider should match
         all_providers = providers.get_all_providers()
-        github_provider = next((p for p in all_providers if p.__class__.__name__ == "GitHubReleaseProvider"), None)
+        github_provider = next(
+            (
+                p
+                for p in all_providers
+                if p.__class__.__name__ == "GitHubReleaseProvider"
+            ),
+            None,
+        )
         assert github_provider is not None
         assert github_provider.match("https://github.com/owner/repo") is True
 

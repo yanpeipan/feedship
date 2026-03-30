@@ -1,8 +1,10 @@
 """Discovery service for RSS/Atom feed auto-discovery from website URLs."""
+
 from __future__ import annotations
 
 import logging
 
+from src.discovery.common_paths import generate_feed_candidates
 from src.discovery.deep_crawl import deep_crawl
 from src.discovery.models import DiscoveredFeed, DiscoveredResult, LinkSelector
 
@@ -38,7 +40,9 @@ def probe_well_known_paths(page_url: str) -> list[str]:
     return generate_feed_candidates(page_url)
 
 
-async def discover_feeds(url: str, max_depth: int = 1, auto_discover: bool = True) -> DiscoveredResult:
+async def discover_feeds(
+    url: str, max_depth: int = 1, auto_discover: bool = True
+) -> DiscoveredResult:
     """Discover RSS/Atom/RDF feeds from a website URL.
 
     Args:
@@ -55,4 +59,12 @@ async def discover_feeds(url: str, max_depth: int = 1, auto_discover: bool = Tru
 
 
 # Public exports
-__all__ = ["discover_feeds", "DiscoveredFeed", "DiscoveredResult", "LinkSelector", "deep_crawl", "normalize_url", "probe_well_known_paths"]
+__all__ = [
+    "discover_feeds",
+    "DiscoveredFeed",
+    "DiscoveredResult",
+    "LinkSelector",
+    "deep_crawl",
+    "normalize_url",
+    "probe_well_known_paths",
+]

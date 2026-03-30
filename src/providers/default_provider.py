@@ -5,6 +5,7 @@ match() returns False so it never matches URLs directly,
 and priority() returns 0 so it's only tried after all other
 providers have failed.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
 
     from src.discovery.models import DiscoveredFeed
-    from src.models import FeedType
+    from src.models import Feed, FeedType
 
 
 class DefaultProvider:
@@ -27,7 +28,9 @@ class DefaultProvider:
     should not be called on this provider in practice.
     """
 
-    def match(self, url: str, response: Response = None, feed_type: FeedType = None) -> bool:
+    def match(
+        self, url: str, response: Response = None, feed_type: FeedType = None
+    ) -> bool:
         """Never matches - only used as fallback.
 
         Args:
@@ -96,7 +99,9 @@ class DefaultProvider:
             valid=False,
         )
 
-    def discover(self, url: str, response: Response = None, depth: int = 1) -> list[DiscoveredFeed]:
+    def discover(
+        self, url: str, response: Response = None, depth: int = 1
+    ) -> list[DiscoveredFeed]:
         """Not implemented - DefaultProvider is fallback only.
 
         Args:
@@ -110,6 +115,7 @@ class DefaultProvider:
         raise NotImplementedError(
             "DefaultProvider is fallback only and should not be called"
         )
+
 
 # Register this provider - it will be sorted last by priority()
 PROVIDERS.append(DefaultProvider())

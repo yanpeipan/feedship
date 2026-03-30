@@ -10,7 +10,9 @@ from typing import Any
 from urllib.parse import urlparse
 
 
-def format_articles(items: list[dict[str, Any]], verbose: bool = False) -> list[dict[str, Any]]:
+def format_articles(
+    items: list[dict[str, Any]], verbose: bool = False
+) -> list[dict[str, Any]]:
     """Format articles for display using unified score field interface.
 
     Assumes items are dicts from rank_*_results with a score field (0-1 normalized).
@@ -46,10 +48,7 @@ def _format_items(items: list[dict[str, Any]], verbose: bool) -> list[dict[str, 
         score_val = item.get("score")
 
         # Format score as percentage (0-1 normalized from rank_*_results)
-        if score_val is not None:
-            score = f"{int(score_val * 100)}%"
-        else:
-            score = "N/A"
+        score = f"{int(score_val * 100)}%" if score_val is not None else "N/A"
 
         # Extract source - prefer feed_name (list/FTS) or domain from url (semantic)
         feed_name = item.get("feed_name")
@@ -129,7 +128,9 @@ def rank_list_results(items: list[Any]) -> list[dict[str, Any]]:
     return [{**vars(item), "score": 1.0} for item in items]
 
 
-def format_fts_results(articles: list[Any], verbose: bool = False) -> list[dict[str, Any]]:
+def format_fts_results(
+    articles: list[Any], verbose: bool = False
+) -> list[dict[str, Any]]:
     """Format FTS5 keyword search results for display.
 
     Takes output from search_articles (list of ArticleListItem) and
@@ -180,6 +181,7 @@ def _format_date_for_display(pub_date: int | str | None) -> str:
         from datetime import datetime
 
         from src.application.config import get_timezone
+
         tz = get_timezone()
         dt = datetime.fromtimestamp(pub_date, tz=tz)
         return dt.strftime("%Y-%m-%d")

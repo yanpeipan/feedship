@@ -31,7 +31,9 @@ from src.models import FeedMetaData  # noqa: E402
 logger = logging.getLogger(__name__)
 
 
-async def _fetch_with_progress(async_gen, total, description: str, concurrency: int = 10):
+async def _fetch_with_progress(
+    async_gen, total, description: str, concurrency: int = 10
+):
     """Run async fetch with Rich progress bar. Returns (total_new, success_count, error_count, errors, elapsed_time)."""
     with FetchProgress(total, description, concurrency) as fp:
         async for result in async_gen:
@@ -85,7 +87,7 @@ def _parse_selection(selection: str, max_idx: int) -> list[int]:
                 i = int(part)
                 if 1 <= i <= max_idx:
                     indices.add(i - 1)
-        return sorted(list(indices))
+        return sorted(indices)
     except ValueError:
         return []
 
@@ -170,7 +172,14 @@ def feed(ctx: click.Context) -> None:
     help="Feed weight for semantic search (default: 0.3)",
 )
 @click.pass_context
-def feed_add(ctx: click.Context, url: str, auto_discover: bool, automatic: str, discover_depth: int, weight: float | None) -> None:
+def feed_add(
+    ctx: click.Context,
+    url: str,
+    auto_discover: bool,
+    automatic: str,
+    discover_depth: int,
+    weight: float | None,
+) -> None:
     """Add a new feed by URL (auto-detects provider type).
 
     Examples:
@@ -222,7 +231,9 @@ def feed_add(ctx: click.Context, url: str, auto_discover: bool, automatic: str, 
             else:
                 updated_count += 1
         if updated_count > 0:
-            click.secho(f"Added {added_count}, updated {updated_count} feed(s).", fg="green")
+            click.secho(
+                f"Added {added_count}, updated {updated_count} feed(s).", fg="green"
+            )
         else:
             click.secho(f"Added {added_count} feed(s) automatically.", fg="green")
         return
@@ -249,7 +260,9 @@ def feed_add(ctx: click.Context, url: str, auto_discover: bool, automatic: str, 
         else:
             updated_count += 1
     if updated_count > 0:
-        click.secho(f"Added {added_count}, updated {updated_count} feed(s).", fg="green")
+        click.secho(
+            f"Added {added_count}, updated {updated_count} feed(s).", fg="green"
+        )
     else:
         click.secho(f"Added {added_count} feed(s).", fg="green")
 
@@ -302,7 +315,7 @@ def feed_list(ctx: click.Context, verbose: bool) -> None:
             table.add_column("Weight", justify="right", no_wrap=True)
             table.add_column("Last Fetched", style="dim", no_wrap=True)
 
-            for i, f in enumerate(feeds, 1):
+            for _i, f in enumerate(feeds, 1):
                 last_fetched = f.last_fetched or "Never"
                 if last_fetched != "Never":
                     last_fetched = last_fetched[:10]
@@ -346,7 +359,12 @@ def feed_remove(ctx: click.Context, feed_id: str) -> None:
 
 @cli.command("fetch")
 @click.option("--all", "do_fetch_all", is_flag=True, help="Fetch all feeds")
-@click.option("--concurrency", default=10, type=click.IntRange(1, 100), help="Max concurrent fetches (default: 10)")
+@click.option(
+    "--concurrency",
+    default=10,
+    type=click.IntRange(1, 100),
+    help="Max concurrent fetches (default: 10)",
+)
 @click.argument("ids", nargs=-1, required=False)
 @click.pass_context
 def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, ids: tuple) -> None:
@@ -381,11 +399,18 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, ids: tuple) 
                 if error:
                     click.secho(f"Error fetching {feed.name}: {error}", fg="red")
                     sys.exit(1)
-                click.secho(f"Fetched {total_new} articles from {feed.name}", fg="green")
+                click.secho(
+                    f"Fetched {total_new} articles from {feed.name}", fg="green"
+                )
             else:
                 # Multiple IDs: use semaphore concurrency
                 total_new, success_count, error_count, errors, elapsed = uvloop.run(
-                    _fetch_with_progress(fetch_ids_async(ids, concurrency), len(ids), f"[cyan]Fetching {len(ids)} feeds by ID (concurrency:{concurrency})...", concurrency),
+                    _fetch_with_progress(
+                        fetch_ids_async(ids, concurrency),
+                        len(ids),
+                        f"[cyan]Fetching {len(ids)} feeds by ID (concurrency:{concurrency})...",
+                        concurrency,
+                    ),
                 )
                 print_summary(total_new, success_count, error_count, errors, elapsed)
         except Exception as e:
@@ -399,12 +424,21 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, ids: tuple) 
         try:
             feeds = list_feeds()
             if not feeds:
-                click.secho("No feeds subscribed. Use 'feed add <url>' to add one.", fg="yellow")
+                click.secho(
+                    "No feeds subscribed. Use 'feed add <url>' to add one.", fg="yellow"
+                )
                 return
             total_new, success_count, error_count, errors, elapsed = uvloop.run(
-                _fetch_with_progress(fetch_all_async(concurrency=concurrency), len(feeds), f"[cyan]Fetching {len(feeds)} feeds (concurrency:{concurrency})...", concurrency),
+                _fetch_with_progress(
+                    fetch_all_async(concurrency=concurrency),
+                    len(feeds),
+                    f"[cyan]Fetching {len(feeds)} feeds (concurrency:{concurrency})...",
+                    concurrency,
+                ),
             )
-            print_summary(total_new, success_count, error_count, errors, elapsed, prefix="✓ ")
+            print_summary(
+                total_new, success_count, error_count, errors, elapsed, prefix="✓ "
+            )
         except Exception as e:
             click.secho(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
             logger.exception("Failed to fetch feeds")
@@ -413,4 +447,6 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, ids: tuple) 
 
     # Case 3: No arguments
     click.secho("Use --all to fetch all feeds: rss-reader fetch --all")
-    click.secho("Or specify feed IDs to fetch: rss-reader fetch <feed_id> [<feed_id>...]")
+    click.secho(
+        "Or specify feed IDs to fetch: rss-reader fetch <feed_id> [<feed_id>...]"
+    )

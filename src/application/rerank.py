@@ -12,6 +12,7 @@ from src.application.articles import ArticleListItem
 # Global cache for model and tokenizer (lazy loaded)
 _model = None
 _tokenizer = None
+_torch = None
 
 
 def _load_reranker():
@@ -23,11 +24,13 @@ def _load_reranker():
     Raises:
         RuntimeError: If torch or transformers cannot be imported
     """
-    global _model, _tokenizer
+    global _model, _tokenizer, _torch
     if _model is None:
         try:
             import torch
             from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+            _torch = torch
         except ImportError as e:
             raise RuntimeError(
                 "Cross-Encoder rerank requires torch and transformers. "
@@ -42,7 +45,9 @@ def _load_reranker():
     return _model, _tokenizer
 
 
-async def rerank(query: str, candidates: list[ArticleListItem], top_k: int = 20) -> list[ArticleListItem]:
+async def rerank(
+    query: str, candidates: list[ArticleListItem], top_k: int = 20
+) -> list[ArticleListItem]:
     """Cross-Encoder rerank using BAAI/bge-reranker-base.
 
     Args:
@@ -61,14 +66,10 @@ async def rerank(query: str, candidates: list[ArticleListItem], top_k: int = 20)
     # Build query-document pairs (query, title)
     texts = [(query, c.title or "") for c in candidates]
     inputs = tokenizer(
-        texts,
-        padding=True,
-        truncation=True,
-        return_tensors="pt",
-        max_length=512
+        texts, padding=True, truncation=True, return_tensors="pt", max_length=512
     )
 
-    with torch.no_grad():
+    with _torch.no_grad():
         scores = model(**inputs).logits.squeeze(-1).numpy()
 
     # Populate ce_score and sort descending

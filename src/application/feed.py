@@ -22,7 +22,9 @@ class FeedNotFoundError(Exception):
     """Raised when a feed is not found in the database."""
 
 
-def add_feed(url: str, weight: float | None = None, feed_meta_data: FeedMetaData | None = None) -> tuple[Feed, bool]:
+def add_feed(
+    url: str, weight: float | None = None, feed_meta_data: FeedMetaData | None = None
+) -> tuple[Feed, bool]:
     """Add a new feed by URL.
 
     Uses provider.parse_feed to fetch metadata and provider.crawl to validate.
@@ -113,7 +115,12 @@ def add_feed(url: str, weight: float | None = None, feed_meta_data: FeedMetaData
     return upsert_feed(feed)
 
 
-def register_feed(feed_url: str, feed_name: str | None = None, weight: float | None = None, feed_meta_data: FeedMetaData | None = None) -> tuple[Feed, bool]:
+def register_feed(
+    feed_url: str,
+    feed_name: str | None = None,
+    weight: float | None = None,
+    feed_meta_data: FeedMetaData | None = None,
+) -> tuple[Feed, bool]:
     """Register a pre-discovered feed without crawling.
 
     Use for feeds that were already validated (e.g., via discover_feeds).
@@ -138,6 +145,7 @@ def register_feed(feed_url: str, feed_name: str | None = None, weight: float | N
     # This prevents overwriting existing selectors when updating via CLI
     if feed_meta_data and feed_meta_data.selectors is None:
         from src.storage import get_db
+
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT metadata FROM feeds WHERE url = ?", (feed_url,))
@@ -148,7 +156,7 @@ def register_feed(feed_url: str, feed_name: str | None = None, weight: float | N
                     if existing_meta.get("selectors"):
                         feed_meta_data = FeedMetaData(
                             feed_type=feed_meta_data.feed_type,
-                            selectors=existing_meta["selectors"]
+                            selectors=existing_meta["selectors"],
                         )
                 except (json_module.JSONDecodeError, TypeError):
                     pass
@@ -242,20 +250,23 @@ def fetch_one(feed_or_id: str | Feed) -> dict:
     parsed_articles = []
     for article in articles:
         article_guid = article.get("guid") or generate_article_id(article)
-        parsed_articles.append({
-            "guid": article_guid,
-            "title": article.get("title") or "",
-            "content": article.get("content") or article.get("description") or "",
-            "link": article.get("link") or "",
-            "feed_id": feed.id,
-            "pub_date": article.get("pub_date"),
-        })
+        parsed_articles.append(
+            {
+                "guid": article_guid,
+                "title": article.get("title") or "",
+                "content": article.get("content") or article.get("description") or "",
+                "link": article.get("link") or "",
+                "feed_id": feed.id,
+                "pub_date": article.get("pub_date"),
+            }
+        )
 
     if not parsed_articles:
         return {"new_articles": 0}
 
     # Batch upsert all articles
     from src.storage.sqlite.impl import upsert_articles
+
     article_id_map = upsert_articles(parsed_articles)
     new_count = len(article_id_map)
 

@@ -29,7 +29,7 @@ def _get_db_write_lock() -> asyncio.Lock:
 
 logger = logging.getLogger(__name__)
 
-import platformdirs
+import platformdirs  # noqa: E402
 
 # Cross-platform database path using platformdirs
 _DB_DIR = platformdirs.user_data_dir(appname="rss-reader", appauthor=False)
@@ -127,10 +127,7 @@ def _normalize_pub_date(pub_date: str | None, tz) -> int | None:
     try:
         # Try ISO format
         dt = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=tz)
-        else:
-            dt = dt.astimezone(tz)
+        dt = dt.replace(tzinfo=tz) if dt.tzinfo is None else dt.astimezone(tz)
         return int(dt.timestamp())
     except (ValueError, TypeError):
         pass
@@ -148,8 +145,8 @@ def store_article(
     title: str,
     content: str,
     link: str,
-    feed_id: Optional[str] = None,
-    pub_date: Optional[str] = None,
+    feed_id: str | None = None,
+    pub_date: str | None = None,
 ) -> str:
     """Store an article (insert or update based on guid existence).
 
@@ -221,8 +218,8 @@ async def store_article_async(
     title: str,
     content: str,
     link: str,
-    feed_id: Optional[str] = None,
-    pub_date: Optional[str] = None,
+    feed_id: str | None = None,
+    pub_date: str | None = None,
 ) -> str:
     """Async wrapper for store_article that serializes writes via asyncio.Lock + to_thread.
 
@@ -303,7 +300,16 @@ def add_feed(feed) -> Feed:
         cursor.execute(
             """INSERT INTO feeds (id, name, url, etag, last_modified, last_fetched, created_at, weight)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (feed.id, feed.name, feed.url, feed.etag, feed.last_modified, feed.last_fetched, feed.created_at, feed.weight)
+            (
+                feed.id,
+                feed.name,
+                feed.url,
+                feed.etag,
+                feed.last_modified,
+                feed.last_fetched,
+                feed.created_at,
+                feed.weight,
+            ),
         )
         conn.commit()
         return feed
@@ -312,6 +318,7 @@ def add_feed(feed) -> Feed:
 def list_feeds() -> list:
     """List all feeds with article counts."""
     from src.models import Feed
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -340,14 +347,15 @@ def list_feeds() -> list:
         return feeds
 
 
-def get_feed(feed_id: str) -> Optional[Feed]:
+def get_feed(feed_id: str) -> Feed | None:
     """Get single feed by ID."""
     from src.models import Feed
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
             "SELECT id, name, url, etag, last_modified, last_fetched, created_at, weight FROM feeds WHERE id = ?",
-            (feed_id,)
+            (feed_id,),
         )
         row = cursor.fetchone()
         if not row:
@@ -374,6 +382,7 @@ def get_feeds_by_ids(ids: list[str]) -> dict[str, Feed]:
         Dict mapping feed ID to Feed object. Missing entries are omitted.
     """
     from src.models import Feed
+
     if not ids:
         return {}
     with get_db() as conn:
@@ -381,7 +390,7 @@ def get_feeds_by_ids(ids: list[str]) -> dict[str, Feed]:
         placeholders = ",".join("?" * len(ids))
         cursor.execute(
             f"SELECT id, name, url, etag, last_modified, last_fetched, created_at, weight FROM feeds WHERE id IN ({placeholders})",
-            ids
+            ids,
         )
         return {
             row["id"]: Feed(
@@ -430,7 +439,15 @@ def upsert_feed(feed) -> tuple[Feed, bool]:
             cursor.execute(
                 """UPDATE feeds SET name = ?, etag = ?, last_modified = ?, last_fetched = ?, weight = ?, metadata = ?
                    WHERE url = ?""",
-                (feed.name, feed.etag, feed.last_modified, feed.last_fetched, feed.weight, feed.metadata, feed.url),
+                (
+                    feed.name,
+                    feed.etag,
+                    feed.last_modified,
+                    feed.last_fetched,
+                    feed.weight,
+                    feed.metadata,
+                    feed.url,
+                ),
             )
             conn.commit()
             # Return Feed with preserved id
@@ -453,7 +470,17 @@ def upsert_feed(feed) -> tuple[Feed, bool]:
             cursor.execute(
                 """INSERT INTO feeds (id, name, url, etag, last_modified, last_fetched, created_at, weight, metadata)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (feed.id, feed.name, feed.url, feed.etag, feed.last_modified, feed.last_fetched, feed.created_at, feed.weight, feed.metadata),
+                (
+                    feed.id,
+                    feed.name,
+                    feed.url,
+                    feed.etag,
+                    feed.last_modified,
+                    feed.last_fetched,
+                    feed.created_at,
+                    feed.weight,
+                    feed.metadata,
+                ),
             )
             conn.commit()
             return (feed, True)  # is new
@@ -462,6 +489,7 @@ def upsert_feed(feed) -> tuple[Feed, bool]:
 def _date_to_timestamp(date_str: str, tz) -> int:
     """Convert YYYY-MM-DD to Unix timestamp at start of day in timezone."""
     from datetime import datetime
+
     dt = datetime.strptime(date_str, "%Y-%m-%d")
     dt = dt.replace(tzinfo=tz)
     return int(dt.timestamp())
@@ -470,12 +498,19 @@ def _date_to_timestamp(date_str: str, tz) -> int:
 def _date_to_timestamp_end(date_str: str, tz) -> int:
     """Convert YYYY-MM-DD to Unix timestamp at end of day (23:59:59) in timezone."""
     from datetime import datetime
+
     dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=tz)
     dt = dt.replace(hour=23, minute=59, second=59)
     return int(dt.timestamp())
 
 
-def list_articles(limit: int = 20, feed_id: Optional[str] = None, since: Optional[str] = None, until: Optional[str] = None, on: Optional[list[str]] = None) -> list:
+def list_articles(
+    limit: int = 20,
+    feed_id: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    on: list[str] | None = None,
+) -> list:
     """List articles ordered by publication date.
 
     Args:
@@ -557,9 +592,10 @@ def list_articles(limit: int = 20, feed_id: Optional[str] = None, since: Optiona
         return [_compute_article_item(row) for row in rows]
 
 
-def get_article(article_id: str) -> Optional[list]:
+def get_article(article_id: str) -> list | None:
     """Get a single article by ID."""
     from src.application.articles import ArticleListItem
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -587,7 +623,7 @@ def get_article(article_id: str) -> Optional[list]:
         )
 
 
-def get_article_id_by_url(url: str) -> Optional[str]:
+def get_article_id_by_url(url: str) -> str | None:
     """Get article nanoid by URL (guid).
 
     Args:
@@ -628,7 +664,7 @@ def get_articles_by_ids(ids: list[str]) -> list:
         return [dict(row) for row in cursor.fetchall()]
 
 
-def get_article_detail(article_id: str) -> Optional[dict]:
+def get_article_detail(article_id: str) -> dict | None:
     """Get full article details including content."""
     with get_db() as conn:
         cursor = conn.cursor()
@@ -674,7 +710,14 @@ def get_article_detail(article_id: str) -> Optional[dict]:
         }
 
 
-def search_articles(query: str, limit: int = 20, feed_id: Optional[str] = None, since: Optional[str] = None, until: Optional[str] = None, on: Optional[list[str]] = None) -> list:
+def search_articles(
+    query: str,
+    limit: int = 20,
+    feed_id: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    on: list[str] | None = None,
+) -> list:
     """Search articles using FTS5 full-text search.
 
     Args:
@@ -782,7 +825,12 @@ def search_articles(query: str, limit: int = 20, feed_id: Optional[str] = None, 
         ]
 
 
-def update_feed(feed_id: str, last_fetched: str, etag: Optional[str] = None, last_modified: Optional[str] = None) -> bool:
+def update_feed(
+    feed_id: str,
+    last_fetched: str,
+    etag: str | None = None,
+    last_modified: str | None = None,
+) -> bool:
     """Update feed metadata after a successful fetch.
 
     Returns True if feed was updated, False if not found.
@@ -793,10 +841,13 @@ def update_feed(feed_id: str, last_fetched: str, etag: Optional[str] = None, las
             cursor.execute(
                 """UPDATE feeds SET last_fetched = ?, etag = COALESCE(?, etag), last_modified = COALESCE(?, last_modified)
                    WHERE id = ?""",
-                (last_fetched, etag, last_modified, feed_id)
+                (last_fetched, etag, last_modified, feed_id),
             )
         else:
-            cursor.execute("UPDATE feeds SET last_fetched = ? WHERE id = ?", (last_fetched, feed_id))
+            cursor.execute(
+                "UPDATE feeds SET last_fetched = ? WHERE id = ?",
+                (last_fetched, feed_id),
+            )
         updated = cursor.rowcount > 0
         conn.commit()
         return updated

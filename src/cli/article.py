@@ -23,6 +23,7 @@ def _format_date(pub_date: int | str | None) -> str:
         from datetime import datetime
 
         from src.application.config import get_timezone
+
         tz = get_timezone()
         dt = datetime.fromtimestamp(pub_date, tz=tz)
         return dt.strftime("%Y-%m-%d")
@@ -41,11 +42,22 @@ def print_articles(items: list[ArticleListItem]) -> None:
         click.secho("No articles found.")
         return
 
-    table = Table(show_header=True, header_style="bold magenta", expand=False, row_styles=["", "dim"])
+    table = Table(
+        show_header=True,
+        header_style="bold magenta",
+        expand=False,
+        row_styles=["", "dim"],
+    )
     table.add_column("ID", style="dim", width=8, no_wrap=True, overflow="ellipsis")
-    table.add_column("Title", style="cyan", min_width=30, max_width=70, overflow="ellipsis")
-    table.add_column("Source", style="green", width=12, no_wrap=True, overflow="ellipsis")
-    table.add_column("Date", style="yellow", width=12, no_wrap=True, overflow="ellipsis")
+    table.add_column(
+        "Title", style="cyan", min_width=30, max_width=70, overflow="ellipsis"
+    )
+    table.add_column(
+        "Source", style="green", width=12, no_wrap=True, overflow="ellipsis"
+    )
+    table.add_column(
+        "Date", style="yellow", width=12, no_wrap=True, overflow="ellipsis"
+    )
 
     for item in items:
         title = item.title[:80] if item.title else "-"
@@ -73,6 +85,7 @@ def open_in_browser(url: str) -> None:
     else:
         raise RuntimeError(f"Unsupported platform: {system}")
 
+
 from src.cli import cli  # noqa: E402
 
 
@@ -82,6 +95,7 @@ def article(ctx: click.Context) -> None:
     """Manage articles."""
     pass
 
+
 @article.command("list")
 @click.option("--limit", default=20, help="Maximum number of articles to show")
 @click.option("--feed-id", default=None, help="Filter by feed ID")
@@ -89,17 +103,26 @@ def article(ctx: click.Context) -> None:
 @click.option("--until", default=None, help="End date (YYYY-MM-DD)")
 @click.option("--on", multiple=True, help="Specific date (YYYY-MM-DD), can repeat")
 @click.pass_context
-
-def article_list(ctx: click.Context, limit: int, feed_id: str | None, since: str | None, until: str | None, on: tuple) -> None:
+def article_list(
+    ctx: click.Context,
+    limit: int,
+    feed_id: str | None,
+    since: str | None,
+    until: str | None,
+    on: tuple,
+) -> None:
     """List recent articles from all feeds or a specific feed."""
     try:
         on_list = list(on) if on else None
-        articles = list_articles(limit=limit, feed_id=feed_id, since=since, until=until, on=on_list)
+        articles = list_articles(
+            limit=limit, feed_id=feed_id, since=since, until=until, on=on_list
+        )
         print_articles(articles)
     except Exception as e:
         click.secho(f"Error: Failed to list articles: {e}", err=True, fg="red")
         logger.exception("Failed to list articles")
         sys.exit(1)
+
 
 @article.command("view")
 @click.argument("article_id")
@@ -116,23 +139,31 @@ def article_view(ctx: click.Context, article_id: str) -> None:
         meta_table.add_row("Type:", article.get("source_type", "feed").capitalize())
         meta_table.add_row("Date:", _format_date(article["pub_date"]))
 
-
         # Link
         link = article["link"] or "No link"
         meta_table.add_row("Link:", link)
 
         # Display panel with title
         title = article["title"] or "No title"
-        console.print(Panel(meta_table, title=title, subtitle=f"{article['feed_name']} | {_format_date(article['pub_date'])}"))
+        console.print(
+            Panel(
+                meta_table,
+                title=title,
+                subtitle=f"{article['feed_name']} | {_format_date(article['pub_date'])}",
+            )
+        )
         if article["content"]:
             console.print()
             console.print(article["content"])
         else:
-            console.print(Panel("[dim]No content available[/dim]", border_style="yellow"))
+            console.print(
+                Panel("[dim]No content available[/dim]", border_style="yellow")
+            )
     except Exception as e:
         click.secho(f"Error: Failed to view article: {e}", err=True, fg="red")
         logger.exception("Failed to view article")
         sys.exit(1)
+
 
 @article.command("open")
 @click.argument("article_id")
@@ -162,13 +193,25 @@ def article_open(ctx: click.Context, article_id: str) -> None:
 @click.argument("query")
 @click.option("--limit", default=20, help="Maximum number of results")
 @click.option("--feed-id", default=None, help="Filter by feed ID")
-@click.option("--semantic", is_flag=True, help="Use semantic search instead of keyword search")
+@click.option(
+    "--semantic", is_flag=True, help="Use semantic search instead of keyword search"
+)
 @click.option("--rerank", is_flag=True, help="Apply Cross-Encoder reranking to results")
 @click.option("--since", default=None, help="Start date (YYYY-MM-DD)")
 @click.option("--until", default=None, help="End date (YYYY-MM-DD)")
 @click.option("--on", multiple=True, help="Specific date (YYYY-MM-DD), can repeat")
 @click.pass_context
-def article_search(ctx: click.Context, query: str, limit: int, feed_id: str | None, semantic: bool, rerank: bool, since: str | None, until: str | None, on: tuple) -> None:
+def article_search(
+    ctx: click.Context,
+    query: str,
+    limit: int,
+    feed_id: str | None,
+    semantic: bool,
+    rerank: bool,
+    since: str | None,
+    until: str | None,
+    on: tuple,
+) -> None:
     try:
         import asyncio
 
@@ -179,31 +222,49 @@ def article_search(ctx: click.Context, query: str, limit: int, feed_id: str | No
         if semantic:
             # Semantic search path
             from src.storage.vector import search_articles_semantic
-            articles = search_articles_semantic(query_text=query, limit=limit, since=since, until=until, on=on_list)
+
+            articles = search_articles_semantic(
+                query_text=query, limit=limit, since=since, until=until, on=on_list
+            )
 
             if rerank:
                 from src.application.rerank import rerank
+
                 articles = asyncio.to_thread(rerank, query, articles, limit)
 
             # combine_scores for semantic: gamma=0.2 (vec_sim), delta=0.0 (no BM25)
-            articles = combine_scores(articles, alpha=0.3, beta=0.3, gamma=0.2, delta=0.0)
+            articles = combine_scores(
+                articles, alpha=0.3, beta=0.3, gamma=0.2, delta=0.0
+            )
         else:
             # FTS5 search path
             from src.application.articles import search_articles
-            articles = search_articles(query=query, limit=limit, feed_id=feed_id, since=since, until=until, on=on_list)
+
+            articles = search_articles(
+                query=query,
+                limit=limit,
+                feed_id=feed_id,
+                since=since,
+                until=until,
+                on=on_list,
+            )
 
             if rerank:
                 from src.application.rerank import rerank
+
                 articles = asyncio.to_thread(rerank, query, articles, limit)
 
             # combine_scores for FTS5: gamma=0.0 (no vec_sim), delta=0.2 (BM25)
-            articles = combine_scores(articles, alpha=0.3, beta=0.3, gamma=0.0, delta=0.2)
+            articles = combine_scores(
+                articles, alpha=0.3, beta=0.3, gamma=0.0, delta=0.2
+            )
 
         print_articles(articles)
     except Exception as e:
         click.secho(f"Search unavailable: {e}.", err=True, fg="yellow")
         logger.exception("Failed to search articles")
         sys.exit(1)
+
 
 @article.command("related")
 @click.argument("article-id")
@@ -213,6 +274,7 @@ def article_related(ctx: click.Context, article_id: str, limit: int) -> None:
     try:
         # Lazy import to avoid torch dependency when not using related articles
         from src.application.related import get_related_articles
+
         articles = get_related_articles(article_id=article_id, limit=limit)
         print_articles(articles)
     except Exception as e:

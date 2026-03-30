@@ -1,4 +1,5 @@
 """Pytest fixtures for radar tests."""
+
 import os
 import tempfile
 from pathlib import Path
@@ -7,6 +8,7 @@ import pytest
 from click.testing import CliRunner
 
 # --- Database Fixtures ---
+
 
 @pytest.fixture(scope="function")
 def temp_db_path(tmp_path):
@@ -41,6 +43,7 @@ def initialized_db(temp_db_path, monkeypatch):
 
 # --- Sample Data Fixtures ---
 
+
 @pytest.fixture
 def sample_feed():
     """Sample feed for testing.
@@ -48,6 +51,7 @@ def sample_feed():
     Returns a Feed dataclass instance with test data.
     """
     from src.models import Feed
+
     return Feed(
         id="test-feed-1",
         name="Test Feed",
@@ -77,6 +81,7 @@ def sample_article():
 
 
 # --- CLI Fixtures ---
+
 
 @pytest.fixture
 def cli_runner():

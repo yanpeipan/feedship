@@ -6,6 +6,7 @@ Priority is 200 (higher than GitHubProvider's 100 - tried first for releases).
 This provider focuses specifically on release data, allowing the general
 GitHubProvider to handle non-release repository URLs.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,12 +22,12 @@ from src.providers.base import Article, FetchedResult, Raw
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
 
-    from src.models import FeedType
+    from src.models import Feed, FeedType
 
 logger = logging.getLogger(__name__)
 
 # Reuse the singleton from utils/github.py
-from src.utils.github import _get_github_client
+from src.utils.github import _get_github_client  # noqa: E402
 
 
 class GitHubReleaseProvider:
@@ -36,7 +37,9 @@ class GitHubReleaseProvider:
     using the GitHub API. Higher priority (300) than GitHubProvider (100).
     """
 
-    def match(self, url: str, response: Response = None, feed_type: FeedType = None) -> bool:
+    def match(
+        self, url: str, response: Response = None, feed_type: FeedType = None
+    ) -> bool:
         """Check if URL is a GitHub repository URL.
 
         Args:
@@ -60,10 +63,9 @@ class GitHubReleaseProvider:
         # SSH format: git@github.com:owner/repo.git
         if url.startswith("git@"):
             import re
+
             match = re.match(r"git@github\.com:([^/]+)/(.+?)(?:\.git)?$", url)
-            if match:
-                return True
-            return False
+            return bool(match)
 
         # HTTPS format: https://github.com/owner/repo
         parsed = urlparse(url)
@@ -105,10 +107,16 @@ class GitHubReleaseProvider:
                 "name": release.name,
                 "body": release.body,
                 "html_url": release.html_url,
-                "published_at": release.published_at.isoformat() if release.published_at else None,
+                "published_at": release.published_at.isoformat()
+                if release.published_at
+                else None,
             }
             articles = self.parse_articles([release_data])
-            logger.debug("GitHubReleaseProvider.fetch_articles(%s) returned release: %s", feed.url, release_data.get("tag_name"))
+            logger.debug(
+                "GitHubReleaseProvider.fetch_articles(%s) returned release: %s",
+                feed.url,
+                release_data.get("tag_name"),
+            )
             return FetchedResult(articles=articles)
         except RateLimitExceededException as e:
             logger.error("GitHub API rate limited for %s: %s", feed.url, e)
@@ -120,7 +128,9 @@ class GitHubReleaseProvider:
             logger.error("Invalid GitHub URL %s: %s", feed.url, e)
             return FetchedResult(articles=[])
         except Exception as e:
-            logger.error("GitHubReleaseProvider.fetch_articles(%s) failed: %s", feed.url, e)
+            logger.error(
+                "GitHubReleaseProvider.fetch_articles(%s) failed: %s", feed.url, e
+            )
             return FetchedResult(articles=[])
 
     def parse_articles(self, entries: list[Raw]) -> list[Article]:
@@ -152,14 +162,16 @@ class GitHubReleaseProvider:
             # content: None (no additional content for releases)
             content = None
 
-            articles.append(Article(
-                title=title,
-                link=link,
-                guid=guid,
-                pub_date=pub_date,
-                description=description,
-                content=content,
-            ))
+            articles.append(
+                Article(
+                    title=title,
+                    link=link,
+                    guid=guid,
+                    pub_date=pub_date,
+                    description=description,
+                    content=content,
+                )
+            )
         return articles
 
     def parse_feed(self, url: str, response: Response = None) -> DiscoveredFeed:
@@ -200,7 +212,9 @@ class GitHubReleaseProvider:
                 valid=False,
             )
 
-    def discover(self, url: str, response: Response = None, depth: int = 1) -> list[DiscoveredFeed]:
+    def discover(
+        self, url: str, response: Response = None, depth: int = 1
+    ) -> list[DiscoveredFeed]:
         """Discover feed URLs - GitHub releases don't need additional discovery.
 
         Args:
@@ -212,6 +226,7 @@ class GitHubReleaseProvider:
             Empty list - GitHub releases are found via parse_feed() instead.
         """
         return []
+
 
 # Register this provider - highest priority (300)
 PROVIDERS.append(GitHubReleaseProvider())

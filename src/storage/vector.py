@@ -16,10 +16,16 @@ os.environ["TRANSFORMERS_OFFLINE"] = "1"
 import threading
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from typing import TYPE_CHECKING
 
 import platformdirs
 from chromadb import PersistentClient
 from chromadb.config import Settings
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
+
+    from src.application.articles import ArticleListItem
 
 # Module-level singleton client
 _chroma_client: PersistentClient | None = None
@@ -100,6 +106,7 @@ def get_embedding_function() -> SentenceTransformer:
         SentenceTransformer: The embedding function instance.
     """
     from sentence_transformers import SentenceTransformer
+
     global _embedding_function
     if _embedding_function is None:
         _embedding_function = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
@@ -114,11 +121,15 @@ def preload_embedding_model() -> None:
     on first use if preload fails.
     """
     import logging
+
     logger = logging.getLogger(__name__)
     try:
         SentenceTransformer("all-MiniLM-L6-v2")
     except Exception as e:
-        logger.warning("Embedding model preload failed: %s. Will download on first semantic search.", e)
+        logger.warning(
+            "Embedding model preload failed: %s. Will download on first semantic search.",
+            e,
+        )
 
 
 def get_chroma_collection():
@@ -136,11 +147,16 @@ def get_chroma_collection():
     client = _get_chroma_client()
     return client.get_or_create_collection(
         name="articles",
-        metadata={"description": "Article embeddings for semantic search", "hnsw:space": "cosine"},
+        metadata={
+            "description": "Article embeddings for semantic search",
+            "hnsw:space": "cosine",
+        },
     )
 
 
-def add_article_embedding(article_id: str, title: str, content: str, url: str, pub_date: str | None = None) -> None:
+def add_article_embedding(
+    article_id: str, title: str, content: str, url: str, pub_date: str | None = None
+) -> None:
     """Add an article embedding to ChromaDB.
 
     Args:
@@ -151,6 +167,7 @@ def add_article_embedding(article_id: str, title: str, content: str, url: str, p
         pub_date: Publication date (stored as metadata for filtering)
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     # Serialize all encoding + ChromaDB operations to avoid concurrency issues
@@ -165,20 +182,33 @@ def add_article_embedding(article_id: str, title: str, content: str, url: str, p
             embedding_text = f"{title} {content}".strip()
 
         if not embedding_text:
-            logger.warning("Skipping embedding for article %s: no useful text", article_id)
+            logger.warning(
+                "Skipping embedding for article %s: no useful text", article_id
+            )
             return
 
         # Manually encode text since we're not using ChromaDB's embedding_function
         # (sentence_transformers 2.7.0 + ChromaDB 1.5.5 have API incompatibility)
         embedding_fn = get_embedding_function()
         try:
-            emb = embedding_fn.encode([embedding_text], convert_to_numpy=True, normalize_embeddings=True)[0]
+            emb = embedding_fn.encode(
+                [embedding_text], convert_to_numpy=True, normalize_embeddings=True
+            )[0]
         except Exception as e:
-            logger.error("Encoding failed for %s: text_len=%d, error=%s", article_id, len(embedding_text), e)
+            logger.error(
+                "Encoding failed for %s: text_len=%d, error=%s",
+                article_id,
+                len(embedding_text),
+                e,
+            )
             raise
         embedding_vector = emb.tolist()
 
-        metadata = {"title": title, "url": url, "pub_date": _pub_date_to_timestamp(pub_date)}
+        metadata = {
+            "title": title,
+            "url": url,
+            "pub_date": _pub_date_to_timestamp(pub_date),
+        }
         try:
             collection.add(
                 ids=[article_id],
@@ -198,6 +228,7 @@ def add_article_embeddings(articles: list[dict]) -> None:
         articles: List of article dicts with keys: article_id, title, content, url, pub_date.
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     if not articles:
@@ -221,12 +252,16 @@ def add_article_embeddings(articles: list[dict]) -> None:
             embedding_text = f"{title} {content}".strip()
 
         if not embedding_text:
-            logger.warning("Skipping embedding for article %s: no useful text", article_id)
+            logger.warning(
+                "Skipping embedding for article %s: no useful text", article_id
+            )
             continue
 
         embedding_texts.append(embedding_text)
         ids.append(article_id)
-        metadatas.append({"title": title, "url": url, "pub_date": _pub_date_to_timestamp(pub_date)})
+        metadatas.append(
+            {"title": title, "url": url, "pub_date": _pub_date_to_timestamp(pub_date)}
+        )
 
     if not embedding_texts:
         return
@@ -237,9 +272,15 @@ def add_article_embeddings(articles: list[dict]) -> None:
         embedding_fn = get_embedding_function()
 
         try:
-            emb = embedding_fn.encode(embedding_texts, convert_to_numpy=True, normalize_embeddings=True)
+            emb = embedding_fn.encode(
+                embedding_texts, convert_to_numpy=True, normalize_embeddings=True
+            )
         except Exception as e:
-            logger.error("Batch encoding failed for %d articles: error=%s", len(embedding_texts), e)
+            logger.error(
+                "Batch encoding failed for %d articles: error=%s",
+                len(embedding_texts),
+                e,
+            )
             raise
 
         embedding_vectors = emb.tolist()
@@ -269,7 +310,13 @@ def _parse_date_to_timestamp(date_str: str) -> int:
     return int(dt.timestamp())
 
 
-def search_articles_semantic(query_text: str, limit: int = 10, since: str | None = None, until: str | None = None, on: list[str] | None = None) -> list[ArticleListItem]:
+def search_articles_semantic(
+    query_text: str,
+    limit: int = 10,
+    since: str | None = None,
+    until: str | None = None,
+    on: list[str] | None = None,
+) -> list[ArticleListItem]:
     """Search articles by semantic similarity using ChromaDB.
 
     Args:
@@ -285,6 +332,7 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
     import logging
 
     from src.application.articles import ArticleListItem
+
     logger = logging.getLogger(__name__)
 
     # Build ChromaDB where clause for date filtering
@@ -295,7 +343,9 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
     if until:
         where_conditions.append(("pub_date", {"$lte": _parse_date_to_timestamp(until)}))
     if on:
-        where_conditions.append(("pub_date", {"$in": [_parse_date_to_timestamp(d) for d in on]}))
+        where_conditions.append(
+            ("pub_date", {"$in": [_parse_date_to_timestamp(d) for d in on]})
+        )
     where_clause = None
     if len(where_conditions) == 1:
         where_clause = {where_conditions[0][0]: where_conditions[0][1]}
@@ -307,7 +357,9 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
         collection = get_chroma_collection()
         embedding_fn = get_embedding_function()
         try:
-            emb = embedding_fn.encode([query_text], convert_to_numpy=True, normalize_embeddings=True)[0]
+            emb = embedding_fn.encode(
+                [query_text], convert_to_numpy=True, normalize_embeddings=True
+            )[0]
         except Exception as e:
             logger.error("Encoding failed for semantic query: %s", e)
             raise
@@ -326,7 +378,6 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
 
     # Flatten and map results
     ids = results.get("ids", [[]])[0]
-    documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
 
@@ -334,15 +385,10 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
     valid_ids = [aid for aid in ids if aid]
     id_to_article = {}
     if valid_ids:
-        from src.storage.sqlite import get_articles_by_ids, get_feeds_by_ids
+        from src.storage.sqlite import get_articles_by_ids
+
         articles_data = get_articles_by_ids(valid_ids)
         id_to_article = {a["id"]: a for a in articles_data}
-
-        # Batch fetch all unique feeds to avoid N DB calls in loop
-        feed_ids = list({a.get("feed_id") for a in articles_data if a.get("feed_id")})
-        id_to_feed = {f.id: f for f in get_feeds_by_ids(feed_ids).values()} if feed_ids else {}
-    else:
-        id_to_feed = {}
 
     # Build ranked results with multi-factor scoring
     ranked_results = []
@@ -362,25 +408,20 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
         # hnsw:space=cosine means distance = 1 - cosine_similarity (range 0-2)
         cos_sim = max(0.0, 1.0 - distance / 2.0) if distance is not None else 0.5
 
-        # Calculate freshness score (D-07: freshness signal removed from storage layer)
         pub_date = article_info.get("pub_date")
-        pub_ts = _pub_date_to_timestamp(pub_date)  # Returns int or None
-        freshness = 0.0
-        if pub_ts:
-            pub_dt = datetime.fromtimestamp(pub_ts, tz=timezone.utc)
-            days_ago = (datetime.now(timezone.utc) - pub_dt).days
-            freshness = max(0.0, 1.0 - days_ago / 30)
 
-        ranked_results.append({
-            "sqlite_id": sqlite_id,
-            "article_id": article_id,
-            "feed_id": article_info.get("feed_id") or "",
-            "feed_name": article_info.get("feed_name") or "",
-            "title": metadatas[i].get("title") if metadatas[i] else None,
-            "url": metadatas[i].get("url") if metadatas[i] else None,
-            "pub_date": pub_date,
-            "cos_sim": cos_sim,
-        })
+        ranked_results.append(
+            {
+                "sqlite_id": sqlite_id,
+                "article_id": article_id,
+                "feed_id": article_info.get("feed_id") or "",
+                "feed_name": article_info.get("feed_name") or "",
+                "title": metadatas[i].get("title") if metadatas[i] else None,
+                "url": metadatas[i].get("url") if metadatas[i] else None,
+                "pub_date": pub_date,
+                "cos_sim": cos_sim,
+            }
+        )
 
     # ChromaDB returns results ordered by similarity - no additional sort needed
     ranked_results = ranked_results[:limit]
@@ -388,17 +429,19 @@ def search_articles_semantic(query_text: str, limit: int = 10, since: str | None
     # Convert to ArticleListItem
     result_items = []
     for r in ranked_results:
-        result_items.append(ArticleListItem(
-            id=r["sqlite_id"] or r["article_id"] or "",
-            feed_id=r["feed_id"] or "",
-            feed_name=r["feed_name"] or "",
-            title=r.get("title"),
-            link=r.get("url"),
-            guid=r["sqlite_id"] or r["article_id"] or "",
-            pub_date=r.get("pub_date"),
-            description=None,
-            vec_sim=cos_sim,
-        ))
+        result_items.append(
+            ArticleListItem(
+                id=r["sqlite_id"] or r["article_id"] or "",
+                feed_id=r["feed_id"] or "",
+                feed_name=r["feed_name"] or "",
+                title=r.get("title"),
+                link=r.get("url"),
+                guid=r["sqlite_id"] or r["article_id"] or "",
+                pub_date=r.get("pub_date"),
+                description=None,
+                vec_sim=cos_sim,
+            )
+        )
     return result_items
 
 
@@ -413,6 +456,7 @@ def get_related_articles(article_id: str, limit: int = 5) -> list[dict]:
         List of dicts with keys: article_id, title, url, distance, document
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     # article_id is the SQLite nanoid, which is also the ChromaDB ID
@@ -454,13 +498,15 @@ def get_related_articles(article_id: str, limit: int = 5) -> list[dict]:
     for i, related_id in enumerate(ids):
         if related_id == chroma_id:
             continue  # Skip the query article itself
-        articles.append({
-            "article_id": related_id,
-            "title": metadatas[i].get("title") if metadatas[i] else None,
-            "url": metadatas[i].get("url") if metadatas[i] else None,
-            "distance": distances[i] if i < len(distances) else None,
-            "document": documents[i] if i < len(documents) else None,
-        })
+        articles.append(
+            {
+                "article_id": related_id,
+                "title": metadatas[i].get("title") if metadatas[i] else None,
+                "url": metadatas[i].get("url") if metadatas[i] else None,
+                "distance": distances[i] if i < len(distances) else None,
+                "document": documents[i] if i < len(documents) else None,
+            }
+        )
         if len(articles) >= limit:
             break
     return articles

@@ -3,13 +3,13 @@
 Discovers and loads all *_provider.py modules from src/providers/ directory,
 sorted by priority. Provides discover() function for provider lookup.
 """
+
 from __future__ import annotations
 
-import glob
 import importlib
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from src.discovery.models import DiscoveredFeed
 from src.providers.base import ContentProvider
@@ -57,7 +57,13 @@ def load_providers() -> None:
     logger.info("Loaded %d providers", len(PROVIDERS))
 
 
-def discover(url: str, response: Response = None, depth: int = 1, discover: bool = True, feed_type: FeedType = None) -> list[DiscoveredFeed]:
+def discover(
+    url: str,
+    response: Response = None,
+    depth: int = 1,
+    discover: bool = True,
+    feed_type: FeedType = None,
+) -> list[DiscoveredFeed]:
     """Find and fetch feeds from providers matching a URL.
 
     Args:
@@ -92,7 +98,9 @@ def discover(url: str, response: Response = None, depth: int = 1, discover: bool
                 # Validate discovered feeds in parallel using ThreadPoolExecutor
                 import concurrent.futures
 
-                def _validate_one(feed: DiscoveredFeed) -> DiscoveredFeed | None:
+                def _validate_one(
+                    feed: DiscoveredFeed, *, provider: ContentProvider = provider
+                ) -> DiscoveredFeed | None:
                     if feed.url in seen:
                         return None
                     try:
@@ -101,7 +109,9 @@ def discover(url: str, response: Response = None, depth: int = 1, discover: bool
                         return None
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                    futures = [executor.submit(_validate_one, f) for f in discovered_list]
+                    futures = [
+                        executor.submit(_validate_one, f) for f in discovered_list
+                    ]
                     for future in concurrent.futures.as_completed(futures):
                         try:
                             validated = future.result()
@@ -124,7 +134,9 @@ def get_all_providers() -> list[ContentProvider]:
     return PROVIDERS
 
 
-def match(url: str, response: Response = None, feed_type: FeedType = None) -> list[ContentProvider]:
+def match(
+    url: str, response: Response = None, feed_type: FeedType = None
+) -> list[ContentProvider]:
     """Find providers matching a URL.
 
     Args:
@@ -140,7 +152,9 @@ def match(url: str, response: Response = None, feed_type: FeedType = None) -> li
     return [p for p in PROVIDERS if p.match(url, response, feed_type)]
 
 
-def match_first(url: str, response: Response = None, feed_type: FeedType = None) -> ContentProvider | None:
+def match_first(
+    url: str, response: Response = None, feed_type: FeedType = None
+) -> ContentProvider | None:
     """Return first (highest priority) provider matching URL, or None.
 
     Args:

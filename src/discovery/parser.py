@@ -1,4 +1,5 @@
 """HTML link element parser for feed autodiscovery (DISC-01, DISC-03)."""
+
 from __future__ import annotations
 
 from urllib.parse import urljoin, urlparse
@@ -27,7 +28,7 @@ def resolve_url(page_url: str, href: str, base_href: str | None = None) -> str:
 
 # Comprehensive feed MIME types (from trafilatura)
 # FEED_TYPES contains all known feed MIME types
-_FEED_TYPE_KEYWORDS = ('atom', 'rdf', 'rss', 'json')  # ordered priority
+_FEED_TYPE_KEYWORDS = ("atom", "rdf", "rss", "json")  # ordered priority
 
 
 def extract_feed_type(content_type: str) -> str | None:
@@ -45,7 +46,7 @@ def extract_feed_type(content_type: str) -> str | None:
         # Determine feed type from MIME type keywords
         for keyword in _FEED_TYPE_KEYWORDS:
             if keyword in ct_lower:
-                return keyword if keyword != 'rdf' else 'rdf'
+                return keyword if keyword != "rdf" else "rdf"
     return None
 
 
@@ -64,21 +65,21 @@ def parse_link_elements(html: str, page_url: str) -> list[DiscoveredFeed]:
     page = Selector(content=html)
 
     # Find <head> element
-    head = page.find('head')
+    head = page.find("head")
     if not head:
         return feeds
 
     # Check for <base href=""> override in <head>
-    base_tag = head.find('base[href]')
-    base_href: str | None = base_tag.attrib['href'] if base_tag else None
+    base_tag = head.find("base[href]")
+    base_href: str | None = base_tag.attrib["href"] if base_tag else None
 
     # Find all <link> tags in <head> with rel="alternate"
     for link in head.css('link[rel="alternate"]'):
-        href = link.attrib['href']
+        href = link.attrib["href"]
         if not href:
             continue
 
-        link_type = link.attrib.get('type') or ''
+        link_type = link.attrib.get("type") or ""
         feed_type = extract_feed_type(link_type)
         if not feed_type:
             continue
@@ -87,22 +88,24 @@ def parse_link_elements(html: str, page_url: str) -> list[DiscoveredFeed]:
         absolute_url = resolve_url(page_url, href, base_href)
 
         # Extract title if present
-        title: str | None = link.attrib.get('title')
+        title: str | None = link.attrib.get("title")
 
-        feeds.append(DiscoveredFeed(
-            url=absolute_url,
-            title=title,
-            feed_type=feed_type,
-            source='autodiscovery',
-            page_url=page_url,
-        ))
+        feeds.append(
+            DiscoveredFeed(
+                url=absolute_url,
+                title=title,
+                feed_type=feed_type,
+                source="autodiscovery",
+                page_url=page_url,
+            )
+        )
 
     # Trafilatura fallback: if no <link> tags found, try <a href> with regex
     if not feeds:
         page_netloc = urlparse(page_url).netloc.lower()
-        for anchor in page.css('a[href]'):
-            href = anchor.attrib.get('href', '')
-            if not href or href.startswith(('javascript:', 'mailto:', '#')):
+        for anchor in page.css("a[href]"):
+            href = anchor.attrib.get("href", "")
+            if not href or href.startswith(("javascript:", "mailto:", "#")):
                 continue
             # Check if URL matches feed pattern
             if LINK_VALIDATION_RE.search(href.lower()):
@@ -116,12 +119,14 @@ def parse_link_elements(html: str, page_url: str) -> list[DiscoveredFeed]:
                 # Extract text content as potential title
                 anchor_text = anchor.text
                 title = anchor_text.strip() if anchor_text else None
-                feeds.append(DiscoveredFeed(
-                    url=absolute_url,
-                    title=title,
-                    feed_type='rss',  # best guess, validated later
-                    source='autodiscovery_fallback',
-                    page_url=page_url,
-                ))
+                feeds.append(
+                    DiscoveredFeed(
+                        url=absolute_url,
+                        title=title,
+                        feed_type="rss",  # best guess, validated later
+                        source="autodiscovery_fallback",
+                        page_url=page_url,
+                    )
+                )
 
     return feeds

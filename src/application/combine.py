@@ -55,7 +55,9 @@ def combine_scores(
         ce = c.ce_score if c.ce_score > 0 else 0.0
 
         # Final score = weighted combination of 4 signals
-        c.final_score = alpha * ce + beta * c.freshness + gamma * c.vec_sim + delta * c.bm25_score
+        c.final_score = (
+            alpha * ce + beta * c.freshness + gamma * c.vec_sim + delta * c.bm25_score
+        )
 
     candidates.sort(key=lambda x: x.final_score, reverse=True)
     return candidates

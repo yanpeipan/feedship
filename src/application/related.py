@@ -30,23 +30,28 @@ def get_related_articles(article_id: str, limit: int = 5) -> list[ArticleListIte
 
         # Look up full article data from SQLite
         from src.storage.sqlite import get_article
+
         article = get_article(sqlite_id)
         if not article:
             continue
 
         distance = result.get("distance")
-        score = max(0.0, 1.0 - distance * distance / 2.0) if distance is not None else 1.0
+        score = (
+            max(0.0, 1.0 - distance * distance / 2.0) if distance is not None else 1.0
+        )
 
-        articles.append(ArticleListItem(
-            id=sqlite_id,
-            feed_id=article.feed_id,
-            feed_name=article.feed_name,
-            title=result.get("title") or article.title,
-            link=result.get("url") or article.link,
-            guid=article.guid or sqlite_id,
-            pub_date=article.pub_date,
-            description=None,
-            score=score,
-        ))
+        articles.append(
+            ArticleListItem(
+                id=sqlite_id,
+                feed_id=article.feed_id,
+                feed_name=article.feed_name,
+                title=result.get("title") or article.title,
+                link=result.get("url") or article.link,
+                guid=article.guid or sqlite_id,
+                pub_date=article.pub_date,
+                description=None,
+                score=score,
+            )
+        )
 
     return articles

@@ -21,11 +21,14 @@ def cli(ctx: click.Context, verbose: bool) -> None:
 
     # Initialize uvloop (graceful fallback on Windows)
     from src.utils.asyncio_utils import install_uvloop
+
     install_uvloop()
 
     # Initialize database on every command
     from src.storage.sqlite import init_db
+
     init_db()
+
 
 # Import submodules to trigger @cli.command decorators
 from src.cli import (

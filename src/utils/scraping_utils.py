@@ -57,6 +57,7 @@ def fetch_with_fallback(
 
     if headers is None:
         from src.constants import BROWSER_HEADERS
+
         headers = BROWSER_HEADERS
 
     # Fast path: try basic Fetcher
@@ -67,7 +68,9 @@ def fetch_with_fallback(
         html = getattr(response, "html_content", None) or ""
 
         if status in _BLOCK_STATUS_CODES or _looks_like_block_page(html):
-            _logger.debug(f"Basic fetch blocked ({status}), trying stealth fetcher for {url}")
+            _logger.debug(
+                f"Basic fetch blocked ({status}), trying stealth fetcher for {url}"
+            )
         else:
             return response
     except Exception as e:
@@ -95,7 +98,11 @@ def parse_html_body(response: Response) -> str | None:
         return None
     try:
         if response.body:
-            return response.body.decode('utf-8', errors='replace') if isinstance(response.body, bytes) else str(response.body)
+            return (
+                response.body.decode("utf-8", errors="replace")
+                if isinstance(response.body, bytes)
+                else str(response.body)
+            )
     except Exception:
         pass
     return None
@@ -110,9 +117,9 @@ def find_base_href(page: Selector) -> str | None:
     Returns:
         Base href URL or None.
     """
-    head = page.find('head')
+    head = page.find("head")
     if head:
-        base_tag = head.find('base[href]')
+        base_tag = head.find("base[href]")
         if base_tag:
-            return base_tag.attrib['href']
+            return base_tag.attrib["href"]
     return None

@@ -6,6 +6,7 @@ Test Conventions (from Phase 26):
 3. HTTP MOCKING WITH httpx_mock - use pytest-httpx's httpx_mock fixture for HTTP requests
 4. CLI TESTING WITH CliRunner
 """
+
 import asyncio
 import sqlite3
 
@@ -14,6 +15,7 @@ import pytest
 # =============================================================================
 # TestArticleOperations
 # =============================================================================
+
 
 class TestArticleOperations:
     """Tests for article storage functions: store_article, store_article_async,
@@ -70,14 +72,16 @@ class TestArticleOperations:
         )
         add_feed(feed)
 
-        article_id = asyncio.run(store_article_async(
-            guid="async-article-guid-1",
-            title="Async Article",
-            content="<p>Async content</p>",
-            link="https://example.com/async-article",
-            feed_id="feed-async",
-            pub_date="2024-01-16T10:00:00+00:00",
-        ))
+        article_id = asyncio.run(
+            store_article_async(
+                guid="async-article-guid-1",
+                title="Async Article",
+                content="<p>Async content</p>",
+                link="https://example.com/async-article",
+                feed_id="feed-async",
+                pub_date="2024-01-16T10:00:00+00:00",
+            )
+        )
 
         assert article_id is not None
         assert isinstance(article_id, str)
@@ -444,6 +448,7 @@ class TestArticleOperations:
 # =============================================================================
 # TestFeedOperations
 # =============================================================================
+
 
 class TestFeedOperations:
     """Tests for feed storage functions: feed_exists, add_feed, list_feeds,

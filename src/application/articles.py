@@ -72,7 +72,9 @@ def list_articles(
     Returns:
         List of ArticleListItem objects.
     """
-    return storage_list_articles(limit=limit, feed_id=feed_id, since=since, until=until, on=on)
+    return storage_list_articles(
+        limit=limit, feed_id=feed_id, since=since, until=until, on=on
+    )
 
 
 def get_article(article_id: str) -> ArticleListItem | None:
@@ -121,4 +123,6 @@ def search_articles(
     Returns:
         List of ArticleListItem objects.
     """
-    return storage_search_articles(query=query, limit=limit, feed_id=feed_id, since=since, until=until, on=on)
+    return storage_search_articles(
+        query=query, limit=limit, feed_id=feed_id, since=since, until=until, on=on
+    )
