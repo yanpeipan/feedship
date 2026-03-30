@@ -34,6 +34,7 @@ test = [
     "pytest-httpx>=0.36.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.6.0",
+    "pre-commit>=3.0.0",
 ]
 ml = [
     "sentence-transformers>=3.0.0",
