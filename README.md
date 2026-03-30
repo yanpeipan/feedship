@@ -1,4 +1,4 @@
-# radar
+# feedship
 
 Personal information system for collecting, subscribing to, and organizing information sources from the internet.
 
@@ -17,19 +17,19 @@ Python 3.10+ | click | feedparser | httpx | BeautifulSoup4 | sqlite3 | ChromaDB 
 ## Installation
 
 ```bash
-pip install radar
+pip install feedship
 # or
-uv pip install radar
+uv pip install feedship
 ```
 
 ### Optional Dependencies
 
 ```bash
 # ML/AI features for auto-tagging
-pip install radar[ml]
+pip install feedship[ml]
 
 # All features
-pip install radar[ml,semantic]
+pip install feedship[ml,semantic]
 ```
 
 ## Quick Start
@@ -37,11 +37,11 @@ pip install radar[ml,semantic]
 ### Add a Feed
 
 ```bash
-radar feed add <url> [options]
+feedship feed add <url> [options]
 
 # Examples:
-radar feed add https://example.com/feed.xml
-radar feed add https://github.com/python/cpython
+feedship feed add https://example.com/feed.xml
+feedship feed add https://github.com/python/cpython
 
 # Options:
 --discover [on|off]          Enable feed discovery (default: on)
@@ -53,17 +53,17 @@ radar feed add https://github.com/python/cpython
 ### Fetch & List
 
 ```bash
-radar fetch --all        # Fetch all feeds
-radar feed list          # List all feeds
-radar article list        # List articles
-radar article list --limit 50
+feedship fetch --all        # Fetch all feeds
+feedship feed list          # List all feeds
+feedship article list        # List articles
+feedship article list --limit 50
 ```
 
 ### Search
 
 ```bash
-radar search "machine learning"
-radar search "python" --limit 10
+feedship search "machine learning"
+feedship search "python" --limit 10
 ```
 
 ## Documentation

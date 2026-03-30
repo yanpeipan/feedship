@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore", message="urllib3.*doesn't match a supported ve
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
 @click.pass_context
 def cli(ctx: click.Context, verbose: bool) -> None:
-    """Radar CLI - manage information feeds and articles."""
+    """Feedship CLI - manage information feeds and articles."""
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
 

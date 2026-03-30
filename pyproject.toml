@@ -1,7 +1,7 @@
 [project]
-name = "radar"
+name = "feedship"
 version = "1.0.0"
-description = "A personal information system for collecting, subscribing to, and organizing information sources from the internet"
+description = "A personal information delivery system - collect, subscribe to, and organize information sources from the internet"
 requires-python = ">=3.10"
 dependencies = [
     "feedparser>=6.0.0",
@@ -51,7 +51,7 @@ cloudflare = [
 ]
 
 [project.scripts]
-radar = "src.cli:cli"
+feedship = "src.cli:cli"
 
 [build-system]
 requires = ["setuptools>=61.0"]
