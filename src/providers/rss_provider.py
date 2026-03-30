@@ -5,23 +5,19 @@ Priority is 50 (higher than DefaultProvider at 0, lower than GitHubReleaseProvid
 """
 from __future__ import annotations
 
-import asyncio
 import logging
-from contextvars import ContextVar
-from typing import Any, List, Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 from urllib.parse import urljoin, urlparse
 
-import xml.etree.ElementTree as ET
-
 import feedparser
-from trafilatura import fetch_url
 
 from src.providers import PROVIDERS
-from src.providers.base import Article, ContentProvider, FetchedResult, Raw
+from src.providers.base import Article, FetchedResult
 from src.discovery.models import DiscoveredFeed
 
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
+    from src.models import FeedType
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +72,7 @@ class RSSProvider:
         )
         return response
 
-    def match(self, url: str, response: "Response" = None) -> bool:
+    def match(self, url: str, response: "Response" = None, feed_type: "FeedType" = None) -> bool:
         """Check if URL points to RSS/Atom feed via Content-Type header.
 
         Args:
@@ -84,12 +80,18 @@ class RSSProvider:
             response: Optional HTTP response from discovery phase.
                 If provided, uses content_type from response directly (no new request).
                 If None, only uses URL pattern matching (no new request).
+            feed_type: Optional FeedType to restrict matching. If FeedType.RSS, matches RSS feeds.
 
         Returns:
             True if URL returns application/rss+xml, application/atom+xml,
             or application/xml Content-Type. Also returns True for 403 errors
             to allow fallback to Scrapling for Cloudflare-protected feeds.
         """
+        # If feed_type is specified and is not RSS, reject
+        from src.models import FeedType
+        if feed_type is not None and feed_type != FeedType.RSS:
+            return False
+
         if response:
             # 403 triggers Cloudflare fallback - allow crawl
             if response.status == 403:
@@ -222,8 +224,20 @@ class RSSProvider:
             if response is None:
                 response = Fetcher.get(url, headers=BROWSER_HEADERS)
 
-            # Parse just enough to get feed title
+            # Parse feed content
             parsed = feedparser.parse(response.body)
+
+            # A valid RSS/Atom feed must have entries (otherwise it's just a website)
+            if not parsed.entries:
+                return DiscoveredFeed(
+                    url=url,
+                    title=None,
+                    feed_type="rss",
+                    source=f"provider_{self.__class__.__name__}",
+                    page_url=url,
+                    valid=False,
+                )
+
             title = parsed.feed.get("title") if parsed.feed else None
 
             return DiscoveredFeed(
@@ -416,24 +430,32 @@ def _probe_well_known_paths(url: str, html: str | None) -> list["DiscoveredFeed"
     Returns:
         List of DiscoveredFeed found via well-known path probing (only validated ones).
     """
-    import asyncio
+    import concurrent.futures
     from src.discovery.common_paths import generate_feed_candidates
 
     candidates = generate_feed_candidates(url, html)
     if not candidates:
         return []
 
-    async def _validate_one(candidate: str) -> DiscoveredFeed | None:
+    def _validate_one(candidate: str) -> DiscoveredFeed | None:
         try:
-            return await asyncio.to_thread(RSSProvider().parse_feed, candidate, None)
+            return RSSProvider().parse_feed(candidate, None)
         except Exception:
             return None
 
-    async def _validate_all() -> list[DiscoveredFeed]:
-        results = await asyncio.gather(*[_validate_one(c) for c in candidates])
-        return [r for r in results if r is not None]
+    # Use ThreadPoolExecutor for parallel validation (avoid asyncio.run() nesting issues)
+    results: list[DiscoveredFeed] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(_validate_one, c) for c in candidates]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result()
+                if result is not None:
+                    results.append(result)
+            except Exception:
+                pass
 
-    return asyncio.run(_validate_all())
+    return results
 
 # Register this provider - it will be sorted by priority() after all modules load
 PROVIDERS.append(RSSProvider())

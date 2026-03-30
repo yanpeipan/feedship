@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from src.models import FeedMetaData
 
 
 @dataclass
@@ -47,6 +50,7 @@ class DiscoveredFeed:
         source: How the feed was discovered ('autodiscovery', 'well_known_path', etc.).
         page_url: The original page URL where this feed was discovered.
         valid: Whether the feed has been validated (True) or is unverified (False).
+        metadata: Optional provider-specific metadata (e.g., path selectors).
     """
     url: str
     title: Optional[str]
@@ -54,3 +58,4 @@ class DiscoveredFeed:
     source: str  # 'autodiscovery', 'well_known_path', etc.
     page_url: str  # Original page URL
     valid: bool = False  # Default to False, validated feeds set True
+    metadata: Optional["FeedMetaData"] = None

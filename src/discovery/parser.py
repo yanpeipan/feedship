@@ -1,7 +1,6 @@
 """HTML link element parser for feed autodiscovery (DISC-01, DISC-03)."""
 from __future__ import annotations
 
-import re
 from typing import Optional
 from urllib.parse import urljoin, urlparse
 

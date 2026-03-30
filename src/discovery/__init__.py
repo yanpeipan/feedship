@@ -1,20 +1,10 @@
 """Discovery service for RSS/Atom feed auto-discovery from website URLs."""
 from __future__ import annotations
 
-import asyncio
 import logging
-from urllib.parse import urljoin
-from typing import TYPE_CHECKING
 
-from src.discovery.common_paths import FEED_CONTENT_TYPES, generate_feed_candidates
-from src.discovery.deep_crawl import deep_crawl, compute_link_selectors
-from src.discovery.fetcher import validate_feed
+from src.discovery.deep_crawl import deep_crawl
 from src.discovery.models import DiscoveredFeed, DiscoveredResult, LinkSelector
-from src.discovery.parser import parse_link_elements
-from src.constants import BROWSER_HEADERS
-
-if TYPE_CHECKING:
-    from scrapling.engines.toolbelt.custom import Response
 
 logger = logging.getLogger(__name__)
 
@@ -48,51 +38,6 @@ def probe_well_known_paths(page_url: str) -> list[str]:
     return generate_feed_candidates(page_url)
 
 
-async def validate_and_wrap(
-    url: str, page_url: str, source: str
-) -> DiscoveredFeed | None:
-    """Validate a feed URL and wrap in DiscoveredFeed if valid.
-
-    Args:
-        url: Feed URL to validate.
-        page_url: Original page URL.
-        source: Discovery source ('autodiscovery' or 'well_known_path').
-
-    Returns:
-        DiscoveredFeed if valid, None otherwise.
-    """
-    is_valid, feed_type = await validate_feed(url)
-    if not is_valid:
-        return None
-    return DiscoveredFeed(
-        url=url,
-        title=None,
-        feed_type=feed_type,
-        source=source,
-        page_url=page_url,
-        valid=True,
-    )
-
-
-def _sync_fetch_page_response(url: str) -> "Response | None":
-    """Fetch a page and return scrapling Response for provider matching.
-
-    This is a synchronous function suitable for running in a thread pool.
-
-    Args:
-        url: Page URL to fetch.
-
-    Returns:
-        scrapling Response object, or None if fetch fails.
-    """
-    try:
-        from scrapling import Fetcher
-        response = Fetcher.get(url, headers=BROWSER_HEADERS)
-        return response
-    except Exception:
-        return None
-
-
 async def discover_feeds(url: str, max_depth: int = 1, auto_discover: bool = True) -> DiscoveredResult:
     """Discover RSS/Atom/RDF feeds from a website URL.
 
@@ -110,4 +55,4 @@ async def discover_feeds(url: str, max_depth: int = 1, auto_discover: bool = Tru
 
 
 # Public exports
-__all__ = ["discover_feeds", "DiscoveredFeed", "DiscoveredResult", "LinkSelector", "deep_crawl"]
+__all__ = ["discover_feeds", "DiscoveredFeed", "DiscoveredResult", "LinkSelector", "deep_crawl", "normalize_url", "probe_well_known_paths"]

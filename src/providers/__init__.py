@@ -16,6 +16,7 @@ from src.discovery.models import DiscoveredFeed
 
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
+    from src.models import FeedType
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ def load_providers() -> None:
     logger.info("Loaded %d providers", len(PROVIDERS))
 
 
-def discover(url: str, response: "Response" = None, depth: int = 1, discover: bool = True) -> List["DiscoveredFeed"]:
+def discover(url: str, response: "Response" = None, depth: int = 1, discover: bool = True, feed_type: "FeedType" = None) -> List["DiscoveredFeed"]:
     """Find and fetch feeds from providers matching a URL.
 
     Args:
@@ -66,33 +67,48 @@ def discover(url: str, response: "Response" = None, depth: int = 1, discover: bo
         depth: Current crawl depth (1 = initial URL, can make HTTP requests;
                >1 = BFS deeper, should use response only if available).
         discover: Whether to run provider discovery (default: True).
-            When False, only uses parse_feed() for validation.
+        feed_type: Optional FeedType to restrict provider matching.
 
     Returns:
         List of DiscoveredFeed from matching providers sorted by priority.
-        Empty list if no providers match or all discover() calls return empty.
+        Both parse_feed() and discover() return feeds with valid field set appropriately.
+        Callers should filter by valid=True for confirmed feeds.
     """
-    matched = [p for p in PROVIDERS if p.match(url, response)]
+    matched = [p for p in PROVIDERS if p.match(url, response, feed_type)]
     feeds = []
     seen = set()
     for provider in matched:
-        # Validate URL via parse_feed (returns DiscoveredFeed)
-        try:
-            discovered = provider.parse_feed(url, response)
-            if discovered and discovered.url not in seen:
-                seen.add(discovered.url)
-                feeds.append(discovered)
-        except Exception:
-            pass
+        # Validate URL via parse_feed (returns DiscoveredFeed with valid set appropriately)
+        discovered = provider.parse_feed(url, response)
+        if discovered and discovered.valid and discovered.url not in seen:
+            seen.add(discovered.url)
+            feeds.append(discovered)
 
         # Discover additional feeds if enabled
         if discover:
             try:
-                discovered = provider.discover(url, response, depth)
-                for feed in discovered:
-                    if feed.url not in seen:
-                        seen.add(feed.url)
-                        feeds.append(feed)
+                discovered_list = provider.discover(url, response, depth)
+                # Validate discovered feeds in parallel using ThreadPoolExecutor
+                import concurrent.futures
+
+                def _validate_one(feed: "DiscoveredFeed") -> "DiscoveredFeed | None":
+                    if feed.url in seen:
+                        return None
+                    try:
+                        return provider.parse_feed(feed.url, None)
+                    except Exception:
+                        return None
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                    futures = [executor.submit(_validate_one, f) for f in discovered_list]
+                    for future in concurrent.futures.as_completed(futures):
+                        try:
+                            validated = future.result()
+                            if validated and validated.valid:
+                                seen.add(validated.url)
+                                feeds.append(validated)
+                        except Exception:
+                            pass
             except Exception:
                 pass
     return feeds
@@ -107,7 +123,7 @@ def get_all_providers() -> List[ContentProvider]:
     return PROVIDERS
 
 
-def match(url: str, response: "Response" = None) -> List[ContentProvider]:
+def match(url: str, response: "Response" = None, feed_type: "FeedType" = None) -> List[ContentProvider]:
     """Find providers matching a URL.
 
     Args:
@@ -115,24 +131,26 @@ def match(url: str, response: "Response" = None) -> List[ContentProvider]:
         response: Optional HTTP response from discovery phase.
             If provided, match() uses content_type from response.
             If None, match() only uses URL.
+        feed_type: Optional FeedType to restrict provider matching.
 
     Returns:
         List of ContentProvider that match this URL, sorted by priority descending.
     """
-    return [p for p in PROVIDERS if p.match(url, response)]
+    return [p for p in PROVIDERS if p.match(url, response, feed_type)]
 
 
-def match_first(url: str, response: "Response" = None) -> Optional[ContentProvider]:
+def match_first(url: str, response: "Response" = None, feed_type: "FeedType" = None) -> Optional[ContentProvider]:
     """Return first (highest priority) provider matching URL, or None.
 
     Args:
         url: URL to match against providers.
         response: Optional HTTP response from discovery phase.
+        feed_type: Optional FeedType to restrict provider matching.
 
     Returns:
         Highest priority ContentProvider matching URL, or None if no match.
     """
-    matched = match(url, response)
+    matched = match(url, response, feed_type)
     return matched[0] if matched else None
 
 

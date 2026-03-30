@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Protocol, runtime_checkab
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
     from src.discovery.models import DiscoveredFeed
+    from src.models import Feed, FeedType
 
 # Forward declarations for Article and Raw types
 # Raw will be defined by concrete providers based on their crawl() return type
@@ -18,9 +19,9 @@ Raw = dict      # Raw crawl result
 
 
 @dataclass
-class CrawlResult:
-    """Result of a crawl operation, including feed metadata for conditional fetching."""
-    entries: List[Raw]
+class FetchedResult:
+    """Result of a fetch operation, including feed metadata for conditional fetching."""
+    articles: List[Article]
     etag: Optional[str] = None
     last_modified: Optional[str] = None
 
@@ -29,17 +30,25 @@ class CrawlResult:
 class ContentProvider(Protocol):
     """Protocol for content providers (RSS, GitHub, etc.).
 
+    Key invariant: match() with response=None MUST be URL-only matching.
+    When response is None, match() should NOT make any HTTP requests.
+    This enables fast provider selection without network overhead.
+
     All providers must implement these methods. The @runtime_checkable decorator
     allows isinstance() checks for protocol conformance.
     """
 
-    def match(self, url: str, response: "Response" = None) -> bool:
+    def match(self, url: str, response: "Response" = None, feed_type: "FeedType" = None) -> bool:
         """Return True if this provider handles the URL.
 
         Args:
             url: URL to check.
             response: Optional HTTP response from discovery phase.
-                If None, provider should not make HTTP requests - only use URL.
+                If None, provider should not make HTTP requests - only use URL
+                for matching (URL-only mode). This is critical for performance
+                and to avoid unnecessary network calls during provider selection.
+            feed_type: Optional FeedType to restrict matching to specific type.
+                If None, provider should use its default matching logic.
 
         Returns:
             True if this provider can handle the URL, False otherwise.
@@ -56,51 +65,22 @@ class ContentProvider(Protocol):
         """
         ...
 
-    def crawl(self, url: str) -> List[Raw]:
-        """Fetch raw content from URL.
+    def fetch_articles(self, feed: "Feed") -> FetchedResult:
+        """Fetch and parse content from Feed.
 
         Args:
-            url: URL to crawl.
+            feed: Feed object containing url and optional etag/last_modified.
 
         Returns:
-            List of raw content dicts to be passed to parse().
-            Returns empty list if crawl fails (caller handles retry via error isolation).
-        """
-        ...
-
-    async def crawl_async(self, url: str, etag: Optional[str] = None, last_modified: Optional[str] = None) -> CrawlResult:
-        """Asynchronous crawl - default uses run_in_executor.
-
-        Override this method in providers that support true async HTTP
-        (e.g., RSSProvider with httpx.AsyncClient).
-
-        Default implementation wraps the sync crawl() method in a thread pool
-        executor to avoid blocking the event loop.
-
-        Args:
-            url: URL to crawl.
-            etag: Optional ETag header for conditional fetching.
-            last_modified: Optional Last-Modified header for conditional fetching.
-
-        Returns:
-            CrawlResult with entries and updated etag/last_modified for future
-            conditional requests. Entries may be empty on crawl failure.
-        """
-        ...
-
-    def parse(self, raw: Raw) -> Article:
-        """Convert raw crawl result to Article.
-
-        Args:
-            raw: Raw content dict from crawl().
-
-        Returns:
-            Article dict with fields: title, link, guid, pub_date, description, content.
+            FetchedResult with articles list and updated etag/last_modified.
         """
         ...
 
     def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
         """Validate URL is a feed and return as DiscoveredFeed.
+
+        IMPORTANT: This method raises an exception if the URL cannot be validated.
+        Only call parse_feed() after match() has confirmed this provider handles the URL.
 
         Args:
             url: URL of the feed to parse metadata for.
@@ -108,7 +88,10 @@ class ContentProvider(Protocol):
 
         Returns:
             DiscoveredFeed with valid=True if URL is a valid feed.
-            Raises exception if URL cannot be fetched or parsed.
+
+        Raises:
+            ValueError: If URL cannot be fetched or parsed as a valid feed.
+            Exception: Other exceptions may be raised for network errors, etc.
         """
         ...
 

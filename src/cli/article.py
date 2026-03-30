@@ -104,7 +104,7 @@ def article_view(ctx: click.Context, article_id: str) -> None:
         meta_table = Table(show_header=False, box=None)
         meta_table.add_row("Source:", article["feed_name"] or "Unknown")
         meta_table.add_row("Type:", article.get("source_type", "feed").capitalize())
-        meta_table.add_row("Date:", article["pub_date"] or "No date")
+        meta_table.add_row("Date:", _format_date(article["pub_date"]))
 
 
         # Link
@@ -113,7 +113,7 @@ def article_view(ctx: click.Context, article_id: str) -> None:
 
         # Display panel with title
         title = article["title"] or "No title"
-        console.print(Panel(meta_table, title=title, subtitle=f"{article['feed_name']} | {article['pub_date'] or 'No date'}"))
+        console.print(Panel(meta_table, title=title, subtitle=f"{article['feed_name']} | {_format_date(article['pub_date'])}"))
         if article["content"]:
             console.print(); console.print(article["content"])
         else:

@@ -47,7 +47,7 @@ def add_feed(url: str, weight: float | None = None, feed_meta_data: "FeedMetaDat
     if feed_meta_data and feed_meta_data.selectors:
         feed_id = generate_feed_id()
         now = datetime.now(get_timezone()).isoformat()
-        temp_feed = Feed(
+        feed = Feed(
             id=feed_id,
             name=url,  # temporary name, will be updated
             url=url,
@@ -58,26 +58,39 @@ def add_feed(url: str, weight: float | None = None, feed_meta_data: "FeedMetaDat
             weight=weight if weight is not None else get_default_feed_weight(),
             metadata=feed_meta_data.to_json(),
         )
-        upsert_feed(temp_feed)
+        upsert_feed(feed)
     else:
         feed_id = generate_feed_id()
+        now = datetime.now(get_timezone()).isoformat()
+        feed = Feed(
+            id=feed_id,
+            name=url,
+            url=url,
+            etag=None,
+            last_modified=None,
+            last_fetched=None,
+            created_at=now,
+            weight=weight if weight is not None else get_default_feed_weight(),
+            metadata=None,
+        )
 
     for provider in providers:
         try:
             feed_meta = provider.parse_feed(url)
-            entries = provider.crawl(url)
-            if entries:
+            result = provider.fetch_articles(feed)
+            articles = result.articles
+            if articles:
                 break  # Success
         except Exception as e:
             last_error = e
             continue  # Try next provider
 
-    if feed_meta is None or entries is None:
+    if feed_meta is None or articles is None:
         if last_error:
             raise ValueError(f"All providers failed: {last_error}")
         raise ValueError("No provider could fetch feed metadata")
 
-    if not entries:
+    if not articles:
         raise ValueError("No entries found in feed")
 
     # Check if feed already exists using storage function
@@ -195,18 +208,18 @@ def fetch_one(feed_or_id: str | Feed) -> dict:
 
     # Crawl using the discovered provider
     try:
-        raw_items = provider.crawl(feed.url)
+        result = provider.fetch_articles(feed)
+        articles = result.articles
     except Exception as e:
         logger.error("Failed to crawl %s: %s", feed.url, e)
         return {"new_articles": 0, "error": str(e)}
 
-    if not raw_items:
+    if not articles:
         return {"new_articles": 0}
 
-    # Parse all items
+    # Build article records with feed_id
     parsed_articles = []
-    for raw in raw_items:
-        article = provider.parse(raw)
+    for article in articles:
         article_guid = article.get("guid") or generate_article_id(article)
         parsed_articles.append({
             "guid": article_guid,

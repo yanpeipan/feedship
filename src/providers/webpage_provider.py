@@ -18,11 +18,12 @@ from datetime import datetime
 from typing import Any, List, Optional, TYPE_CHECKING
 
 from src.providers import PROVIDERS
-from src.providers.base import Article, ContentProvider, CrawlResult, Raw
+from src.providers.base import Article, ContentProvider, FetchedResult, Raw
 from src.discovery.models import DiscoveredFeed
 
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
+    from src.models import FeedMetaData, FeedType
 
 logger = logging.getLogger(__name__)
 
@@ -85,13 +86,13 @@ def _analyze_link_paths(url: str, limit: int = 15) -> dict[str, int]:
         Dict of path_pattern -> count, sorted by count descending.
     """
     from urllib.parse import urljoin, urlparse
-    from scrapling import StealthyFetcher, Selector
+    from scrapling import Selector
+    from src.utils.scraping_utils import fetch_with_fallback
 
     try:
-        fetcher = StealthyFetcher()
-        r = fetcher.fetch(url, timeout=30000)
-    except ModuleNotFoundError:
-        raise  # Re-raise so caller can handle with specific message
+        r = fetch_with_fallback(url, timeout=30)
+        if r is None:
+            return {}
     except Exception:
         return {}
 
@@ -193,12 +194,13 @@ class WebpageProvider:
     def __init__(self) -> None:
         self._df_initialized = False
 
-    def match(self, url: str, response: "Response" = None) -> bool:
+    def match(self, url: str, response: "Response" = None, feed_type: "FeedType" = None) -> bool:
         """Check if URL is a webpage (not a direct feed URL).
 
         Args:
             url: URL to check.
             response: Optional HTTP response (ignored - URL-only matching).
+            feed_type: Optional FeedType (ignored).
 
         Returns:
             True if URL looks like a webpage (not a feed URL).
@@ -209,7 +211,7 @@ class WebpageProvider:
         if any(ext in lower for ext in (".rss", ".atom", "/feed", "/feed.xml",
                                          "/atom.xml", "/rss.xml", "/index.xml")):
             return False
-        return True
+        return False # 功能还不完善，暂时关闭匹配
 
     def priority(self) -> int:
         return 100
@@ -221,13 +223,14 @@ class WebpageProvider:
             self._df_initialized = True
         return self._DynamicFetcher
 
-    def crawl(self, url: str) -> List[Raw]:
-        """Crawl using generic link discovery + Trafilatura extraction."""
+    def fetch_articles(self, feed: Feed) -> FetchedResult:
+        """Fetch articles using generic link discovery + Trafilatura extraction."""
         try:
-            return self._crawl_discovery(url)
+            raw_results = self._crawl_discovery(feed.url)
+            return FetchedResult(articles=self.parse_articles(raw_results))
         except Exception as e:
-            logger.error("WebpageProvider.crawl(%s) failed: %s", url, e)
-            return []
+            logger.error("WebpageProvider.fetch_articles(%s) failed: %s", feed.url, e)
+            return FetchedResult(articles=[])
 
     def _crawl_discovery(self, url: str) -> List[Raw]:
         """Generic fallback: discover article links → Trafilatura on each."""
@@ -313,36 +316,21 @@ class WebpageProvider:
         except Exception:
             return None
 
-    async def crawl_async(self, url: str, etag: Optional[str] = None,
-                          last_modified: Optional[str] = None, timeout: float = 120.0) -> CrawlResult:
-        import asyncio
-        _ = etag, last_modified
-        loop = asyncio.get_running_loop()
-        try:
-            entries = await asyncio.wait_for(
-                loop.run_in_executor(None, self.crawl, url),
-                timeout=timeout,
-            )
-        except asyncio.TimeoutError:
-            logger.warning("crawl_async(%s) timed out after %.0fs", url, timeout)
-            entries = []
-        except Exception as e:
-            logger.error("crawl_async(%s) failed: %s", url, e)
-            entries = []
-        return CrawlResult(entries=entries)
-
-    def parse(self, raw: Raw) -> Article:
+    def parse_articles(self, entries: List[Raw]) -> List[Article]:
         from src.utils import generate_article_id
-        title = raw.get("title")
-        link = raw.get("link")
-        guid = generate_article_id(raw) if not link else link
-        pub_date = raw.get("pub_date")
-        description = raw.get("description")
-        content = raw.get("content") or raw.get("description")
-        return Article(
-            title=title, link=link, guid=guid,
-            pub_date=pub_date, description=description, content=content,
-        )
+        articles = []
+        for raw in entries:
+            title = raw.get("title")
+            link = raw.get("link")
+            guid = generate_article_id(raw) if not link else link
+            pub_date = raw.get("pub_date")
+            description = raw.get("description")
+            content = raw.get("content") or raw.get("description")
+            articles.append(Article(
+                title=title, link=link, guid=guid,
+                pub_date=pub_date, description=description, content=content,
+            ))
+        return articles
 
     def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
         """Validate webpage URL and return as DiscoveredFeed (fallback only).

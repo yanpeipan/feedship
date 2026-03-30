@@ -217,7 +217,11 @@ def feed_add(ctx: click.Context, url: str, auto_discover: bool, automatic: str, 
         added_count = 0
         updated_count = 0
         for feed in feeds:
-            _, is_new = register_feed(feed.url, feed.title, weight)
+            feed_meta = FeedMetaData(
+                feed_type=feed.feed_type,
+                selectors=feed.metadata.selectors if feed.metadata else None,
+            )
+            _, is_new = register_feed(feed.url, feed.title, weight, feed_meta)
             if is_new:
                 added_count += 1
             else:
@@ -240,7 +244,11 @@ def feed_add(ctx: click.Context, url: str, auto_discover: bool, automatic: str, 
     updated_count = 0
     for idx in selected:
         feed = feeds[idx]
-        _, is_new = register_feed(feed.url, feed.title, weight)
+        feed_meta = FeedMetaData(
+            feed_type=feed.feed_type,
+            selectors=feed.metadata.selectors if feed.metadata else None,
+        )
+        _, is_new = register_feed(feed.url, feed.title, weight, feed_meta)
         if is_new:
             added_count += 1
         else:

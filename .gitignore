@@ -46,7 +46,7 @@ Thumbs.db
 
 # Project specific
 .planning/debug/*.md
-.planning/debug/resolved/
+.planning/.*
 
 # Ignore dynaconf secret files
 .secrets.*

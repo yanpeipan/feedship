@@ -13,7 +13,7 @@ from typing import Optional
 
 from src.application.feed import FeedNotFoundError, fetch_one, get_feed
 from src.application.config import get_timezone
-from src.models import Feed
+from src.models import Feed, FeedType, FeedMetaData
 from src.providers import match_first
 from src.storage import list_feeds as storage_list_feeds, update_feed as storage_update_feed
 from src.utils import generate_article_id
@@ -30,32 +30,41 @@ async def fetch_one_async(feed: Feed) -> dict:
     Returns:
         Dict with new_articles count and optional error.
     """
+    # Parse feed_type from metadata JSON string
+    feed_type = None
+    if feed.metadata:
+        import json
+        try:
+            meta = json.loads(feed.metadata)
+            if meta.get("feed_type"):
+                feed_type = FeedType(meta["feed_type"])
+        except (json.JSONDecodeError, ValueError):
+            pass
+
     # Use match_first to find provider for this feed URL
-    provider = match_first(feed.url)
+    provider = match_first(feed.url, feed_type=feed_type)
     if not provider:
         return {"new_articles": 0, "error": f"No provider for {feed.url}"}
 
     # Crawl using the discovered provider's async method
     try:
-        crawl_result = await provider.crawl_async(feed.url, etag=feed.etag, last_modified=feed.last_modified)
+        result = await asyncio.to_thread(provider.fetch_articles, feed)
     except Exception as e:
-        logger.error("Failed to crawl_async %s: %s", feed.url, e)
+        logger.error("Failed to fetch_articles %s: %s", feed.url, e)
         return {"new_articles": 0, "error": str(e)}
 
-    raw_items = crawl_result.entries
+    articles = result.articles
 
     # Always update feed metadata after successful crawl (persists etag/last_modified even on 304)
     from datetime import datetime
     now = datetime.now(get_timezone()).isoformat()
-    storage_update_feed(feed.id, now, etag=crawl_result.etag, last_modified=crawl_result.last_modified)
+    storage_update_feed(feed.id, now, etag=result.etag, last_modified=result.last_modified)
 
-    if not raw_items:
+    if not articles:
         return {"new_articles": 0}
 
-    # Parse all items first
     parsed_articles = []
-    for raw in raw_items:
-        article = provider.parse(raw)
+    for article in articles:
         article_guid = article.get("guid") or generate_article_id(article)
         parsed_articles.append({
             "guid": article_guid,
@@ -145,10 +154,10 @@ async def fetch_all_async(concurrency: int = 10):
 
 
 async def fetch_one_async_by_id(feed_id: str) -> dict:
-    """Fetch one feed by ID using async-native path.
+    """Fetch one feed by ID using async path.
 
-    Uses provider.crawl_async() and store_article_async() for true async
-    HTTP and SQLite operations, avoiding asyncio.to_thread overhead.
+    Uses asyncio.to_thread(provider.fetch_articles) and store_article_async()
+    for concurrent feed fetching with SQLite write serialization.
 
     Args:
         feed_id: Feed ID to fetch.

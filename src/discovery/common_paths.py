@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import re
-from typing import Sequence
 
 # Root-level well-known paths for candidate generation
 _ROOT_PATH_PATTERNS = (

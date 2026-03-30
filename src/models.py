@@ -6,7 +6,14 @@ Defines dataclasses for Feed and Article entities.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional
+
+
+class FeedType(Enum):
+    """Enum for feed types, used to route to the correct provider."""
+    RSS = "rss"
+    GITHUB_RELEASE = "github_release"
 
 
 @dataclass
@@ -41,8 +48,10 @@ class FeedMetaData:
 
     Attributes:
         selectors: Optional list of path prefix filters for WebpageProvider.
+        feed_type: Optional feed type ('rss', 'atom', 'rdf', 'webpage', 'github_release').
     """
     selectors: Optional[list[str]] = None
+    feed_type: Optional[str] = None
 
     def to_json(self) -> str:
         """Serialize to JSON string, excluding None values."""

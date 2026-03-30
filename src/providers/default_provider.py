@@ -10,11 +10,12 @@ from __future__ import annotations
 from typing import Any, List, Optional, TYPE_CHECKING
 
 from src.providers import PROVIDERS
-from src.providers.base import Article, ContentProvider, CrawlResult, Raw
+from src.providers.base import Article, ContentProvider, FetchedResult, Raw
 
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
     from src.discovery.models import DiscoveredFeed
+    from src.models import FeedType
 
 
 class DefaultProvider:
@@ -25,12 +26,13 @@ class DefaultProvider:
     should not be called on this provider in practice.
     """
 
-    def match(self, url: str, response: "Response" = None) -> bool:
+    def match(self, url: str, response: "Response" = None, feed_type: "FeedType" = None) -> bool:
         """Never matches - only used as fallback.
 
         Args:
             url: URL to match (ignored).
             response: Optional HTTP response (ignored).
+            feed_type: Optional FeedType (ignored).
 
         Returns:
             Always False - this provider is only a fallback.
@@ -45,14 +47,14 @@ class DefaultProvider:
         """
         return 0
 
-    def crawl(self, url: str) -> List[Raw]:
+    def fetch_articles(self, feed: Feed) -> FetchedResult:
         """Not implemented - should not be called.
 
         This provider is only used as fallback when no other provider
         matches. If called, it indicates a bug in provider selection.
 
         Args:
-            url: URL to crawl (ignored).
+            feed: Feed object (ignored).
 
         Returns:
             Never returns - raises NotImplementedError.
@@ -61,29 +63,11 @@ class DefaultProvider:
             "DefaultProvider is fallback only and should not be called"
         )
 
-    def parse(self, raw: Raw) -> Article:
+    def parse_articles(self, entries: List[Raw]) -> List[Article]:
         """Not implemented - should not be called.
 
         Args:
-            raw: Raw content (ignored).
-
-        Returns:
-            Never returns - raises NotImplementedError.
-        """
-        raise NotImplementedError(
-            "DefaultProvider is fallback only and should not be called"
-        )
-
-    async def crawl_async(self, url: str, etag: Optional[str] = None, last_modified: Optional[str] = None) -> CrawlResult:
-        """Not implemented - should not be called.
-
-        DefaultProvider is fallback only. crawl_async() raises the same
-        NotImplementedError as crawl() to maintain consistency.
-
-        Args:
-            url: URL to crawl (ignored).
-            etag: Ignored.
-            last_modified: Ignored.
+            entries: Raw content list (ignored).
 
         Returns:
             Never returns - raises NotImplementedError.
@@ -93,17 +77,22 @@ class DefaultProvider:
         )
 
     def parse_feed(self, url: str, response: "Response" = None) -> "DiscoveredFeed":
-        """Not implemented - DefaultProvider is fallback only.
+        """DefaultProvider is fallback only - always returns invalid.
 
         Args:
             url: URL to parse feed for (ignored).
             response: Ignored.
 
         Returns:
-            Never returns - raises NotImplementedError.
+            DiscoveredFeed with valid=False (fallback provider).
         """
-        raise NotImplementedError(
-            "DefaultProvider is fallback only and should not be called"
+        return DiscoveredFeed(
+            url=url,
+            title=None,
+            feed_type="unknown",
+            source=f"provider_{self.__class__.__name__}",
+            page_url=url,
+            valid=False,
         )
 
     def discover(self, url: str, response: "Response" = None, depth: int = 1) -> List["DiscoveredFeed"]:

@@ -10,18 +10,18 @@ from urllib.parse import urljoin, urlparse
 
 import feedparser
 
-from scrapling import Fetcher, Selector, DynamicFetcher, StealthyFetcher
+from scrapling import Selector
 from trafilatura.feeds import FEED_TYPES
 
-# Suppress scrapling 0.4.x deprecation warning logged unconditionally in DynamicFetcher.__init__
+# Suppress scrapling 0.4.x deprecation warning
 _scrapling_logger = logging.getLogger("scrapling")
 _scrapling_logger.disabled = True
 from robotexclusionrulesparser import RobotExclusionRulesParser
 
-from src.discovery.common_paths import matches_feed_path_pattern, generate_feed_candidates
+from src.discovery.common_paths import generate_feed_candidates
 from src.discovery.models import DiscoveredFeed, DiscoveredResult
-from src.discovery.parser import parse_link_elements, resolve_url
 from src.constants import BROWSER_HEADERS
+from src.utils.scraping_utils import fetch_with_fallback
 
 
 def compute_link_selectors(html: str, page_url: str) -> dict[str, Selector]:
@@ -142,7 +142,7 @@ async def _validate_and_extract_title(url: str) -> tuple[bool, str | None, str |
         body: Raw response body for selectors computation, None if not valid feed.
     """
     try:
-        response = await asyncio.to_thread(Fetcher.get, url)
+        response = await asyncio.to_thread(Fetcher.get, url, headers=BROWSER_HEADERS)
         if response.status != 200:
             return False, None, None, None
         content_type = response.headers.get('content-type', '').lower()
@@ -308,46 +308,6 @@ async def _find_feed_links_on_page(html: str, page_url: str) -> list[DiscoveredF
     return results
 
 
-async def _discover_feeds_on_page(html: str, page_url: str) -> list[DiscoveredFeed]:
-    """Discover feeds on a single page via autodiscovery + CSS selectors + well-known paths.
-
-    Args:
-        html: Raw HTML content.
-        page_url: URL the HTML was fetched from.
-
-    Returns:
-        List of DiscoveredFeed found on the page.
-    """
-    # Try autodiscovery first
-    discovered = parse_link_elements(html, page_url)
-
-    if discovered:
-        # Validate all feeds concurrently (was sequential validate_feed)
-        val_tasks = [_quick_validate_feed(f.url) for f in discovered]
-        val_results = await asyncio.gather(*val_tasks)
-        valid_feeds = [
-            DiscoveredFeed(
-                url=f.url,
-                title=f.title,
-                feed_type=vt[1] or 'rss',
-                source=f.source,
-                page_url=f.page_url,
-                valid=True,
-            )
-            for f, vt in zip(discovered, val_results) if vt[0]
-        ]
-        if valid_feeds:
-            return valid_feeds
-
-    # Try CSS selector link discovery
-    css_feeds = await _find_feed_links_on_page(html, page_url)
-    if css_feeds:
-        return css_feeds
-
-    # Fallback to well-known path probing
-    return await _probe_well_known_paths(page_url, html)
-
-
 async def deep_crawl(start_url: str, max_depth: int = 1, auto_discover: bool = True) -> DiscoveredResult:
     """Discover feeds using BFS crawling up to max_depth.
 
@@ -367,16 +327,13 @@ async def deep_crawl(start_url: str, max_depth: int = 1, auto_discover: bool = T
 
     selectors: dict[str, LinkSelectorModel] = {}
     if max_depth <= 1:
-        # Use providers.discover() for feed discovery
-        # Fetch page to get response for providers
+        # Use providers.discover() for feed discovery - validation is delegated to providers
         try:
-            response = await asyncio.to_thread(StealthyFetcher().fetch, start_url, headers=BROWSER_HEADERS)
+            response = await asyncio.to_thread(fetch_with_fallback, start_url, headers=BROWSER_HEADERS)
             if response.status == 200:
-                # Call providers.discover() to find feeds
+                # providers_discover returns only valid=True feeds
                 feeds = providers_discover(start_url, response, depth=1, discover=auto_discover)
                 if feeds:
-                    # Return all discovered feeds - RSSProvider.discover() returns unverified
-                    # candidates (valid=False) which are still valid for user review
                     return DiscoveredResult(url=start_url, max_depth=max_depth, feeds=feeds, selectors=selectors)
         except Exception:
             pass
@@ -387,12 +344,6 @@ async def deep_crawl(start_url: str, max_depth: int = 1, auto_discover: bool = T
     # Deep crawl (max_depth > 1)
     # Normalize start URL
     normalized_start = normalize_url_for_visit(start_url)
-
-    # Probe well-known paths on start URL first (before BFS crawl)
-    # This handles sites that return 403/404 on main page but have feeds at well-known paths
-    start_feeds = await _probe_well_known_paths(start_url)
-    if start_feeds:
-        return DiscoveredResult(url=start_url, max_depth=max_depth, feeds=start_feeds, selectors=selectors)
 
     # BFS queue: (url, depth)
     queue: deque[tuple[str, int]] = deque()
@@ -525,11 +476,6 @@ async def deep_crawl(start_url: str, max_depth: int = 1, auto_discover: bool = T
 
                 # Skip different hosts
                 if parsed.netloc.lower() != base_host:
-                    continue
-
-                # Validate path ends with feed-like pattern using matches_feed_path_pattern (fallback validation)
-                path = parsed.path.lower()
-                if not matches_feed_path_pattern(path):
                     continue
 
                 if absolute not in links:

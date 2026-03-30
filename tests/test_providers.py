@@ -10,6 +10,8 @@ import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 import asyncio
 
+from src.models import Feed
+
 
 # =============================================================================
 # RSSProvider Tests
@@ -87,7 +89,7 @@ class TestRSSProvider:
         # 403 triggers Cloudflare fallback - match returns True to allow crawl
         assert result is True
 
-    def test_rss_provider_crawl_success(self):
+    def test_rss_provider_fetch_articles_success(self):
         """Mock Fetcher.get to return sample RSS XML bytes, mock feedparser.parse() to return mock feed with entries."""
         from src.providers.rss_provider import RSSProvider
 
@@ -154,68 +156,15 @@ class TestRSSProvider:
         with patch("scrapling.Fetcher.get", return_value=mock_response):
             with patch("src.providers.rss_provider.feedparser.parse", return_value=mock_feed):
                 provider = RSSProvider()
-                result = provider.crawl("https://example.com/feed.xml")
+                feed = Feed(id="test", name="Test", url="https://example.com/feed.xml", created_at="2024-01-01T00:00:00")
+                result = provider.fetch_articles(feed)
 
-                assert len(result) == 2
-                assert result[0].get("title") == "Article 1"
-                assert result[1].get("title") == "Article 2"
-
-    @pytest.mark.asyncio
-    async def test_rss_provider_crawl_async_success(self):
-        """Mock asyncio.to_thread(Fetcher.get) to return mock response with RSS XML bytes, verify crawl_async() returns list of entries."""
-        from src.providers.rss_provider import RSSProvider
-
-        rss_xml = b"""<?xml version="1.0" encoding="UTF-8"?>
-        <rss version="2.0">
-        <channel>
-            <title>Test Feed</title>
-            <item>
-                <title>Async Article</title>
-                <link>https://example.com/async-article</link>
-                <guid>async-article-guid</guid>
-                <pubDate>Wed, 03 Jan 2024 12:00:00 +0000</pubDate>
-                <description>Async article description</description>
-            </item>
-        </channel>
-        </rss>"""
-
-        # Mock Fetcher response (returned by asyncio.to_thread(Fetcher.get, ...))
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.body = rss_xml
-        mock_response.headers = {"etag": "async-etag"}
-
-        # Mock feedparser entry
-        mock_entry = MagicMock()
-        mock_entry.get = lambda k: {
-            "title": "Async Article",
-            "link": "https://example.com/async-article",
-            "id": "async-article-guid",
-            "published": "Wed, 03 Jan 2024 12:00:00 +0000",
-            "description": "Async article description",
-        }.get(k)
-        mock_entry.title = "Async Article"
-        mock_entry.link = "https://example.com/async-article"
-        mock_entry.description = "Async article description"
-
-        mock_feed = MagicMock()
-        mock_feed.feed = {"title": "Test Feed"}
-        mock_feed.entries = [mock_entry]
-
-        async def mock_to_thread(func, *args, **kwargs):
-            # asyncio.to_thread(Fetcher.get, url, headers=...) returns Fetcher response
-            return mock_response
-
-        with patch("asyncio.to_thread", mock_to_thread):
-            with patch("src.providers.rss_provider.feedparser.parse", return_value=mock_feed):
-                provider = RSSProvider()
-                result = await provider.crawl_async("https://example.com/feed.xml")
-
-                assert len(result.entries) == 1
-                assert result.entries[0].get("title") == "Async Article"
+                assert len(result.articles) == 2
+                assert result.articles[0].get("title") == "Article 1"
+                assert result.articles[1].get("title") == "Article 2"
 
     def test_rss_provider_parse(self):
-        """Create mock raw entry and verify parse() returns Article with correct fields."""
+        """Create mock response and verify parse() returns Article with correct fields."""
         from src.providers.rss_provider import RSSProvider
         from src.providers.base import Article
 
@@ -242,16 +191,27 @@ class TestRSSProvider:
         mock_raw.content = [mock_content_item]
         mock_raw.summary_detail = None
 
-        provider = RSSProvider()
-        result = provider.parse(mock_raw)
+        # Create mock parsed feed
+        mock_parsed = MagicMock()
+        mock_parsed.bozo = False
+        mock_parsed.entries = [mock_raw]
 
-        # Result is a dict (Article is dict in this codebase)
-        assert isinstance(result, dict)
-        assert result["title"] == "Test Article"
-        assert result["link"] == "http://test.com/article"
-        assert result["pub_date"] == "2024-01-01"
-        assert result["description"] == "Test description"
-        assert result["content"] == "Full content here"
+        # Create mock response
+        mock_response = MagicMock()
+        mock_response.body = b""
+
+        provider = RSSProvider()
+        with patch("src.providers.rss_provider.feedparser.parse", return_value=mock_parsed):
+            result = provider.parse_articles(mock_response)
+
+        # Result is a list of dicts (Article is dict in this codebase)
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0]["title"] == "Test Article"
+        assert result[0]["link"] == "http://test.com/article"
+        assert result[0]["pub_date"] == "2024-01-01"
+        assert result[0]["description"] == "Test description"
+        assert result[0]["content"] == "Full content here"
 
     def test_rss_provider_parse_feed(self):
         """Mock Fetcher.get to return 200 with sample RSS XML bytes containing feed title, verify parse_feed() returns DiscoveredFeed with correct fields."""
@@ -325,7 +285,7 @@ class TestGitHubReleaseProvider:
         provider = GitHubReleaseProvider()
         assert provider.match("https://example.com/feed") is False
 
-    def test_github_release_provider_crawl_success(self):
+    def test_github_release_provider_fetch_articles_success(self):
         """Mock PyGithub client and get_repo()/get_latest_release() to return mock release."""
         from src.providers.github_release_provider import GitHubReleaseProvider
 
@@ -348,41 +308,17 @@ class TestGitHubReleaseProvider:
         with patch("src.providers.github_release_provider._get_github_client", return_value=mock_client):
             with patch("src.utils.github.parse_github_url", return_value=("owner", "repo")):
                 provider = GitHubReleaseProvider()
-                result = provider.crawl("https://github.com/owner/repo")
+                feed = Feed(id="test", name="Test", url="https://github.com/owner/repo", created_at="2024-01-01T00:00:00")
+                result = provider.fetch_articles(feed)
 
-                assert len(result) == 1
-                release_data = result[0]
-                assert release_data["tag_name"] == "v1.0.0"
-                assert release_data["name"] == "Release 1.0.0"
-                assert release_data["body"] == "Release notes for v1.0.0"
-                assert release_data["html_url"] == "https://github.com/owner/repo/releases/tag/v1.0.0"
-                assert release_data["published_at"] == "2024-01-15T10:30:00"
-
-    @pytest.mark.asyncio
-    async def test_github_release_provider_crawl_async_success(self):
-        """Mock asyncio.to_thread to verify crawl_async() runs crawl in thread pool."""
-        from src.providers.github_release_provider import GitHubReleaseProvider
-
-        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
-            # Mock return value for to_thread (crawl result)
-            mock_release_data = [{
-                "tag_name": "v2.0.0",
-                "name": "Release 2.0.0",
-                "body": "Notes for v2",
-                "html_url": "https://github.com/owner/repo/releases/tag/v2.0.0",
-                "published_at": "2024-02-01T00:00:00",
-            }]
-            mock_to_thread.return_value = mock_release_data
-
-            provider = GitHubReleaseProvider()
-            result = await provider.crawl_async("https://github.com/owner/repo")
-
-            # Verify to_thread was called with self.crawl and url
-            mock_to_thread.assert_called_once()
-            call_args = mock_to_thread.call_args
-            assert call_args[0][0] == provider.crawl
-            assert call_args[0][1] == "https://github.com/owner/repo"
-            assert result.entries == mock_release_data
+                assert len(result.articles) == 1
+                article = result.articles[0]
+                assert article["title"] == "v1.0.0"
+                assert article["link"] == "https://github.com/owner/repo/releases/tag/v1.0.0"
+                assert article["guid"] == "v1.0.0"
+                assert article["pub_date"] == "2024-01-15T10:30:00"
+                assert article["description"] == "Release notes for v1.0.0"
+                assert article["content"] is None
 
     def test_github_release_provider_parse(self):
         """Create mock raw dict and verify parse() returns Article with correct fields."""
@@ -397,15 +333,16 @@ class TestGitHubReleaseProvider:
         }
 
         provider = GitHubReleaseProvider()
-        result = provider.parse(mock_raw)
+        result = provider.parse_articles([mock_raw])
 
-        assert isinstance(result, dict)
-        assert result["title"] == "v1.0"
-        assert result["link"] == "https://github.com/owner/repo/releases/tag/v1.0"
-        assert result["guid"] == "v1.0"
-        assert result["pub_date"] == "2024-01-01T00:00:00"
-        assert result["description"] == "Release notes"
-        assert result["content"] is None
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0]["title"] == "v1.0"
+        assert result[0]["link"] == "https://github.com/owner/repo/releases/tag/v1.0"
+        assert result[0]["guid"] == "v1.0"
+        assert result[0]["pub_date"] == "2024-01-01T00:00:00"
+        assert result[0]["description"] == "Release notes"
+        assert result[0]["content"] is None
 
 
 # =============================================================================
