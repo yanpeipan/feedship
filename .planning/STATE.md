@@ -109,7 +109,7 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-03-29 - Enhanced parse_link_elements with trafilatura LINK_VALIDATION_RE fallback (260329-m9c)
+Last activity: 2026-03-30 - Completed quick tasks: 260330-5g7 (fetch hang fix), 260330-hx7 (CLI integration tests)
 
 ## Quick Tasks Completed
 
@@ -122,6 +122,8 @@ Last activity: 2026-03-29 - Enhanced parse_link_elements with trafilatura LINK_V
 | 260329m9b | Merge validate+extract into single HTTP request in deep_crawl | 2026-03-29 | 54a551b |
 | 260329m9c | Enhance parse_link_elements with LINK_VALIDATION_RE fallback + BLACKLIST filter | 2026-03-29 | e43dda1 |
 | 260329m10 | Dedupe feed MIME types: use trafilatura.feeds.FEED_TYPES instead of hardcoded | 2026-03-29 | e367da9 |
+| 260330-5g7 | Fix fetch --all hang + SQLite batch upsert optimization | 2026-03-30 | b0f4c4f |
+| 260330-hx7 | Add CLI integration tests: discover, fetch --all, fetch <id> | 2026-03-30 | 7fb3079 |
 
 - Phase 44-01: Wired article search with --rerank flag, combine_scores weight config for semantic (gamma=0.2, delta=0.0) and FTS5 (gamma=0.0, delta=0.2) paths
 
