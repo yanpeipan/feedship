@@ -19,7 +19,10 @@ from robotexclusionrulesparser import RobotExclusionRulesParser  # noqa: E402
 
 from src.constants import BROWSER_HEADERS  # noqa: E402
 from src.discovery.models import DiscoveredFeed, DiscoveredResult  # noqa: E402
-from src.utils.scraping_utils import fetch_with_fallback  # noqa: E402
+from src.utils.scraping_utils import async_fetch_with_fallback  # noqa: E402
+
+# robots.txt cache: parsed robots per host (1-hour TTL)
+robots_cache: TTLCache = TTLCache(maxsize=5000, ttl=3600)
 
 
 def normalize_url_for_visit(url: str) -> str:
@@ -72,9 +75,7 @@ async def deep_crawl(
     if max_depth <= 1:
         # Use providers.discover() for feed discovery - validation is delegated to providers
         try:
-            response = await asyncio.to_thread(
-                fetch_with_fallback, start_url, headers=BROWSER_HEADERS
-            )
+            response = await async_fetch_with_fallback(start_url, headers=BROWSER_HEADERS)
             if response.status == 200:
                 # providers_discover returns only valid=True feeds
                 feeds = providers_discover(
@@ -126,9 +127,6 @@ async def deep_crawl(
     # Rate limiting: last request timestamp per host
     last_request_time: dict[str, float] = {}
 
-    # robots.txt cache: parsed robots per host
-    robots_cache: TTLCache = TTLCache(maxsize=5000, ttl=3600)
-
     # Semaphore to limit concurrent requests (5 concurrent)
     semaphore = asyncio.Semaphore(5)
 
@@ -153,9 +151,7 @@ async def deep_crawl(
             last_request_time[host] = time.time()
 
             try:
-                response = await asyncio.to_thread(
-                    fetch_with_fallback, url, headers=BROWSER_HEADERS
-                )
+                response = await async_fetch_with_fallback(url, headers=BROWSER_HEADERS)
                 if response is None or response.status != 200:
                     return None, url, None
                 return getattr(response, "text", None) or getattr(response, "html_content", ""), response.url, response
@@ -185,7 +181,7 @@ async def deep_crawl(
             robots_url = f"{urlparse(url).scheme.lower()}://{host}/robots.txt"
             parser = RobotExclusionRulesParser()
             try:
-                response = await asyncio.to_thread(fetch_with_fallback, robots_url)
+                response = await async_fetch_with_fallback(robots_url)
                 if response is not None and response.status == 200:
                     parser.parse(response.text.splitlines())
                 else:
