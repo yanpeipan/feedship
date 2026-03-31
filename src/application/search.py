@@ -100,7 +100,7 @@ def rank_fts_results(articles: list[Any]) -> list[dict[str, Any]]:
     FTS keyword search has no similarity metric, so all results get score=1.0.
 
     Args:
-        articles: List of ArticleListItem from search_articles.
+        articles: List of ArticleListItem from search_articles_fts.
 
     Returns:
         List of dicts with all original article fields PLUS score=1.0.
@@ -133,11 +133,11 @@ def format_fts_results(
 ) -> list[dict[str, Any]]:
     """Format FTS5 keyword search results for display.
 
-    Takes output from search_articles (list of ArticleListItem) and
+    Takes output from search_articles_fts (list of ArticleListItem) and
     formats fields for unified CLI presentation.
 
     Args:
-        articles: List of ArticleListItem from search_articles with keys:
+        articles: List of ArticleListItem from search_articles_fts with keys:
             - title: Article title or None
             - feed_name: Name of the feed
             - published_at: Publication date or None

@@ -224,12 +224,18 @@ def article_search(
 
         on_list = list(on) if on else None
 
+        # RERANK_FACTOR: when reranking, fetch 3x candidates so reranker has
+        # enough context to pick the globally-best results (BM25/semantic are
+        # local rankings, rerank provides global reordering).
+        RERANK_FACTOR = 3
+        search_limit = limit * RERANK_FACTOR if rerank else limit
+
         if semantic:
             # Semantic search path
             from src.storage.vector import search_articles_semantic
 
             articles = search_articles_semantic(
-                query_text=query, limit=limit, since=since, until=until, on=on_list
+                query_text=query, limit=search_limit, since=since, until=until, on=on_list
             )
 
             if rerank:
@@ -243,11 +249,11 @@ def article_search(
             )
         else:
             # FTS5 search path
-            from src.application.articles import search_articles
+            from src.application.articles import search_articles_fts
 
-            articles = search_articles(
+            articles = search_articles_fts(
                 query=query,
-                limit=limit,
+                limit=search_limit,
                 feed_id=feed_id,
                 since=since,
                 until=until,

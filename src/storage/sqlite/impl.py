@@ -739,7 +739,7 @@ def get_article_detail(article_id: str) -> dict | None:
         }
 
 
-def search_articles(
+def search_articles_fts(
     query: str,
     limit: int = 20,
     feed_id: str | None = None,

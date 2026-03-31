@@ -17,7 +17,7 @@ from src.storage import (
     list_articles as storage_list_articles,
 )
 from src.storage import (
-    search_articles as storage_search_articles,
+    search_articles_fts as storage_search_articles_fts,
 )
 
 
@@ -102,7 +102,7 @@ def get_article_detail(article_id: str) -> dict | None:
     return storage_get_article_detail(article_id)
 
 
-def search_articles(
+def search_articles_fts(
     query: str,
     limit: int = 20,
     feed_id: str | None = None,
@@ -123,6 +123,6 @@ def search_articles(
     Returns:
         List of ArticleListItem objects.
     """
-    return storage_search_articles(
+    return storage_search_articles_fts(
         query=query, limit=limit, feed_id=feed_id, since=since, until=until, on=on
     )

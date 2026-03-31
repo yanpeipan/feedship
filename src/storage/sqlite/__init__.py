@@ -16,7 +16,7 @@ from src.storage.sqlite.impl import (
     list_articles,
     list_feeds,
     remove_feed,
-    search_articles,
+    search_articles_fts,
     store_article,
     store_article_async,
     update_feed,
@@ -46,6 +46,6 @@ __all__ = [
     "list_articles",
     "get_article",
     "get_article_detail",
-    "search_articles",
+    "search_articles_fts",
     "get_articles_by_ids",
 ]

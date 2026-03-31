@@ -19,7 +19,7 @@ import pytest
 
 class TestArticleOperations:
     """Tests for article storage functions: store_article, store_article_async,
-    list_articles, get_article, get_article_detail, search_articles,
+    list_articles, get_article, get_article_detail, search_articles_fts,
     list_articles_with_tags, get_articles_with_tags.
     """
 
@@ -279,9 +279,9 @@ class TestArticleOperations:
         assert detail is None
 
     def test_search_articles_fts5_returns_matches(self, initialized_db):
-        """search_articles() FTS5 search returns matching articles."""
+        """search_articles_fts() FTS5 search returns matching articles."""
         from src.models import Feed
-        from src.storage.sqlite import add_feed, search_articles, store_article
+        from src.storage.sqlite import add_feed, search_articles_fts, store_article
 
         feed = Feed(
             id="feed-search",
@@ -311,16 +311,16 @@ class TestArticleOperations:
             published_at="2024-01-16T10:00:00+00:00",
         )
 
-        results = search_articles("Python")
+        results = search_articles_fts("Python")
 
         assert len(results) == 1
         assert results[0].title == "Python Tutorial"
         assert results[0].id is not None
 
-    def test_search_articles_with_feed_id_filter(self, initialized_db):
-        """search_articles() with feed_id filter searches within specific feed."""
+    def test_search_articles_fts_with_feed_id_filter(self, initialized_db):
+        """search_articles_fts() with feed_id filter searches within specific feed."""
         from src.models import Feed
-        from src.storage.sqlite import add_feed, search_articles, store_article
+        from src.storage.sqlite import add_feed, search_articles_fts, store_article
 
         feed1 = Feed(
             id="feed-s1",
@@ -361,16 +361,16 @@ class TestArticleOperations:
         )
 
         # Search within feed1 only
-        results = search_articles("Python", feed_id="feed-s1")
+        results = search_articles_fts("Python", feed_id="feed-s1")
 
         assert len(results) == 1
         assert results[0].feed_id == "feed-s1"
         assert results[0].title == "Python in Feed 1"
 
-    def test_search_articles_with_empty_query_returns_empty(self, initialized_db):
-        """search_articles() with empty query returns empty list."""
+    def test_search_articles_fts_with_empty_query_returns_empty(self, initialized_db):
+        """search_articles_fts() with empty query returns empty list."""
         from src.models import Feed
-        from src.storage.sqlite import add_feed, search_articles, store_article
+        from src.storage.sqlite import add_feed, search_articles_fts, store_article
 
         feed = Feed(
             id="feed-empty",
@@ -393,11 +393,11 @@ class TestArticleOperations:
         )
 
         # Empty string
-        results = search_articles("")
+        results = search_articles_fts("")
         assert results == []
 
         # Whitespace only
-        results = search_articles("   ")
+        results = search_articles_fts("   ")
         assert results == []
 
     def test_store_article_updates_existing_on_guid_match(self, initialized_db):
