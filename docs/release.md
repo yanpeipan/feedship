@@ -7,14 +7,17 @@ This project uses **GitHub Actions + trusted publishing** for PyPI releases. No 
 Before each release, verify:
 
 ```bash
-# 1. Tests pass
+# 1. Lint passes (auto-fix available)
+python -m ruff check src/ tests/ --fix
+
+# 2. Tests pass
 python -m pytest tests/ -x -q
 
-# 2. Build succeeds locally
+# 3. Build succeeds locally
 rm -rf dist/ build/ *.egg-info
 python -m build
 
-# 3. Version is correct
+# 4. Version is correct
 grep 'version = ' pyproject.toml
 ```
 
