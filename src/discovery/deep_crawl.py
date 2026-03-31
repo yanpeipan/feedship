@@ -14,6 +14,7 @@ from scrapling import Selector
 # Suppress scrapling 0.4.x deprecation warning
 _scrapling_logger = logging.getLogger("scrapling")
 _scrapling_logger.disabled = True
+from cachetools import TTLCache
 from robotexclusionrulesparser import RobotExclusionRulesParser  # noqa: E402
 
 from src.constants import BROWSER_HEADERS  # noqa: E402
@@ -126,7 +127,7 @@ async def deep_crawl(
     last_request_time: dict[str, float] = {}
 
     # robots.txt cache: parsed robots per host
-    robots_cache: dict[str, RobotExclusionRulesParser | None] = {}
+    robots_cache: TTLCache = TTLCache(maxsize=5000, ttl=3600)
 
     # Semaphore to limit concurrent requests (5 concurrent)
     semaphore = asyncio.Semaphore(5)
