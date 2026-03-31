@@ -50,7 +50,7 @@ class DatabaseInitializer:
                     link TEXT,
                     guid TEXT NOT NULL,
                     published_at TEXT,
-                    modified_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    modified_at TEXT,
                     description TEXT,
                     content TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -66,6 +66,15 @@ class DatabaseInitializer:
             except Exception as e:
                 # Column may already be INTEGER or other error - safe to ignore
                 logger.debug(f"pub_date column migration skipped: {e}")
+
+            # Migrate author, tags, category columns
+            for col in [("author", "TEXT"), ("tags", "TEXT"), ("category", "TEXT")]:
+                try:
+                    cursor.execute(f"ALTER TABLE articles ADD COLUMN {col[0]} {col[1]}")
+                    logger.info(f"Migrated {col[0]} column")
+                except Exception as e:
+                    # Column may already exist or other error - safe to ignore
+                    logger.debug(f"{col[0]} column migration skipped: {e}")
 
             # Indexes for common query patterns
             cursor.execute(
