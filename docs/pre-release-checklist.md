@@ -4,7 +4,7 @@
 
 - [ ] Bump version in `pyproject.toml` (currently `1.0.0`)
 - [ ] Update `pyproject.toml` description if needed
-- [x] Verify `pyproject.toml` `[project.scripts]` entry is `radar` (currently `rss-reader`)
+- [x] Verify `pyproject.toml` `[project.scripts]` entry is `radar` (currently `feedship`)
 - [ ] Update README.md version badge if applicable
 - [ ] Add CHANGELOG.md or update version history
 
@@ -31,7 +31,7 @@
 - [ ] Clean previous builds: `rm -rf dist/ build/ *.egg-info`
 - [ ] Build package: `python -m build`
 - [ ] Verify `dist/` contains `.whl` and `.tar.gz`
-- [ ] Test installation from local dist: `pip install dist/rss-reader-*.whl`
+- [ ] Test installation from local dist: `pip install dist/feedship-*.whl`
 
 ## PyPI Publishing
 

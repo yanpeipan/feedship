@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 import platformdirs  # noqa: E402
 
 # Cross-platform database path using platformdirs
-_DB_DIR = platformdirs.user_data_dir(appname="rss-reader", appauthor=False)
-_DB_PATH = Path(_DB_DIR) / "rss-reader.db"
+_DB_DIR = platformdirs.user_data_dir(appname="feedship", appauthor=False)
+_DB_PATH = Path(_DB_DIR) / "feedship.db"
 
 
 def get_db_path() -> str:

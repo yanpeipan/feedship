@@ -77,7 +77,7 @@ def _get_chroma_client() -> PersistentClient:
     """Get or create the ChromaDB PersistentClient singleton.
 
     Uses platformdirs to determine the storage directory:
-    ~/.local/share/rss-reader/chroma/
+    ~/.local/share/feedship/chroma/
 
     Returns:
         PersistentClient: The ChromaDB client instance.
@@ -86,7 +86,7 @@ def _get_chroma_client() -> PersistentClient:
     if _chroma_client is not None:
         return _chroma_client
 
-    chroma_dir = platformdirs.user_data_dir(appname="rss-reader") + "/chroma"
+    chroma_dir = platformdirs.user_data_dir(appname="feedship") + "/chroma"
     _chroma_client = PersistentClient(
         path=chroma_dir,
         settings=Settings(anonymized_telemetry=False),

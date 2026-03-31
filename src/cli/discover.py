@@ -92,8 +92,8 @@ def discover(ctx: click.Context, url: str, discover_depth: int) -> None:
 
     Examples:
 
-      rss-reader discover example.com
-      rss-reader discover example.com --discover-depth 1
+      feedship discover example.com
+      feedship discover example.com --discover-depth 1
     """
     try:
         start_time = time.time()

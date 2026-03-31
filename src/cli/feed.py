@@ -184,8 +184,8 @@ def feed_add(
 
     Examples:
 
-      rss-reader feed add example.com --auto-discover --automatic off
-      rss-reader feed add example.com --automatic on
+      feedship feed add example.com --auto-discover --automatic off
+      feedship feed add example.com --automatic on
     """
     feeds: list = []
     result = None
@@ -372,9 +372,9 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, ids: tuple) 
 
     Examples:
 
-      rss-reader fetch --all              Fetch all subscribed feeds
+      feedship fetch --all              Fetch all subscribed feeds
 
-      rss-reader fetch <feed_id> [<feed_id>...]  Fetch specific feeds by ID
+      feedship fetch <feed_id> [<feed_id>...]  Fetch specific feeds by ID
     """
     # Lazy import to avoid torch dependency for non-fetch commands
     from src.application.fetch import (
@@ -446,7 +446,7 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, ids: tuple) 
         return
 
     # Case 3: No arguments
-    click.secho("Use --all to fetch all feeds: rss-reader fetch --all")
+    click.secho("Use --all to fetch all feeds: feedship fetch --all")
     click.secho(
-        "Or specify feed IDs to fetch: rss-reader fetch <feed_id> [<feed_id>...]"
+        "Or specify feed IDs to fetch: feedship fetch <feed_id> [<feed_id>...]"
     )
