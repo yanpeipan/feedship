@@ -237,14 +237,16 @@ class RSSProvider:
                 tags = ",".join([t.term for t in raw.tags if hasattr(t, "term")])
 
             # Extract category (feedparser semantics)
-            # - raw.category: can be a string (RSS 2.0) or dict with "term" key (Atom)
+            # - raw.category: can be a string (RSS 2.0) or Tag object with .term (Atom)
             # - raw.categories: list of categories as fallback
             category = None
             if hasattr(raw, "category"):
                 cat = raw.category
-                if isinstance(cat, dict):
-                    category = cat.get("term")
+                if hasattr(cat, "term"):
+                    # Atom: Tag object with .term attribute
+                    category = cat.term
                 else:
+                    # RSS 2.0: plain string
                     category = cat
 
             articles.append(
