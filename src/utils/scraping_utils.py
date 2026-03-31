@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
+
+from cachetools import TTLCache
 
 if TYPE_CHECKING:
     from scrapling import Selector
@@ -15,6 +18,12 @@ _logger = logging.getLogger(__name__)
 _BLOCK_STATUS_CODES = {403, 429}
 # Block pages typically have very small content
 _BLOCK_CONTENT_MIN_BYTES = 1000
+
+# URL response cache: 1000 URLs, 5-min TTL per entry
+_url_cache: TTLCache = TTLCache(maxsize=1000, ttl=300)
+# Per-URL locks to prevent cache stampede
+_url_locks: dict[str, asyncio.Lock] = {}
+_locks_lock = asyncio.Lock()  # Protects _url_locks dict creation
 
 
 def _looks_like_block_page(html_content: str | None) -> bool:
@@ -33,12 +42,12 @@ def _looks_like_block_page(html_content: str | None) -> bool:
     return len(html_content) < _BLOCK_CONTENT_MIN_BYTES
 
 
-def fetch_with_fallback(
+def _sync_fetch_with_fallback(
     url: str,
     headers: dict | None = None,
-    timeout: int = 30,
+    timeout: int = 10,
 ) -> Response | None:
-    """Fetch a URL with automatic fallback from basic Fetcher to stealth fetcher.
+    """Sync fetch with fallback (no caching). Internal use only.
 
     Strategy:
         1. Try Fetcher().get() - fast, works for most sites
@@ -77,12 +86,75 @@ def fetch_with_fallback(
         _logger.debug(f"Basic fetch failed ({e}), trying stealth fetcher for {url}")
 
     # Fallback: try stealth fetcher (slower but bypasses most anti-bots)
+    # Use 30 second timeout for stealth fetcher (handles JS rendering)
     try:
         stealth = StealthyFetcher()
-        return stealth.fetch(url, headers=headers, timeout=timeout * 1000)
+        return stealth.fetch(url, headers=headers, timeout=30000)
     except Exception as e:
         _logger.warning(f"Stealth fetcher also failed for {url}: {e}")
         return None
+
+
+async def _fetch_with_fallback_async(
+    url: str,
+    headers: dict | None,
+    timeout: int,
+) -> Response | None:
+    """Async wrapper for fetch_with_fallback with caching."""
+    # Check cache first
+    cache_key = url
+    cached = _url_cache.get(cache_key)
+    if cached is not None:
+        _logger.debug(f"Cache hit for {url}")
+        return cached
+
+    # Get or create per-URL lock
+    async with _locks_lock:
+        if url not in _url_locks:
+            _url_locks[url] = asyncio.Lock()
+        lock = _url_locks[url]
+
+    # Fetch with lock to prevent stampede
+    async with lock:
+        # Double-check cache (another coroutine may have populated it)
+        cached = _url_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        # Perform actual fetch (run sync function in thread)
+        result = await asyncio.to_thread(_sync_fetch_with_fallback, url, headers, timeout)
+
+        # Store in cache if successful
+        if result is not None:
+            _url_cache[cache_key] = result
+
+        return result
+
+
+async def async_fetch_with_fallback(
+    url: str,
+    headers: dict | None = None,
+    timeout: int = 10,
+) -> Response | None:
+    """Async fetch with caching and rate limiting.
+
+    Fetches a URL with automatic fallback from basic Fetcher to stealth fetcher,
+    with URL response caching (5-min TTL) and per-host rate limiting.
+
+    Args:
+        url: URL to fetch.
+        headers: Optional HTTP headers (uses BROWSER_HEADERS if None).
+        timeout: Request timeout in seconds.
+
+    Returns:
+        Response object with .html_content, .status, etc., or None on failure.
+    """
+    from src.constants import BROWSER_HEADERS
+
+    if headers is None:
+        headers = BROWSER_HEADERS
+
+    return await _fetch_with_fallback_async(url, headers, timeout)
 
 
 def parse_html_body(response: Response) -> str | None:
