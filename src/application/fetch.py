@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from src.application.config import get_timezone
 from src.application.feed import FeedNotFoundError, fetch_one, get_feed
@@ -57,9 +58,7 @@ async def fetch_one_async(feed: Feed) -> dict:
     articles = result.articles
 
     # Always update feed metadata after successful crawl (persists etag/last_modified even on 304)
-    from datetime import datetime
-
-    now = datetime.now(get_timezone()).isoformat()
+    now = time.strftime('%Y-%m-%d %H:%M:%S')
     storage_update_feed(
         feed.id, now, etag=result.etag, last_modified=result.last_modified
     )

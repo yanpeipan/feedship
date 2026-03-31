@@ -302,7 +302,7 @@ def add_feed(feed) -> Feed:
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            """INSERT INTO feeds (id, name, url, etag, last_modified, last_fetched, created_at, weight)
+            """INSERT INTO feeds (id, name, url, etag, last_modified, last_fetched_at, created_at, weight)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 feed.id,
@@ -310,7 +310,7 @@ def add_feed(feed) -> Feed:
                 feed.url,
                 feed.etag,
                 feed.last_modified,
-                feed.last_fetched,
+                feed.last_fetched_at,
                 feed.created_at,
                 feed.weight,
             ),
@@ -326,7 +326,7 @@ def list_feeds() -> list:
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT f.id, f.name, f.url, f.etag, f.last_modified, f.last_fetched, f.created_at, f.weight,
+            SELECT f.id, f.name, f.url, f.etag, f.last_modified, f.last_fetched_at, f.created_at, f.weight,
                    COUNT(a.id) as articles_count
             FROM feeds f
             LEFT JOIN articles a ON f.id = a.feed_id
@@ -342,7 +342,7 @@ def list_feeds() -> list:
                 url=row["url"],
                 etag=row["etag"],
                 last_modified=row["last_modified"],
-                last_fetched=row["last_fetched"],
+                last_fetched_at=row["last_fetched_at"],
                 created_at=row["created_at"],
                 weight=row["weight"],
             )
@@ -358,7 +358,7 @@ def get_feed(feed_id: str) -> Feed | None:
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id, name, url, etag, last_modified, last_fetched, created_at, weight FROM feeds WHERE id = ?",
+            "SELECT id, name, url, etag, last_modified, last_fetched_at, created_at, weight FROM feeds WHERE id = ?",
             (feed_id,),
         )
         row = cursor.fetchone()
@@ -370,7 +370,7 @@ def get_feed(feed_id: str) -> Feed | None:
             url=row["url"],
             etag=row["etag"],
             last_modified=row["last_modified"],
-            last_fetched=row["last_fetched"],
+            last_fetched_at=row["last_fetched_at"],
             created_at=row["created_at"],
             weight=row["weight"],
         )
@@ -393,7 +393,7 @@ def get_feeds_by_ids(ids: list[str]) -> dict[str, Feed]:
         cursor = conn.cursor()
         placeholders = ",".join("?" * len(ids))
         cursor.execute(
-            f"SELECT id, name, url, etag, last_modified, last_fetched, created_at, weight FROM feeds WHERE id IN ({placeholders})",
+            f"SELECT id, name, url, etag, last_modified, last_fetched_at, created_at, weight FROM feeds WHERE id IN ({placeholders})",
             ids,
         )
         return {
@@ -403,7 +403,7 @@ def get_feeds_by_ids(ids: list[str]) -> dict[str, Feed]:
                 url=row["url"],
                 etag=row["etag"],
                 last_modified=row["last_modified"],
-                last_fetched=row["last_fetched"],
+                last_fetched_at=row["last_fetched_at"],
                 created_at=row["created_at"],
                 weight=row["weight"],
             )
@@ -441,13 +441,13 @@ def upsert_feed(feed) -> tuple[Feed, bool]:
         if existing:
             # UPDATE existing feed, preserving original id
             cursor.execute(
-                """UPDATE feeds SET name = ?, etag = ?, last_modified = ?, last_fetched = ?, weight = ?, metadata = ?
+                """UPDATE feeds SET name = ?, etag = ?, last_modified = ?, last_fetched_at = ?, weight = ?, metadata = ?
                    WHERE url = ?""",
                 (
                     feed.name,
                     feed.etag,
                     feed.last_modified,
-                    feed.last_fetched,
+                    feed.last_fetched_at,
                     feed.weight,
                     feed.metadata,
                     feed.url,
@@ -462,7 +462,7 @@ def upsert_feed(feed) -> tuple[Feed, bool]:
                     url=feed.url,
                     etag=feed.etag,
                     last_modified=feed.last_modified,
-                    last_fetched=feed.last_fetched,
+                    last_fetched_at=feed.last_fetched_at,
                     created_at=existing["created_at"],
                     weight=feed.weight,
                     metadata=feed.metadata,
@@ -472,7 +472,7 @@ def upsert_feed(feed) -> tuple[Feed, bool]:
         else:
             # INSERT new feed
             cursor.execute(
-                """INSERT INTO feeds (id, name, url, etag, last_modified, last_fetched, created_at, weight, metadata)
+                """INSERT INTO feeds (id, name, url, etag, last_modified, last_fetched_at, created_at, weight, metadata)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     feed.id,
@@ -480,7 +480,7 @@ def upsert_feed(feed) -> tuple[Feed, bool]:
                     feed.url,
                     feed.etag,
                     feed.last_modified,
-                    feed.last_fetched,
+                    feed.last_fetched_at,
                     feed.created_at,
                     feed.weight,
                     feed.metadata,
@@ -832,7 +832,7 @@ def search_articles(
 
 def update_feed(
     feed_id: str,
-    last_fetched: str,
+    last_fetched_at: str,
     etag: str | None = None,
     last_modified: str | None = None,
 ) -> bool:
@@ -844,14 +844,14 @@ def update_feed(
         cursor = conn.cursor()
         if etag is not None or last_modified is not None:
             cursor.execute(
-                """UPDATE feeds SET last_fetched = ?, etag = COALESCE(?, etag), last_modified = COALESCE(?, last_modified)
+                """UPDATE feeds SET last_fetched_at = ?, etag = COALESCE(?, etag), last_modified = COALESCE(?, last_modified)
                    WHERE id = ?""",
-                (last_fetched, etag, last_modified, feed_id),
+                (last_fetched_at, etag, last_modified, feed_id),
             )
         else:
             cursor.execute(
-                "UPDATE feeds SET last_fetched = ? WHERE id = ?",
-                (last_fetched, feed_id),
+                "UPDATE feeds SET last_fetched_at = ? WHERE id = ?",
+                (last_fetched_at, feed_id),
             )
         updated = cursor.rowcount > 0
         conn.commit()

@@ -18,7 +18,7 @@ def sample_feed():
         url="https://example.com/feed.xml",
         etag=None,
         last_modified=None,
-        last_fetched=None,
+        last_fetched_at=None,
         created_at="2024-01-01T00:00:00+00:00",
     )
 
@@ -40,7 +40,7 @@ async def test_fetch_all_async_is_async_generator():
         url="https://fake.example/feed.xml",
         etag=None,
         last_modified=None,
-        last_fetched=None,
+        last_fetched_at=None,
         created_at="2024-01-01T00:00:00+00:00",
     )
     with (
@@ -70,7 +70,7 @@ async def test_semaphore_default_value():
         url="https://fake.example/feed.xml",
         etag=None,
         last_modified=None,
-        last_fetched=None,
+        last_fetched_at=None,
         created_at="2024-01-01T00:00:00+00:00",
     )
     with (
@@ -96,7 +96,7 @@ async def test_semaphore_custom_concurrency():
         url="https://fake.example/feed.xml",
         etag=None,
         last_modified=None,
-        last_fetched=None,
+        last_fetched_at=None,
         created_at="2024-01-01T00:00:00+00:00",
     )
     with (
@@ -128,7 +128,7 @@ async def test_fetch_one_async_no_provider():
         url="",
         etag=None,
         last_modified=None,
-        last_fetched=None,
+        last_fetched_at=None,
         created_at="2024-01-01T00:00:00+00:00",
     )
     result = await fetch_one_async(empty_feed)

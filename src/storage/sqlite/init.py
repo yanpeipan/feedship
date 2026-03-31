@@ -32,7 +32,7 @@ class DatabaseInitializer:
                     url TEXT NOT NULL UNIQUE,
                     etag TEXT,
                     last_modified TEXT,
-                    last_fetched TEXT,
+                    last_fetched_at TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     metadata TEXT,
                     weight REAL DEFAULT 0.3

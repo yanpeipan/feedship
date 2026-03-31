@@ -106,7 +106,7 @@ class TestFeedCommands:
             url="https://example.com/feed1.xml",
             etag=None,
             last_modified=None,
-            last_fetched=None,
+            last_fetched_at=None,
             created_at="2024-01-01T00:00:00+00:00",
         )
         feed2 = Feed(
@@ -115,7 +115,7 @@ class TestFeedCommands:
             url="https://example.com/feed2.xml",
             etag=None,
             last_modified=None,
-            last_fetched=None,
+            last_fetched_at=None,
             created_at="2024-01-02T00:00:00+00:00",
         )
         add_feed(feed1)
@@ -191,7 +191,7 @@ class TestArticleCommands:
             url="https://example.com/article-list.xml",
             etag=None,
             last_modified=None,
-            last_fetched=None,
+            last_fetched_at=None,
             created_at="2024-01-01T00:00:00+00:00",
         )
         add_feed(feed)
@@ -217,7 +217,7 @@ class TestArticleCommands:
             url="https://example.com/article-view.xml",
             etag=None,
             last_modified=None,
-            last_fetched=None,
+            last_fetched_at=None,
             created_at="2024-01-01T00:00:00+00:00",
         )
         add_feed(feed)
@@ -249,7 +249,7 @@ class TestArticleCommands:
             url="https://example.com/article-search.xml",
             etag=None,
             last_modified=None,
-            last_fetched=None,
+            last_fetched_at=None,
             created_at="2024-01-01T00:00:00+00:00",
         )
         add_feed(feed)
@@ -374,7 +374,7 @@ class TestFetchCommands:
             url="https://example.com/feed1.xml",
             etag=None,
             last_modified=None,
-            last_fetched=None,
+            last_fetched_at=None,
             created_at="2024-01-01T00:00:00+00:00",
         )
         feed2 = Feed(
@@ -383,7 +383,7 @@ class TestFetchCommands:
             url="https://example.com/feed2.xml",
             etag=None,
             last_modified=None,
-            last_fetched=None,
+            last_fetched_at=None,
             created_at="2024-01-02T00:00:00+00:00",
         )
         add_feed(feed1)
@@ -416,7 +416,7 @@ class TestFetchCommands:
             url="https://example.com/single.xml",
             etag=None,
             last_modified=None,
-            last_fetched=None,
+            last_fetched_at=None,
             created_at="2024-01-01T00:00:00+00:00",
         )
         add_feed(feed)
@@ -444,7 +444,7 @@ class TestFetchCommands:
             url="https://example.com/multi1.xml",
             etag=None,
             last_modified=None,
-            last_fetched=None,
+            last_fetched_at=None,
             created_at="2024-01-01T00:00:00+00:00",
         )
         feed2 = Feed(
@@ -453,7 +453,7 @@ class TestFetchCommands:
             url="https://example.com/multi2.xml",
             etag=None,
             last_modified=None,
-            last_fetched=None,
+            last_fetched_at=None,
             created_at="2024-01-02T00:00:00+00:00",
         )
         add_feed(feed1)

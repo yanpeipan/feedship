@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime
 
 from src.application.config import get_default_feed_weight, get_timezone
@@ -49,14 +50,14 @@ def add_feed(
     # If we have metadata with selectors, insert feed first so selectors are available during crawl
     if feed_meta_data and feed_meta_data.selectors:
         feed_id = generate_feed_id()
-        now = datetime.now(get_timezone()).isoformat()
+        now = time.strftime('%Y-%m-%d %H:%M:%S')
         feed = Feed(
             id=feed_id,
             name=url,  # temporary name, will be updated
             url=url,
             etag=None,
             last_modified=None,
-            last_fetched=None,
+            last_fetched_at=None,
             created_at=now,
             weight=weight if weight is not None else get_default_feed_weight(),
             metadata=feed_meta_data.to_json(),
@@ -64,14 +65,14 @@ def add_feed(
         upsert_feed(feed)
     else:
         feed_id = generate_feed_id()
-        now = datetime.now(get_timezone()).isoformat()
+        now = time.strftime('%Y-%m-%d %H:%M:%S')
         feed = Feed(
             id=feed_id,
             name=url,
             url=url,
             etag=None,
             last_modified=None,
-            last_fetched=None,
+            last_fetched_at=None,
             created_at=now,
             weight=weight if weight is not None else get_default_feed_weight(),
             metadata=None,
@@ -98,7 +99,7 @@ def add_feed(
 
     # Check if feed already exists using storage function
     # Create new feed (or update existing)
-    now = datetime.now(get_timezone()).isoformat()
+    now = time.strftime('%Y-%m-%d %H:%M:%S')
 
     # Use upsert to insert or update (reuses feed_id from pre-insert if present)
     feed = Feed(
@@ -107,7 +108,7 @@ def add_feed(
         url=url,
         etag=feed_meta.etag,
         last_modified=feed_meta.last_modified,
-        last_fetched=now,
+        last_fetched_at=now,
         created_at=now,
         weight=weight if weight is not None else get_default_feed_weight(),
         metadata=feed_meta_data.to_json() if feed_meta_data else None,
@@ -161,14 +162,14 @@ def register_feed(
                 except (json_module.JSONDecodeError, TypeError):
                     pass
 
-    now = datetime.now(get_timezone()).isoformat()
+    now = time.strftime('%Y-%m-%d %H:%M:%S')
     feed = Feed(
         id=generate_feed_id(),
         name=feed_name or feed_url,
         url=feed_url,
         etag=None,
         last_modified=None,
-        last_fetched=None,
+        last_fetched_at=None,
         created_at=now,
         weight=weight if weight is not None else get_default_feed_weight(),
         metadata=feed_meta_data.to_json() if feed_meta_data else None,
@@ -272,7 +273,7 @@ def fetch_one(feed_or_id: str | Feed) -> dict:
 
     # Update feed metadata after successful fetch
     if new_count > 0:
-        now = datetime.now(get_timezone()).isoformat()
+        now = time.strftime('%Y-%m-%d %H:%M:%S')
         storage_update_feed(feed.id, now)
 
     return {"new_articles": new_count}
