@@ -191,10 +191,14 @@ class RSSProvider:
             guid = generate_article_id(raw)
 
             # Extract published_at using struct_time for consistent format
-            if hasattr(raw, "published_parsed") and isinstance(raw.published_parsed, tuple):
-                published_at = time.strftime('%Y-%m-%d %H:%M:%S', raw.published_parsed)
-            elif hasattr(raw, "updated_parsed") and isinstance(raw.updated_parsed, tuple):
-                published_at = time.strftime('%Y-%m-%d %H:%M:%S', raw.updated_parsed)
+            if hasattr(raw, "published_parsed") and isinstance(
+                raw.published_parsed, tuple
+            ):
+                published_at = time.strftime("%Y-%m-%d %H:%M:%S", raw.published_parsed)
+            elif hasattr(raw, "updated_parsed") and isinstance(
+                raw.updated_parsed, tuple
+            ):
+                published_at = time.strftime("%Y-%m-%d %H:%M:%S", raw.updated_parsed)
             else:
                 published_at = raw.get("published") or raw.get("updated")
 
@@ -242,7 +246,9 @@ class RSSProvider:
             category = None
             if hasattr(raw, "category"):
                 cat = raw.category
-                category = cat.term if hasattr(cat, "term") else cat  # Atom: Tag.term, RSS 2.0: plain string
+                category = (
+                    cat.term if hasattr(cat, "term") else cat
+                )  # Atom: Tag.term, RSS 2.0: plain string
 
             articles.append(
                 Article(

@@ -447,6 +447,4 @@ def fetch(ctx: click.Context, do_fetch_all: bool, concurrency: int, ids: tuple) 
 
     # Case 3: No arguments
     click.secho("Use --all to fetch all feeds: feedship fetch --all")
-    click.secho(
-        "Or specify feed IDs to fetch: feedship fetch <feed_id> [<feed_id>...]"
-    )
+    click.secho("Or specify feed IDs to fetch: feedship fetch <feed_id> [<feed_id>...]")

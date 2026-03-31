@@ -49,7 +49,7 @@ def add_feed(
     # If we have metadata with selectors, insert feed first so selectors are available during crawl
     if feed_meta_data and feed_meta_data.selectors:
         feed_id = generate_feed_id()
-        now = time.strftime('%Y-%m-%d %H:%M:%S')
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
         feed = Feed(
             id=feed_id,
             name=url,  # temporary name, will be updated
@@ -64,7 +64,7 @@ def add_feed(
         upsert_feed(feed)
     else:
         feed_id = generate_feed_id()
-        now = time.strftime('%Y-%m-%d %H:%M:%S')
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
         feed = Feed(
             id=feed_id,
             name=url,
@@ -98,7 +98,7 @@ def add_feed(
 
     # Check if feed already exists using storage function
     # Create new feed (or update existing)
-    now = time.strftime('%Y-%m-%d %H:%M:%S')
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
 
     # Use upsert to insert or update (reuses feed_id from pre-insert if present)
     feed = Feed(
@@ -161,7 +161,7 @@ def register_feed(
                 except (json_module.JSONDecodeError, TypeError):
                     pass
 
-    now = time.strftime('%Y-%m-%d %H:%M:%S')
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
     feed = Feed(
         id=generate_feed_id(),
         name=feed_name or feed_url,
@@ -273,7 +273,7 @@ def fetch_one(feed_or_id: str | Feed) -> dict:
 
     # Update feed metadata after successful fetch
     if new_count > 0:
-        now = time.strftime('%Y-%m-%d %H:%M:%S')
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
         storage_update_feed(feed.id, now)
 
     return {"new_articles": new_count}

@@ -235,7 +235,11 @@ def article_search(
             from src.storage.vector import search_articles_semantic
 
             articles = search_articles_semantic(
-                query_text=query, limit=search_limit, since=since, until=until, on=on_list
+                query_text=query,
+                limit=search_limit,
+                since=since,
+                until=until,
+                on=on_list,
             )
 
             if rerank:

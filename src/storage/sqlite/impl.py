@@ -115,13 +115,13 @@ def _normalize_published_at(published_at: str | None, tz) -> str:
     from email.utils import parsedate_to_datetime
 
     if not published_at:
-        return time.strftime('%Y-%m-%d %H:%M:%S')
+        return time.strftime("%Y-%m-%d %H:%M:%S")
 
     try:
         # Try RFC-2822 first (feedparser standard)
         dt = parsedate_to_datetime(published_at)
         dt = dt.astimezone(tz)
-        return dt.strftime('%Y-%m-%d %H:%M:%S')
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
     except (ValueError, TypeError):
         pass
 
@@ -129,16 +129,16 @@ def _normalize_published_at(published_at: str | None, tz) -> str:
         # Try ISO format
         dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
         dt = dt.replace(tzinfo=tz) if dt.tzinfo is None else dt.astimezone(tz)
-        return dt.strftime('%Y-%m-%d %H:%M:%S')
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
     except (ValueError, TypeError):
         pass
 
     # Fallback: try YYYY-MM-DD direct
     if len(published_at) >= 10 and published_at[4:5] == "-":
         dt = datetime.strptime(published_at[:10], "%Y-%m-%d").replace(tzinfo=tz)
-        return dt.strftime('%Y-%m-%d %H:%M:%S')
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
 
-    return time.strftime('%Y-%m-%d %H:%M:%S')
+    return time.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def store_article(
@@ -174,7 +174,7 @@ def store_article(
     from src.application.config import get_timezone
 
     tz = get_timezone()
-    now = time.strftime('%Y-%m-%d %H:%M:%S')
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
     normalized_published_at = _normalize_published_at(published_at, tz)
 
     with get_db() as conn:
@@ -187,16 +187,27 @@ def store_article(
         if existing:
             # UPDATE existing article
             article_id = existing["id"]
-            modified_at = time.strftime('%Y-%m-%d %H:%M:%S')
+            modified_at = time.strftime("%Y-%m-%d %H:%M:%S")
             cursor.execute(
                 """UPDATE articles SET title = ?, content = ?, link = ?, published_at = ?, modified_at = ?, description = ?, author = ?, tags = ?, category = ?
                    WHERE guid = ?""",
-                (title, content, link, normalized_published_at, modified_at, description, author, tags, category, guid),
+                (
+                    title,
+                    content,
+                    link,
+                    normalized_published_at,
+                    modified_at,
+                    description,
+                    author,
+                    tags,
+                    category,
+                    guid,
+                ),
             )
         else:
             # INSERT new article
             article_id = generate()
-            modified_at = time.strftime('%Y-%m-%d %H:%M:%S')
+            modified_at = time.strftime("%Y-%m-%d %H:%M:%S")
             cursor.execute(
                 """INSERT INTO articles (id, feed_id, title, link, guid, published_at, content, description, created_at, modified_at, author, tags, category)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -254,7 +265,17 @@ async def store_article_async(
     lock = _get_db_write_lock()
     async with lock:
         return await asyncio.to_thread(
-            store_article, guid, title, content, link, feed_id, published_at, description, author, tags, category
+            store_article,
+            guid,
+            title,
+            content,
+            link,
+            feed_id,
+            published_at,
+            description,
+            author,
+            tags,
+            category,
         )
 
 

@@ -7,7 +7,8 @@ This project uses **GitHub Actions + trusted publishing** for PyPI releases. No 
 Before each release, verify:
 
 ```bash
-# 1. Lint passes (auto-fix available)
+# 1. Format + lint passes (auto-fix available)
+python -m ruff format src/ tests/
 python -m ruff check src/ tests/ --fix
 
 # 2. Tests pass

@@ -262,7 +262,11 @@ def add_article_embeddings(articles: list[dict]) -> None:
         embedding_texts.append(embedding_text)
         ids.append(article_id)
         metadatas.append(
-            {"title": title, "url": url, "published_at": _published_at_to_timestamp(published_at)}
+            {
+                "title": title,
+                "url": url,
+                "published_at": _published_at_to_timestamp(published_at),
+            }
         )
 
     if not embedding_texts:
@@ -341,9 +345,13 @@ def search_articles_semantic(
     # ChromaDB $gte/$lte operators require numeric values (unix timestamps)
     where_conditions = []
     if since:
-        where_conditions.append(("published_at", {"$gte": _parse_date_to_timestamp(since)}))
+        where_conditions.append(
+            ("published_at", {"$gte": _parse_date_to_timestamp(since)})
+        )
     if until:
-        where_conditions.append(("published_at", {"$lte": _parse_date_to_timestamp(until)}))
+        where_conditions.append(
+            ("published_at", {"$lte": _parse_date_to_timestamp(until)})
+        )
     if on:
         where_conditions.append(
             ("published_at", {"$in": [_parse_date_to_timestamp(d) for d in on]})
