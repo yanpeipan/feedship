@@ -33,37 +33,37 @@ _embedding_function: SentenceTransformer | None = None
 _chroma_lock = threading.Lock()
 
 
-def _pub_date_to_timestamp(pub_date: str | int | None) -> int | None:
-    """Convert pub_date to unix timestamp for ChromaDB storage/query.
+def _published_at_to_timestamp(published_at: str | int | None) -> int | None:
+    """Convert published_at to unix timestamp for ChromaDB storage/query.
 
     Handles RFC 2822 dates from RSS feeds (e.g., 'Thu, 26 Mar 2026 10:30:00 +0000')
     and ISO format dates (e.g., '2026-03-26', '2026-03-26T10:30:00+00:00').
     Also handles INTEGER unix timestamps from SQLite directly.
 
     Args:
-        pub_date: Publication date as string, int timestamp, or None.
+        published_at: Publication date as string, int timestamp, or None.
 
     Returns:
         Unix timestamp (seconds since epoch) or None if parsing fails.
     """
-    if pub_date is None:
+    if published_at is None:
         return None
     # Handle INTEGER unix timestamp from SQLite
-    if isinstance(pub_date, int):
-        return pub_date
-    if not pub_date:
+    if isinstance(published_at, int):
+        return published_at
+    if not published_at:
         return None
 
     # Try parsing as RFC 2822 (RSS feed format)
     try:
-        dt = parsedate_to_datetime(pub_date)
+        dt = parsedate_to_datetime(published_at)
         return int(dt.timestamp())
     except Exception:
         pass
 
     # Try parsing as ISO format
     try:
-        dt = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return int(dt.timestamp())
@@ -155,7 +155,7 @@ def get_chroma_collection():
 
 
 def add_article_embedding(
-    article_id: str, title: str, content: str, url: str, pub_date: str | None = None
+    article_id: str, title: str, content: str, url: str, published_at: str | None = None
 ) -> None:
     """Add an article embedding to ChromaDB.
 
@@ -164,7 +164,7 @@ def add_article_embedding(
         title: Article title (stored as metadata)
         content: Article content text (used for embedding, or fallback text)
         url: Article URL (stored as metadata)
-        pub_date: Publication date (stored as metadata for filtering)
+        published_at: Publication date (stored as metadata for filtering)
     """
     import logging
 
@@ -207,7 +207,7 @@ def add_article_embedding(
         metadata = {
             "title": title,
             "url": url,
-            "pub_date": _pub_date_to_timestamp(pub_date),
+            "published_at": _published_at_to_timestamp(published_at),
         }
         try:
             collection.add(
@@ -225,7 +225,7 @@ def add_article_embeddings(articles: list[dict]) -> None:
     """Batch add article embeddings to ChromaDB.
 
     Args:
-        articles: List of article dicts with keys: article_id, title, content, url, pub_date.
+        articles: List of article dicts with keys: article_id, title, content, url, published_at.
     """
     import logging
 
@@ -244,7 +244,7 @@ def add_article_embeddings(articles: list[dict]) -> None:
         title = article.get("title") or ""
         content = article.get("content") or ""
         url = article.get("url") or ""
-        pub_date = article.get("pub_date")
+        published_at = article.get("published_at")
 
         if content and len(content) >= 50:
             embedding_text = content
@@ -260,7 +260,7 @@ def add_article_embeddings(articles: list[dict]) -> None:
         embedding_texts.append(embedding_text)
         ids.append(article_id)
         metadatas.append(
-            {"title": title, "url": url, "pub_date": _pub_date_to_timestamp(pub_date)}
+            {"title": title, "url": url, "published_at": _published_at_to_timestamp(published_at)}
         )
 
     if not embedding_texts:
@@ -327,7 +327,7 @@ def search_articles_semantic(
         on: Optional list of specific dates to match.
 
     Returns:
-        List of ArticleListItem with keys: id, feed_id, feed_name, title, link, guid, pub_date, score
+        List of ArticleListItem with keys: id, feed_id, feed_name, title, link, guid, published_at, score
     """
     import logging
 
@@ -339,12 +339,12 @@ def search_articles_semantic(
     # ChromaDB $gte/$lte operators require numeric values (unix timestamps)
     where_conditions = []
     if since:
-        where_conditions.append(("pub_date", {"$gte": _parse_date_to_timestamp(since)}))
+        where_conditions.append(("published_at", {"$gte": _parse_date_to_timestamp(since)}))
     if until:
-        where_conditions.append(("pub_date", {"$lte": _parse_date_to_timestamp(until)}))
+        where_conditions.append(("published_at", {"$lte": _parse_date_to_timestamp(until)}))
     if on:
         where_conditions.append(
-            ("pub_date", {"$in": [_parse_date_to_timestamp(d) for d in on]})
+            ("published_at", {"$in": [_parse_date_to_timestamp(d) for d in on]})
         )
     where_clause = None
     if len(where_conditions) == 1:
@@ -408,7 +408,7 @@ def search_articles_semantic(
         # hnsw:space=cosine means distance = 1 - cosine_similarity (range 0-2)
         cos_sim = max(0.0, 1.0 - distance / 2.0) if distance is not None else 0.5
 
-        pub_date = article_info.get("pub_date")
+        published_at = article_info.get("published_at")
 
         ranked_results.append(
             {
@@ -418,7 +418,7 @@ def search_articles_semantic(
                 "feed_name": article_info.get("feed_name") or "",
                 "title": metadatas[i].get("title") if metadatas[i] else None,
                 "url": metadatas[i].get("url") if metadatas[i] else None,
-                "pub_date": pub_date,
+                "published_at": published_at,
                 "cos_sim": cos_sim,
             }
         )
@@ -437,7 +437,7 @@ def search_articles_semantic(
                 title=r.get("title"),
                 link=r.get("url"),
                 guid=r["sqlite_id"] or r["article_id"] or "",
-                pub_date=r.get("pub_date"),
+                published_at=r.get("published_at"),
                 description=None,
                 vec_sim=cos_sim,
             )

@@ -77,7 +77,7 @@ async def fetch_one_async(feed: Feed) -> dict:
                 "content": article.get("content") or article.get("description") or "",
                 "link": article.get("link") or "",
                 "feed_id": feed.id,
-                "pub_date": article.get("pub_date"),
+                "published_at": article.get("published_at"),
             }
         )
 
@@ -112,7 +112,7 @@ async def fetch_one_async(feed: Feed) -> dict:
                         "title": a["title"],
                         "content": a["content"],
                         "url": a["link"],
-                        "pub_date": a["pub_date"],
+                        "published_at": a["published_at"],
                     }
                 )
             await asyncio.to_thread(add_article_embeddings, embedding_articles)

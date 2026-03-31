@@ -44,7 +44,7 @@ def _format_items(items: list[dict[str, Any]], verbose: bool) -> list[dict[str, 
     formatted = []
     for item in items:
         title = _truncate(item.get("title") or "No title", 60)
-        date = _format_date_for_display(item.get("pub_date"))
+        date = _format_date_for_display(item.get("published_at"))
         score_val = item.get("score")
 
         # Format score as percentage (0-1 normalized from rank_*_results)
@@ -140,7 +140,7 @@ def format_fts_results(
         articles: List of ArticleListItem from search_articles with keys:
             - title: Article title or None
             - feed_name: Name of the feed
-            - pub_date: Publication date or None
+            - published_at: Publication date or None
             - link: URL link or None
             - description: Short description or None
         verbose: If True, include link and description preview.
@@ -151,7 +151,7 @@ def format_fts_results(
         - id: article_id[:8] (non-verbose) or article_id (verbose)
         - title: article title (truncated to 60 chars)
         - source: feed_name (truncated to 15 chars)
-        - date: pub_date (formatted as yyyy-mm-dd)
+        - date: published_at (formatted as yyyy-mm-dd)
         - score: "FTS" (indicates FTS keyword search)
         - link: article link (verbose only)
         - description_preview: truncated description (verbose only)
@@ -166,23 +166,23 @@ def _truncate(text: str, max_length: int) -> str:
     return text[:max_length] + "..."
 
 
-def _format_date_for_display(pub_date: int | str | None) -> str:
-    """Convert pub_date to yyyy-mm-dd format for display.
+def _format_date_for_display(published_at: int | str | None) -> str:
+    """Convert published_at to yyyy-mm-dd format for display.
 
     Args:
-        pub_date: Publication date as Unix timestamp (int) or None.
+        published_at: Publication date as Unix timestamp (int) or None.
 
     Returns:
         Formatted date string (yyyy-mm-dd) or "-" if invalid/None.
     """
-    if pub_date is None:
+    if published_at is None:
         return "-"
-    if isinstance(pub_date, int):
+    if isinstance(published_at, int):
         from datetime import datetime
 
         from src.application.config import get_timezone
 
         tz = get_timezone()
-        dt = datetime.fromtimestamp(pub_date, tz=tz)
+        dt = datetime.fromtimestamp(published_at, tz=tz)
         return dt.strftime("%Y-%m-%d")
     return "-"

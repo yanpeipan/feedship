@@ -47,7 +47,7 @@ class TestArticleOperations:
             content="<p>Article content</p>",
             link="https://example.com/article1",
             feed_id="feed-1",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
 
         assert article_id is not None
@@ -79,7 +79,7 @@ class TestArticleOperations:
                 content="<p>Async content</p>",
                 link="https://example.com/async-article",
                 feed_id="feed-async",
-                pub_date="2024-01-16T10:00:00+00:00",
+                published_at="2024-01-16T10:00:00+00:00",
             )
         )
 
@@ -87,8 +87,8 @@ class TestArticleOperations:
         assert isinstance(article_id, str)
         assert len(article_id) > 0
 
-    def test_list_articles_returns_ordered_by_pub_date(self, initialized_db):
-        """list_articles() returns list of ArticleListItem ordered by pub_date DESC."""
+    def test_list_articles_returns_ordered_by_published_at(self, initialized_db):
+        """list_articles() returns list of ArticleListItem ordered by published_at DESC."""
         from src.models import Feed
         from src.storage.sqlite import add_feed, list_articles, store_article
 
@@ -103,14 +103,14 @@ class TestArticleOperations:
         )
         add_feed(feed)
 
-        # Store articles with different pub_dates
+        # Store articles with different published_ats
         store_article(
             guid="old-article",
             title="Old Article",
             content="Old content",
             link="https://example.com/old",
             feed_id="feed-list",
-            pub_date="2024-01-01T10:00:00+00:00",
+            published_at="2024-01-01T10:00:00+00:00",
         )
         store_article(
             guid="new-article",
@@ -118,7 +118,7 @@ class TestArticleOperations:
             content="New content",
             link="https://example.com/new",
             feed_id="feed-list",
-            pub_date="2024-01-20T10:00:00+00:00",
+            published_at="2024-01-20T10:00:00+00:00",
         )
         store_article(
             guid="mid-article",
@@ -126,13 +126,13 @@ class TestArticleOperations:
             content="Mid content",
             link="https://example.com/mid",
             feed_id="feed-list",
-            pub_date="2024-01-10T10:00:00+00:00",
+            published_at="2024-01-10T10:00:00+00:00",
         )
 
         articles = list_articles(limit=20)
 
         assert len(articles) == 3
-        # Verify ordered by pub_date DESC (newest first)
+        # Verify ordered by published_at DESC (newest first)
         assert articles[0].title == "New Article"
         assert articles[1].title == "Mid Article"
         assert articles[2].title == "Old Article"
@@ -175,7 +175,7 @@ class TestArticleOperations:
             content="Content 1",
             link="https://example.com/f1",
             feed_id="feed-1",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
         store_article(
             guid="article-feed2",
@@ -183,7 +183,7 @@ class TestArticleOperations:
             content="Content 2",
             link="https://example.com/f2",
             feed_id="feed-2",
-            pub_date="2024-01-15T11:00:00+00:00",
+            published_at="2024-01-15T11:00:00+00:00",
         )
 
         articles_feed1 = list_articles(limit=20, feed_id="feed-1")
@@ -219,7 +219,7 @@ class TestArticleOperations:
             content="<p>Get content</p>",
             link="https://example.com/get-article",
             feed_id="feed-get",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
 
         article = get_article(article_id)
@@ -260,7 +260,7 @@ class TestArticleOperations:
             content="<p>Truncated content</p>",
             link="https://example.com/trunc",
             feed_id="feed-trunc",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
 
         # Use first 8 characters of article_id
@@ -300,7 +300,7 @@ class TestArticleOperations:
             content="Learn Python programming",
             link="https://example.com/python",
             feed_id="feed-search",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
         store_article(
             guid="search-java",
@@ -308,7 +308,7 @@ class TestArticleOperations:
             content="Java programming tutorial",
             link="https://example.com/java",
             feed_id="feed-search",
-            pub_date="2024-01-16T10:00:00+00:00",
+            published_at="2024-01-16T10:00:00+00:00",
         )
 
         results = search_articles("Python")
@@ -349,7 +349,7 @@ class TestArticleOperations:
             content="Python content",
             link="https://example.com/s1p",
             feed_id="feed-s1",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
         store_article(
             guid="s2-python",
@@ -357,7 +357,7 @@ class TestArticleOperations:
             content="Python content",
             link="https://example.com/s2p",
             feed_id="feed-s2",
-            pub_date="2024-01-16T10:00:00+00:00",
+            published_at="2024-01-16T10:00:00+00:00",
         )
 
         # Search within feed1 only
@@ -389,7 +389,7 @@ class TestArticleOperations:
             content="Some content",
             link="https://example.com/some",
             feed_id="feed-empty",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
 
         # Empty string
@@ -423,7 +423,7 @@ class TestArticleOperations:
             content="Original content",
             link="https://example.com/update",
             feed_id="feed-update",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
 
         # Store again with same guid - should update
@@ -433,7 +433,7 @@ class TestArticleOperations:
             content="Updated content",
             link="https://example.com/update",
             feed_id="feed-update",
-            pub_date="2024-01-16T10:00:00+00:00",
+            published_at="2024-01-16T10:00:00+00:00",
         )
 
         # Should return same article_id (updated, not new)
@@ -569,7 +569,7 @@ class TestFeedOperations:
             content="Content 1",
             link="https://example.com/la1",
             feed_id="list-feed-1",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
         store_article(
             guid="list-article-2",
@@ -577,7 +577,7 @@ class TestFeedOperations:
             content="Content 2",
             link="https://example.com/la2",
             feed_id="list-feed-1",
-            pub_date="2024-01-16T10:00:00+00:00",
+            published_at="2024-01-16T10:00:00+00:00",
         )
 
         feeds = list_feeds()
@@ -684,7 +684,7 @@ class TestFeedOperations:
             content="Content 1",
             link="https://example.com/c1",
             feed_id="cascade-feed",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
         store_article(
             guid="cascade-article-2",
@@ -692,7 +692,7 @@ class TestFeedOperations:
             content="Content 2",
             link="https://example.com/c2",
             feed_id="cascade-feed",
-            pub_date="2024-01-16T10:00:00+00:00",
+            published_at="2024-01-16T10:00:00+00:00",
         )
 
         # Verify articles exist

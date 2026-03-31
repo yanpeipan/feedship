@@ -10,7 +10,7 @@ import math
 from datetime import datetime, timezone
 
 from src.application.articles import ArticleListItem
-from src.storage.vector import _pub_date_to_timestamp
+from src.storage.vector import _published_at_to_timestamp
 
 
 def combine_scores(
@@ -40,8 +40,8 @@ def combine_scores(
 
     for c in candidates:
         # Calculate freshness using Newton's cooling law
-        if c.pub_date:
-            timestamp = _pub_date_to_timestamp(c.pub_date)
+        if c.published_at:
+            timestamp = _published_at_to_timestamp(c.published_at)
             if timestamp is not None:
                 pub_dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
                 days_ago = (now - pub_dt).days

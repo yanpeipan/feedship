@@ -189,8 +189,8 @@ class RSSProvider:
             # Generate article ID (guid)
             guid = generate_article_id(raw)
 
-            # Extract pub_date (published or updated)
-            pub_date = raw.get("published") or raw.get("updated")
+            # Extract published_at (published or updated)
+            published_at = raw.get("published") or raw.get("updated")
 
             # Extract description
             description = None
@@ -213,7 +213,7 @@ class RSSProvider:
                     title=title,
                     link=link,
                     guid=guid,
-                    pub_date=pub_date,
+                    published_at=published_at,
                     description=description,
                     content=content_val,
                 )

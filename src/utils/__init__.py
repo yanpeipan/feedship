@@ -20,7 +20,7 @@ def generate_article_id(entry) -> str:
     """Generate a unique article ID from a feed entry.
 
     Uses guid if available, falls back to link, then generates a hash
-    from link and pub_date.
+    from link and published_at.
 
     Args:
         entry: A feedparser entry dict.
@@ -38,7 +38,7 @@ def generate_article_id(entry) -> str:
     if link:
         return link
 
-    # Last resort: hash of link + pub_date
-    pub_date = entry.get("published") or entry.get("updated") or ""
-    hash_input = f"{link}:{pub_date}"
+    # Last resort: hash of link + published_at
+    published_at = entry.get("published") or entry.get("updated") or ""
+    hash_input = f"{link}:{published_at}"
     return hashlib.sha256(hash_input.encode()).hexdigest()

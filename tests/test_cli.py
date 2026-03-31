@@ -201,7 +201,7 @@ class TestArticleCommands:
             content="<p>Content here</p>",
             link="https://example.com/article-list",
             feed_id="article-list-feed",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
 
         result = cli_runner.invoke(cli, ["article", "list"])
@@ -227,7 +227,7 @@ class TestArticleCommands:
             content="<p>Full content here</p>",
             link="https://example.com/article-view",
             feed_id="article-view-feed",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
 
         result = cli_runner.invoke(cli, ["article", "view", article_id[:8]])
@@ -259,7 +259,7 @@ class TestArticleCommands:
             content="Learn Python programming",
             link="https://example.com/article-search",
             feed_id="article-search-feed",
-            pub_date="2024-01-15T10:00:00+00:00",
+            published_at="2024-01-15T10:00:00+00:00",
         )
 
         result = cli_runner.invoke(cli, ["search", "Python"])

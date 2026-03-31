@@ -101,24 +101,24 @@ def init_db() -> None:
     DatabaseInitializer().init_db()
 
 
-def _normalize_pub_date(pub_date: str | None, tz) -> int | None:
-    """Normalize pub_date to Unix timestamp in the configured timezone.
+def _normalize_published_at(published_at: str | None, tz) -> int | None:
+    """Normalize published_at to Unix timestamp in the configured timezone.
 
     Handles RFC-2822 ("Wed, 31 Oct 2024 12:00:00 GMT") and ISO
     ("2024-10-31T12:00:00Z") formats. Falls back to current time.
 
     Returns:
-        Unix timestamp (int) or None if pub_date is None.
+        Unix timestamp (int) or None if published_at is None.
     """
     from datetime import datetime
     from email.utils import parsedate_to_datetime
 
-    if not pub_date:
+    if not published_at:
         return int(datetime.now(tz).timestamp())
 
     try:
         # Try RFC-2822 first (feedparser standard)
-        dt = parsedate_to_datetime(pub_date)
+        dt = parsedate_to_datetime(published_at)
         dt = dt.astimezone(tz)
         return int(dt.timestamp())
     except (ValueError, TypeError):
@@ -126,15 +126,15 @@ def _normalize_pub_date(pub_date: str | None, tz) -> int | None:
 
     try:
         # Try ISO format
-        dt = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
         dt = dt.replace(tzinfo=tz) if dt.tzinfo is None else dt.astimezone(tz)
         return int(dt.timestamp())
     except (ValueError, TypeError):
         pass
 
     # Fallback: try YYYY-MM-DD direct
-    if len(pub_date) >= 10 and pub_date[4:5] == "-":
-        dt = datetime.strptime(pub_date[:10], "%Y-%m-%d").replace(tzinfo=tz)
+    if len(published_at) >= 10 and published_at[4:5] == "-":
+        dt = datetime.strptime(published_at[:10], "%Y-%m-%d").replace(tzinfo=tz)
         return int(dt.timestamp())
 
     return int(datetime.now(tz).timestamp())
@@ -146,7 +146,7 @@ def store_article(
     content: str,
     link: str,
     feed_id: str | None = None,
-    pub_date: str | None = None,
+    published_at: str | None = None,
 ) -> str:
     """Store an article (insert or update based on guid existence).
 
@@ -156,7 +156,7 @@ def store_article(
         content: Article content (markdown/html).
         link: URL to the article.
         feed_id: Feed ID if from RSS feed (optional).
-        pub_date: Publication date (optional).
+        published_at: Publication date (optional).
 
     Returns:
         article_id: The ID of the stored article.
@@ -167,7 +167,7 @@ def store_article(
 
     tz = get_timezone()
     now = datetime.now(tz).isoformat()
-    normalized_pub_date = _normalize_pub_date(pub_date, tz)
+    normalized_published_at = _normalize_published_at(published_at, tz)
 
     with get_db() as conn:
         cursor = conn.cursor()
@@ -180,15 +180,15 @@ def store_article(
             # UPDATE existing article
             article_id = existing["id"]
             cursor.execute(
-                """UPDATE articles SET title = ?, content = ?, link = ?, pub_date = ?
+                """UPDATE articles SET title = ?, content = ?, link = ?, published_at = ?
                    WHERE guid = ?""",
-                (title, content, link, normalized_pub_date, guid),
+                (title, content, link, normalized_published_at, guid),
             )
         else:
             # INSERT new article
             article_id = generate()
             cursor.execute(
-                """INSERT INTO articles (id, feed_id, title, link, guid, pub_date, content, created_at)
+                """INSERT INTO articles (id, feed_id, title, link, guid, published_at, content, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     article_id,
@@ -196,7 +196,7 @@ def store_article(
                     title,
                     link,
                     guid,
-                    normalized_pub_date,
+                    normalized_published_at,
                     content,
                     now,
                 ),
@@ -219,7 +219,7 @@ async def store_article_async(
     content: str,
     link: str,
     feed_id: str | None = None,
-    pub_date: str | None = None,
+    published_at: str | None = None,
 ) -> str:
     """Async wrapper for store_article that serializes writes via asyncio.Lock + to_thread.
 
@@ -235,7 +235,7 @@ async def store_article_async(
     lock = _get_db_write_lock()
     async with lock:
         return await asyncio.to_thread(
-            store_article, guid, title, content, link, feed_id, pub_date
+            store_article, guid, title, content, link, feed_id, published_at
         )
 
 
@@ -243,7 +243,7 @@ def upsert_articles(articles: list[dict]) -> list[tuple[str, str]]:
     """Batch upsert articles, returning list of (article_id, guid) tuples.
 
     Args:
-        articles: List of article dicts with keys: guid, title, content, link, feed_id, pub_date
+        articles: List of article dicts with keys: guid, title, content, link, feed_id, published_at
 
     Returns:
         List of (article_id, guid) tuples for each article.
@@ -256,7 +256,7 @@ def upsert_articles(articles: list[dict]) -> list[tuple[str, str]]:
             content=article["content"],
             link=article["link"],
             feed_id=article.get("feed_id"),
-            pub_date=article.get("pub_date"),
+            published_at=article.get("published_at"),
         )
         results.append((article_id, article["guid"]))
     return results
@@ -266,7 +266,7 @@ async def upsert_articles_async(articles: list[dict]) -> list[tuple[str, str]]:
     """Async batch upsert articles, returning list of (article_id, guid) tuples.
 
     Args:
-        articles: List of article dicts with keys: guid, title, content, link, feed_id, pub_date
+        articles: List of article dicts with keys: guid, title, content, link, feed_id, published_at
 
     Returns:
         List of (article_id, guid) tuples for each article.
@@ -279,7 +279,7 @@ async def upsert_articles_async(articles: list[dict]) -> list[tuple[str, str]]:
             content=article["content"],
             link=article["link"],
             feed_id=article.get("feed_id"),
-            pub_date=article.get("pub_date"),
+            published_at=article.get("published_at"),
         )
         results.append((article_id, article["guid"]))
     return results
@@ -525,7 +525,7 @@ def list_articles(
 
     from src.application.articles import ArticleListItem
     from src.application.config import get_timezone
-    from src.storage.vector import _pub_date_to_timestamp
+    from src.storage.vector import _published_at_to_timestamp
 
     tz = get_timezone()
 
@@ -536,17 +536,17 @@ def list_articles(
         conditions.append("a.feed_id = ?")
         params.append(feed_id)
     if since:
-        conditions.append("a.pub_date >= ?")
+        conditions.append("a.published_at >= ?")
         params.append(_date_to_timestamp(since, tz))
     if until:
-        conditions.append("a.pub_date <= ?")
+        conditions.append("a.published_at <= ?")
         params.append(_date_to_timestamp_end(until, tz))
     if on:
         # Match articles within each specified date (start-of-day to end-of-day)
         for d in on:
             start = _date_to_timestamp(d, tz)
             end = _date_to_timestamp_end(d, tz)
-            conditions.append("a.pub_date BETWEEN ? AND ?")
+            conditions.append("a.published_at BETWEEN ? AND ?")
             params.extend([start, end])
     where_clause = " AND ".join(conditions) if conditions else "1=1"
 
@@ -555,11 +555,11 @@ def list_articles(
         cursor.execute(
             f"""
             SELECT a.id, a.feed_id, f.name as feed_name,
-                   a.title, a.link, a.guid, a.pub_date, a.description
+                   a.title, a.link, a.guid, a.published_at, a.description
             FROM articles a
             JOIN feeds f ON a.feed_id = f.id
             WHERE {where_clause}
-            ORDER BY a.pub_date DESC, a.created_at DESC
+            ORDER BY a.published_at DESC, a.created_at DESC
             LIMIT ?
             """,
             [*params, limit],
@@ -567,7 +567,7 @@ def list_articles(
         rows = cursor.fetchall()
 
         def _compute_article_item(row):
-            pub_ts = _pub_date_to_timestamp(row["pub_date"])
+            pub_ts = _published_at_to_timestamp(row["published_at"])
             freshness = 0.0
             if pub_ts:
                 pub_dt = datetime.fromtimestamp(pub_ts, tz=timezone.utc)
@@ -580,7 +580,7 @@ def list_articles(
                 title=row["title"],
                 link=row["link"],
                 guid=row["guid"],
-                pub_date=row["pub_date"],
+                published_at=row["published_at"],
                 description=row["description"],
                 vec_sim=0.0,
                 bm25_score=0.0,
@@ -602,7 +602,7 @@ def get_article(article_id: str) -> list | None:
         cursor.execute(
             """
             SELECT a.id, a.feed_id, f.name as feed_name, a.title, a.link,
-                   a.guid, a.pub_date, a.description
+                   a.guid, a.published_at, a.description
             FROM articles a
             JOIN feeds f ON a.feed_id = f.id
             WHERE a.id = ?
@@ -619,7 +619,7 @@ def get_article(article_id: str) -> list | None:
             title=row["title"],
             link=row["link"],
             guid=row["guid"],
-            pub_date=row["pub_date"],
+            published_at=row["published_at"],
             description=row["description"],
         )
 
@@ -656,7 +656,7 @@ def get_articles_by_ids(ids: list[str]) -> list:
         placeholders = ",".join("?" * len(ids))
         cursor.execute(
             f"""SELECT a.id, a.feed_id, f.name AS feed_name, a.title, a.link, a.guid,
-                       a.pub_date, a.description
+                       a.published_at, a.description
                 FROM articles a
                 JOIN feeds f ON a.feed_id = f.id
                 WHERE a.id IN ({placeholders})""",
@@ -673,7 +673,7 @@ def get_article_detail(article_id: str) -> dict | None:
         cursor.execute(
             """
             SELECT a.id, a.feed_id, f.name as feed_name, a.title, a.link, a.guid,
-                   a.pub_date, a.description, a.content, 'feed' as source_type
+                   a.published_at, a.description, a.content, 'feed' as source_type
             FROM articles a
             JOIN feeds f ON a.feed_id = f.id
             WHERE a.id = ?
@@ -686,7 +686,7 @@ def get_article_detail(article_id: str) -> dict | None:
             cursor.execute(
                 """
                 SELECT a.id, a.feed_id, f.name as feed_name, a.title, a.link, a.guid,
-                       a.pub_date, a.description, a.content, 'feed' as source_type
+                       a.published_at, a.description, a.content, 'feed' as source_type
                 FROM articles a
                 JOIN feeds f ON a.feed_id = f.id
                 WHERE a.id LIKE ? || '%'
@@ -704,7 +704,7 @@ def get_article_detail(article_id: str) -> dict | None:
             "title": row["title"],
             "link": row["link"],
             "guid": row["guid"],
-            "pub_date": row["pub_date"],
+            "published_at": row["published_at"],
             "description": row["description"],
             "content": row["content"],
             "source_type": row["source_type"],
@@ -743,15 +743,15 @@ def search_articles(
     date_conditions = []
     date_params = []
     if since:
-        date_conditions.append("a.pub_date >= ?")
+        date_conditions.append("a.published_at >= ?")
         date_params.append(_date_to_timestamp(since, tz))
     if until:
-        date_conditions.append("a.pub_date <= ?")
+        date_conditions.append("a.published_at <= ?")
         date_params.append(_date_to_timestamp_end(until, tz))
     if on:
         on_timestamps = [_date_to_timestamp(d, tz) for d in on]
         placeholders = ",".join("?" * len(on_timestamps))
-        date_conditions.append(f"a.pub_date IN ({placeholders})")
+        date_conditions.append(f"a.published_at IN ({placeholders})")
         date_params.extend(on_timestamps)
     date_clause = " AND ".join(date_conditions) if date_conditions else None
 
@@ -767,7 +767,7 @@ def search_articles(
             cursor.execute(
                 f"""
                 SELECT a.id, a.feed_id, f.name as feed_name,
-                       a.title, a.link, a.guid, a.pub_date, a.description,
+                       a.title, a.link, a.guid, a.published_at, a.description,
                        bm25(articles_fts, 2.0, 1.0, 0.5) as bm25_score
                 FROM articles_fts
                 JOIN articles a ON articles_fts.rowid = a.rowid
@@ -783,7 +783,7 @@ def search_articles(
                 cursor.execute(
                     f"""
                     SELECT a.id, a.feed_id, f.name as feed_name,
-                           a.title, a.link, a.guid, a.pub_date, a.description,
+                           a.title, a.link, a.guid, a.published_at, a.description,
                            bm25(articles_fts, 2.0, 1.0, 0.5) as bm25_score
                     FROM articles_fts
                     JOIN articles a ON articles_fts.rowid = a.rowid
@@ -798,7 +798,7 @@ def search_articles(
                 cursor.execute(
                     """
                     SELECT a.id, a.feed_id, f.name as feed_name,
-                           a.title, a.link, a.guid, a.pub_date, a.description,
+                           a.title, a.link, a.guid, a.published_at, a.description,
                            bm25(articles_fts, 2.0, 1.0, 0.5) as bm25_score
                     FROM articles_fts
                     JOIN articles a ON articles_fts.rowid = a.rowid
@@ -818,7 +818,7 @@ def search_articles(
                 title=row["title"],
                 link=row["link"],
                 guid=row["guid"],
-                pub_date=row["pub_date"],
+                published_at=row["published_at"],
                 description=row["description"],
                 bm25_score=1 / (1 + math.exp(row["bm25_score"] * factor)),
             )

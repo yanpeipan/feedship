@@ -32,7 +32,7 @@ class ArticleListItem:
         title: Title of the article.
         link: URL link to the full article.
         guid: Global unique identifier from the feed.
-        pub_date: Publication date from the feed.
+        published_at: Publication date from the feed.
         description: Short description or summary.
     """
 
@@ -42,7 +42,7 @@ class ArticleListItem:
     title: str | None
     link: str | None
     guid: str
-    pub_date: str | None
+    published_at: str | None
     description: str | None
     vec_sim: float = 0.0
     bm25_score: float = 0.0

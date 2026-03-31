@@ -76,7 +76,7 @@ def sample_article():
         "description": "This is a test article description",
         "content": "<p>Full article content here</p>",
         "source": "test",
-        "pub_date": "2024-01-15T10:30:00+08:00",
+        "published_at": "2024-01-15T10:30:00+08:00",
     }
 
 

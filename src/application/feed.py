@@ -257,7 +257,7 @@ def fetch_one(feed_or_id: str | Feed) -> dict:
                 "content": article.get("content") or article.get("description") or "",
                 "link": article.get("link") or "",
                 "feed_id": feed.id,
-                "pub_date": article.get("pub_date"),
+                "published_at": article.get("published_at"),
             }
         )
 

@@ -49,19 +49,20 @@ class DatabaseInitializer:
                     title TEXT,
                     link TEXT,
                     guid TEXT NOT NULL,
-                    pub_date INTEGER,
+                    published_at TEXT,
                     description TEXT,
                     content TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(feed_id, id)
                 )
             """)
 
-            # Migrate pub_date from TEXT to INTEGER (SQLite supports ALTER COLUMN in 3.25.0+)
+            # Migrate pub_date to published_at TEXT (SQLite supports ALTER COLUMN in 3.25.0+)
             # Using try/except because column type change only applies if column was previously TEXT
             try:
-                cursor.execute("ALTER TABLE articles ALTER COLUMN pub_date INTEGER")
-                logger.info("Migrated pub_date column to INTEGER")
+                cursor.execute("ALTER TABLE articles ALTER COLUMN published_at TEXT")
+                logger.info("Migrated published_at column")
             except Exception as e:
                 # Column may already be INTEGER or other error - safe to ignore
                 logger.debug(f"pub_date column migration skipped: {e}")
@@ -71,7 +72,7 @@ class DatabaseInitializer:
                 "CREATE INDEX IF NOT EXISTS idx_articles_feed_id ON articles(feed_id)"
             )
             cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_articles_pub_date ON articles(pub_date)"
+                "CREATE INDEX IF NOT EXISTS idx_articles_published_at ON articles(published_at)"
             )
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_articles_link ON articles(link)"

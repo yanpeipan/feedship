@@ -223,7 +223,7 @@ class TestRSSProvider:
         assert len(result) == 1
         assert result[0]["title"] == "Test Article"
         assert result[0]["link"] == "http://test.com/article"
-        assert result[0]["pub_date"] == "2024-01-01"
+        assert result[0]["published_at"] == "2024-01-01"
         assert result[0]["description"] == "Test description"
         assert result[0]["content"] == "Full content here"
 
@@ -352,7 +352,7 @@ class TestGitHubReleaseProvider:
                 article["link"] == "https://github.com/owner/repo/releases/tag/v1.0.0"
             )
             assert article["guid"] == "v1.0.0"
-            assert article["pub_date"] == "2024-01-15T10:30:00"
+            assert article["published_at"] == "2024-01-15T10:30:00"
             assert article["description"] == "Release notes for v1.0.0"
             assert article["content"] is None
 
@@ -376,7 +376,7 @@ class TestGitHubReleaseProvider:
         assert result[0]["title"] == "v1.0"
         assert result[0]["link"] == "https://github.com/owner/repo/releases/tag/v1.0"
         assert result[0]["guid"] == "v1.0"
-        assert result[0]["pub_date"] == "2024-01-01T00:00:00"
+        assert result[0]["published_at"] == "2024-01-01T00:00:00"
         assert result[0]["description"] == "Release notes"
         assert result[0]["content"] is None
 

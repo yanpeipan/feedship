@@ -153,8 +153,8 @@ class GitHubReleaseProvider:
             # guid: tag_name
             guid = raw.get("tag_name")
 
-            # pub_date: published_at
-            pub_date = raw.get("published_at")
+            # published_at: published_at
+            published_at = raw.get("published_at")
 
             # description: body (release notes)
             description = raw.get("body")
@@ -167,7 +167,7 @@ class GitHubReleaseProvider:
                     title=title,
                     link=link,
                     guid=guid,
-                    pub_date=pub_date,
+                    published_at=published_at,
                     description=description,
                     content=content,
                 )

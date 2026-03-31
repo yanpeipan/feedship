@@ -72,7 +72,7 @@ class Article:
         title: Title of the article.
         link: URL link to the full article.
         guid: Global unique identifier from the feed (used for dedup).
-        pub_date: Publication date from the feed.
+        published_at: Publication date from the feed.
         description: Short description or summary.
         content: Full content or body.
         created_at: ISO timestamp when article was stored.
@@ -84,6 +84,6 @@ class Article:
     created_at: str
     title: str | None = None
     link: str | None = None
-    pub_date: str | None = None
+    published_at: str | None = None
     description: str | None = None
     content: str | None = None

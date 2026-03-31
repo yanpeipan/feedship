@@ -332,7 +332,7 @@ class WebpageProvider:
                 {
                     "title": title,
                     "link": article_url,
-                    "pub_date": date or datetime.now().strftime("%Y-%m-%d"),
+                    "published_at": date or datetime.now().strftime("%Y-%m-%d"),
                     "tags": [],
                     "description": (description or "")[:500] if description else None,
                     "content": text,
@@ -362,7 +362,7 @@ class WebpageProvider:
             title = raw.get("title")
             link = raw.get("link")
             guid = link if link else generate_article_id(raw)
-            pub_date = raw.get("pub_date")
+            published_at = raw.get("published_at")
             description = raw.get("description")
             content = raw.get("content") or raw.get("description")
             articles.append(
@@ -370,7 +370,7 @@ class WebpageProvider:
                     title=title,
                     link=link,
                     guid=guid,
-                    pub_date=pub_date,
+                    published_at=published_at,
                     description=description,
                     content=content,
                 )

@@ -48,7 +48,7 @@ def get_related_articles(article_id: str, limit: int = 5) -> list[ArticleListIte
                 title=result.get("title") or article.title,
                 link=result.get("url") or article.link,
                 guid=article.guid or sqlite_id,
-                pub_date=article.pub_date,
+                published_at=article.published_at,
                 description=None,
                 score=score,
             )

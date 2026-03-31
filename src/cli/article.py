@@ -15,17 +15,17 @@ from src.application.articles import ArticleListItem, get_article_detail, list_a
 logger = logging.getLogger(__name__)
 
 
-def _format_date(pub_date: int | str | None) -> str:
-    """Format pub_date as 'YYYY-MM-DD' or return '-'."""
-    if pub_date is None:
+def _format_date(published_at: int | str | None) -> str:
+    """Format published_at as 'YYYY-MM-DD' or return '-'."""
+    if published_at is None:
         return "-"
-    if isinstance(pub_date, int):
+    if isinstance(published_at, int):
         from datetime import datetime
 
         from src.application.config import get_timezone
 
         tz = get_timezone()
-        dt = datetime.fromtimestamp(pub_date, tz=tz)
+        dt = datetime.fromtimestamp(published_at, tz=tz)
         return dt.strftime("%Y-%m-%d")
     return "-"
 
@@ -68,7 +68,7 @@ def print_articles(items: list[ArticleListItem]) -> None:
             (item.id[:8] if item.id else "-"),
             title,
             (item.feed_name[:15] if item.feed_name else "-"),
-            _format_date(item.pub_date),
+            _format_date(item.published_at),
         )
 
     console.print(table)
@@ -137,7 +137,7 @@ def article_view(ctx: click.Context, article_id: str) -> None:
         meta_table = Table(show_header=False, box=None)
         meta_table.add_row("Source:", article["feed_name"] or "Unknown")
         meta_table.add_row("Type:", article.get("source_type", "feed").capitalize())
-        meta_table.add_row("Date:", _format_date(article["pub_date"]))
+        meta_table.add_row("Date:", _format_date(article["published_at"]))
 
         # Link
         link = article["link"] or "No link"
@@ -149,7 +149,7 @@ def article_view(ctx: click.Context, article_id: str) -> None:
             Panel(
                 meta_table,
                 title=title,
-                subtitle=f"{article['feed_name']} | {_format_date(article['pub_date'])}",
+                subtitle=f"{article['feed_name']} | {_format_date(article['published_at'])}",
             )
         )
         if article["content"]:
