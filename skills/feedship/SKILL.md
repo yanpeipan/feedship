@@ -1,8 +1,31 @@
+---
+name: feedship
+description: Manage RSS/Atom feeds, subscribe to websites, search and read articles. Use when working with feeds, RSS, Atom, subscribing to content sources, managing an information pipeline, or fetching articles from subscribed feeds. Commands: feed add|list|remove, fetch, article list|view|open|related, search, discover.
+compatibility: Requires uv (for Python package installation) and feedship CLI. Install with: uv pip install feedship
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - uv
+---
+
 # Feedship Skill
 
 **Version:** 1.0
 **For:** Claude Code and OpenClaw compatible agents
 **Description:** Manage information feeds, subscribe to RSS/GitHub sources, and search articles
+
+## Setup
+
+Before using this skill, install feedship:
+
+```bash
+uv pip install feedship
+```
+
+After installation, verify with: `feedship --version`
+
+---
 
 ## Commands
 
