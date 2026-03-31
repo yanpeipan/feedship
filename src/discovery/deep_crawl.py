@@ -143,10 +143,10 @@ async def deep_crawl(
         async with semaphore:
             host = get_host(url)
 
-            # Rate limiting: 2 seconds per host
+            # Rate limiting: 1 second per host
             now = time.time()
             if host in last_request_time:
-                sleep_time = max(0, 2.0 - (now - last_request_time[host]))
+                sleep_time = max(0, 1.0 - (now - last_request_time[host]))
                 if sleep_time > 0:
                     await asyncio.sleep(sleep_time)
             last_request_time[host] = time.time()
