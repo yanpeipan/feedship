@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import deque
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from cachetools import TTLCache
 
@@ -24,6 +26,11 @@ _url_cache: TTLCache = TTLCache(maxsize=1000, ttl=300)
 # Per-URL locks to prevent cache stampede
 _url_locks: dict[str, asyncio.Lock] = {}
 _locks_lock = asyncio.Lock()  # Protects _url_locks dict creation
+
+# Per-host sliding window rate limiter: max 1 req/sec per host by default
+_host_rate_limits: dict[str, deque] = {}
+_rate_limit_lock = asyncio.Lock()
+_DEFAULT_RATE_LIMIT = 1.0  # seconds between requests per host
 
 
 def _looks_like_block_page(html_content: str | None) -> bool:
@@ -95,6 +102,39 @@ def _sync_fetch_with_fallback(
         return None
 
 
+async def _rate_limit_host(url: str, rate_limit: float = _DEFAULT_RATE_LIMIT) -> None:
+    """Enforce per-host rate limit using sliding window."""
+    parsed = urlparse(url)
+    host = parsed.netloc.lower()
+    if not host:
+        return
+
+    now = asyncio.get_event_loop().time()
+
+    async with _rate_limit_lock:
+        if host not in _host_rate_limits:
+            _host_rate_limits[host] = deque()
+
+        window = _host_rate_limits[host]
+
+        # Remove timestamps outside the sliding window
+        while window and now - window[0] >= rate_limit:
+            window.popleft()
+
+        # If window is full, sleep until oldest entry expires
+        if len(window) >= 1:
+            sleep_time = rate_limit - (now - window[0])
+            if sleep_time > 0:
+                await asyncio.sleep(sleep_time)
+                # Clean up again after sleep
+                now = asyncio.get_event_loop().time()
+                while window and now - window[0] >= rate_limit:
+                    window.popleft()
+
+        # Add current timestamp
+        window.append(now)
+
+
 async def _fetch_with_fallback_async(
     url: str,
     headers: dict | None,
@@ -153,6 +193,9 @@ async def async_fetch_with_fallback(
 
     if headers is None:
         headers = BROWSER_HEADERS
+
+    # Rate limit per host before fetch
+    await _rate_limit_host(url)
 
     return await _fetch_with_fallback_async(url, headers, timeout)
 
