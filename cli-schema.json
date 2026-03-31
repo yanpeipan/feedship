@@ -1,6 +1,6 @@
 {
   "name": "feedship",
-  "version": "1.0.2",
+  "version": "1.2.1",
   "description": "Personal information delivery system - collect, subscribe to, and organize information sources",
   "commands": {
     "feed": {
