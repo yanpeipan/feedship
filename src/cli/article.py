@@ -27,6 +27,11 @@ def _format_date(published_at: int | str | None) -> str:
         tz = get_timezone()
         dt = datetime.fromtimestamp(published_at, tz=tz)
         return dt.strftime("%Y-%m-%d")
+    if isinstance(published_at, str):
+        # Handle 'YYYY-MM-DD HH:MM:SS' format
+        if len(published_at) >= 10:
+            return published_at[:10]
+        return published_at
     return "-"
 
 
