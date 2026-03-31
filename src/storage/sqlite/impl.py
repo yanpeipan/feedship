@@ -148,6 +148,10 @@ def store_article(
     link: str,
     feed_id: str | None = None,
     published_at: str | None = None,
+    description: str | None = None,
+    author: str | None = None,
+    tags: str | None = None,
+    category: str | None = None,
 ) -> str:
     """Store an article (insert or update based on guid existence).
 
@@ -158,6 +162,10 @@ def store_article(
         link: URL to the article.
         feed_id: Feed ID if from RSS feed (optional).
         published_at: Publication date (optional).
+        description: Article description/summary (optional).
+        author: Author name(s), comma-separated if multiple (optional).
+        tags: Comma-separated tags (optional).
+        category: Comma-separated categories (optional).
 
     Returns:
         article_id: The ID of the stored article.
@@ -182,17 +190,17 @@ def store_article(
             article_id = existing["id"]
             modified_at = time.strftime('%Y-%m-%d %H:%M:%S')
             cursor.execute(
-                """UPDATE articles SET title = ?, content = ?, link = ?, published_at = ?, modified_at = ?
+                """UPDATE articles SET title = ?, content = ?, link = ?, published_at = ?, modified_at = ?, description = ?, author = ?, tags = ?, category = ?
                    WHERE guid = ?""",
-                (title, content, link, normalized_published_at, modified_at, guid),
+                (title, content, link, normalized_published_at, modified_at, description, author, tags, category, guid),
             )
         else:
             # INSERT new article
             article_id = generate()
             modified_at = time.strftime('%Y-%m-%d %H:%M:%S')
             cursor.execute(
-                """INSERT INTO articles (id, feed_id, title, link, guid, published_at, content, created_at, modified_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO articles (id, feed_id, title, link, guid, published_at, content, description, created_at, modified_at, author, tags, category)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     article_id,
                     feed_id or "",
@@ -201,8 +209,12 @@ def store_article(
                     guid,
                     normalized_published_at,
                     content,
+                    description,
                     now,
                     modified_at,
+                    author,
+                    tags,
+                    category,
                 ),
             )
 
@@ -224,6 +236,10 @@ async def store_article_async(
     link: str,
     feed_id: str | None = None,
     published_at: str | None = None,
+    description: str | None = None,
+    author: str | None = None,
+    tags: str | None = None,
+    category: str | None = None,
 ) -> str:
     """Async wrapper for store_article that serializes writes via asyncio.Lock + to_thread.
 
@@ -239,7 +255,7 @@ async def store_article_async(
     lock = _get_db_write_lock()
     async with lock:
         return await asyncio.to_thread(
-            store_article, guid, title, content, link, feed_id, published_at
+            store_article, guid, title, content, link, feed_id, published_at, description, author, tags, category
         )
 
 
@@ -247,7 +263,7 @@ def upsert_articles(articles: list[dict]) -> list[tuple[str, str]]:
     """Batch upsert articles, returning list of (article_id, guid) tuples.
 
     Args:
-        articles: List of article dicts with keys: guid, title, content, link, feed_id, published_at
+        articles: List of article dicts with keys: guid, title, content, link, feed_id, published_at, description, author, tags, category
 
     Returns:
         List of (article_id, guid) tuples for each article.
@@ -261,6 +277,10 @@ def upsert_articles(articles: list[dict]) -> list[tuple[str, str]]:
             link=article["link"],
             feed_id=article.get("feed_id"),
             published_at=article.get("published_at"),
+            description=article.get("description"),
+            author=article.get("author"),
+            tags=article.get("tags"),
+            category=article.get("category"),
         )
         results.append((article_id, article["guid"]))
     return results
@@ -270,7 +290,7 @@ async def upsert_articles_async(articles: list[dict]) -> list[tuple[str, str]]:
     """Async batch upsert articles, returning list of (article_id, guid) tuples.
 
     Args:
-        articles: List of article dicts with keys: guid, title, content, link, feed_id, published_at
+        articles: List of article dicts with keys: guid, title, content, link, feed_id, published_at, description, author, tags, category
 
     Returns:
         List of (article_id, guid) tuples for each article.
@@ -284,6 +304,10 @@ async def upsert_articles_async(articles: list[dict]) -> list[tuple[str, str]]:
             link=article["link"],
             feed_id=article.get("feed_id"),
             published_at=article.get("published_at"),
+            description=article.get("description"),
+            author=article.get("author"),
+            tags=article.get("tags"),
+            category=article.get("category"),
         )
         results.append((article_id, article["guid"]))
     return results
