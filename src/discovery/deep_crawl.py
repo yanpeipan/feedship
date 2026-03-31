@@ -9,7 +9,7 @@ from collections import deque
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
-from scrapling import Fetcher, Selector
+from scrapling import Selector
 
 # Suppress scrapling 0.4.x deprecation warning
 _scrapling_logger = logging.getLogger("scrapling")
@@ -153,11 +153,11 @@ async def deep_crawl(
 
             try:
                 response = await asyncio.to_thread(
-                    Fetcher.get, url, headers=BROWSER_HEADERS
+                    fetch_with_fallback, url, headers=BROWSER_HEADERS
                 )
-                if response.status != 200:
+                if response is None or response.status != 200:
                     return None, url, None
-                return response.text, response.url, response
+                return getattr(response, "text", None) or getattr(response, "html_content", ""), response.url, response
             except Exception:
                 return None, url, None
 
@@ -184,8 +184,8 @@ async def deep_crawl(
             robots_url = f"{urlparse(url).scheme.lower()}://{host}/robots.txt"
             parser = RobotExclusionRulesParser()
             try:
-                response = await asyncio.to_thread(Fetcher.get, robots_url)
-                if response.status == 200:
+                response = await asyncio.to_thread(fetch_with_fallback, robots_url)
+                if response is not None and response.status == 200:
                     parser.parse(response.text.splitlines())
                 else:
                     # No robots.txt - permissive

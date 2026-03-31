@@ -15,16 +15,30 @@ _ROOT_PATH_PATTERNS = (
     "/index.xml",
 )
 
+# Subdirectory-level well-known paths for candidate generation
+# These are common blog/news feed locations that are not linked from all pages
+_SUB_DIRECTORY_PATTERNS = (
+    "/blog/rss.xml",
+    "/blog/atom.xml",
+    "/blog/feed.xml",
+    "/news/rss.xml",
+    "/news/atom.xml",
+    "/news/feed.xml",
+    "/posts/rss.xml",
+    "/posts/atom.xml",
+    "/articles/rss.xml",
+    "/articles/atom.xml",
+)
+
 
 def generate_feed_candidates(base_url: str, _html: str | None = None) -> list[str]:
     """Generate candidate feed URLs from base URL.
 
-    If html is provided, uses dynamic subdirectory discovery from page links.
-    Otherwise falls back to root-level patterns only.
+    Generates both root-level and subdirectory-level well-known feed paths.
 
     Args:
         base_url: Base URL to generate candidates from (e.g., 'https://example.com').
-        html: Optional HTML content for dynamic subdirectory discovery.
+        html: Optional HTML content (unused, kept for API compatibility).
 
     Returns:
         List of candidate feed URLs including root-level and subdirectory paths.
@@ -40,6 +54,10 @@ def generate_feed_candidates(base_url: str, _html: str | None = None) -> list[st
 
     # Root-level candidates (always included)
     for path in _ROOT_PATH_PATTERNS:
+        candidates.append(base + path)
+
+    # Subdirectory-level candidates (common blog/news feed paths)
+    for path in _SUB_DIRECTORY_PATTERNS:
         candidates.append(base + path)
 
     return candidates

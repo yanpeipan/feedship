@@ -55,7 +55,6 @@ class RSSProvider:
         Returns:
             Response object. Caller should check response.status == 304 for not modified.
         """
-        from scrapling import Fetcher
 
         headers: dict[str, str] = {}
         if etag:
@@ -65,15 +64,10 @@ class RSSProvider:
 
         # Merge browser headers with conditional headers
         request_headers = {**BROWSER_HEADERS, **headers}
-        # Use increased retries (5) and retry delay (2s) to handle intermittent TLS errors
-        # that can occur with certain hosts through HTTP proxies
-        response = Fetcher.get(
-            url,
-            headers=request_headers,
-            retries=5,
-            retry_delay=2,
-            timeout=30,
-        )
+        # Use fetch_with_fallback for automatic fallback from basic Fetcher to stealth fetcher
+        from src.utils.scraping_utils import fetch_with_fallback
+
+        response = fetch_with_fallback(url, headers=request_headers, timeout=30)
         return response
 
     def match(
@@ -276,15 +270,26 @@ class RSSProvider:
             DiscoveredFeed with valid=True if URL is a valid RSS/Atom feed,
             valid=False if validation fails.
         """
-        from scrapling import Fetcher
+        from src.utils.scraping_utils import fetch_with_fallback
 
         try:
             # Use pre-fetched response if available
             if response is None:
-                response = Fetcher.get(url, headers=BROWSER_HEADERS)
+                response = fetch_with_fallback(url, headers=BROWSER_HEADERS)
+
+            if response is None:
+                return DiscoveredFeed(
+                    url=url,
+                    title=None,
+                    feed_type="rss",
+                    source=f"provider_{self.__class__.__name__}",
+                    page_url=url,
+                    valid=False,
+                )
 
             # Parse feed content
-            parsed = feedparser.parse(response.body)
+            raw_content = response.body if hasattr(response, "body") else getattr(response, "html_content", "")
+            parsed = feedparser.parse(raw_content)
 
             # A valid RSS/Atom feed must have entries (otherwise it's just a website)
             if not parsed.entries:
