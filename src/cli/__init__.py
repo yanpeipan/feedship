@@ -9,9 +9,17 @@ import click
 # Suppress requests version mismatch warning (urllib3 2.6.3 is functionally compatible)
 warnings.filterwarnings("ignore", message="urllib3.*doesn't match a supported version")
 
+# Dynamically read version from pyproject.toml via importlib.metadata
+try:
+    from importlib.metadata import version as get_version
+except ImportError:
+    from importlib_metadata import version as get_version  # Python < 3.8
+
+FEEDSHIP_VERSION = get_version("feedship")
+
 
 @click.group()
-@click.version_option(version="1.0.2")
+@click.version_option(version=FEEDSHIP_VERSION)
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
 @click.pass_context
 def cli(ctx: click.Context, verbose: bool) -> None:
