@@ -186,21 +186,32 @@ def feed_add(
 
       feedship feed add example.com --auto-discover --automatic off
       feedship feed add example.com --automatic on
+      feedship feed add nitter:elonmusk
+      feedship feed add search:AI news
     """
     feeds: list = []
     result = None
     elapsed = 0.0
 
-    try:
-        console = Console()
-        start = time.time()
-        with console.status(f"[cyan]Discovering feeds from {url}...") as _status:
-            result = uvloop.run(discover_feeds(url, discover_depth, auto_discover))
-            feeds = result.feeds
-        elapsed = time.time() - start
-    except Exception as e:
-        click.secho(f"Discovery error: {e}", err=True, fg="red")
-        sys.exit(1)
+    # Check if URL is a pseudo-URL handled by providers (e.g., nitter:, search:, tavily:)
+    from src.providers import discover as providers_discover
+
+    provider_feeds = providers_discover(url)
+    if provider_feeds:
+        feeds = provider_feeds
+        elapsed = 0.0
+    else:
+        # Regular URL - use discover_feeds for auto-discovery
+        try:
+            console = Console()
+            start = time.time()
+            with console.status(f"[cyan]Discovering feeds from {url}...") as _status:
+                result = uvloop.run(discover_feeds(url, discover_depth, auto_discover))
+                feeds = result.feeds
+            elapsed = time.time() - start
+        except Exception as e:
+            click.secho(f"Discovery error: {e}", err=True, fg="red")
+            sys.exit(1)
 
     if feeds:
         click.secho(f"Discovered {len(feeds)} feed(s) in {elapsed:.1f}s", fg="cyan")

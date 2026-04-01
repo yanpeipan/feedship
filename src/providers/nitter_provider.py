@@ -104,19 +104,20 @@ class NitterProvider:
             return FetchedResult(articles=[])
 
     def _extract_username(self, url: str) -> str | None:
-        """Extract username from nitter: URL.
+        """Extract username from nitter:/twitter:/x: URL.
 
         Args:
-            url: URL like 'nitter:elonmusk' or 'nitter:@elonmusk'
+            url: URL like 'nitter:elonmusk', 'twitter:@elonmusk', or 'x:elonmusk'
 
         Returns:
             Extracted username without @ prefix, or None if invalid.
         """
-        if url.startswith("nitter:"):
-            username = url[7:].strip()  # Remove 'nitter:' prefix
-            if username.startswith("@"):
-                username = username[1:]
-            return username if username else None
+        for prefix in ("nitter:", "twitter:", "x:"):
+            if url.startswith(prefix):
+                username = url[len(prefix) :].strip()
+                if username.startswith("@"):
+                    username = username[1:]
+                return username if username else None
         return None
 
     def _get_rss_url_with_fallback(
