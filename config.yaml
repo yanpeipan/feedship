@@ -9,6 +9,13 @@ tavily:
   default_max_results: 10
   refresh_interval: 3600  # seconds
 
+# Nitter RSS provider configuration for Twitter/X via Nitter instances
+nitter:
+  default_instance: "https://nitter.privacydev.net"
+  instances:
+    - "https://nitter.privacydev.net"
+    - "https://nitter.net"
+
 # WebpageProvider site configurations
 # See: docs/webpage-provider.md
 webpage_sites:
