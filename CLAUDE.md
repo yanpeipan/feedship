@@ -38,6 +38,7 @@ See [docs/](docs/) for project documentation.
 
 See [docs/release.md](docs/release.md) for full workflow. **Critical steps**:
 
+0. **Confirm versions first**: `curl -s pypi.org/pypi/feedship/json | grep version` — know what CURRENT version is and what NEW version to release
 1. **Bump version FIRST** in `pyproject.toml`: `version = "X.Y.Z"` (actual version)
 2. Run pre-commit: `uv run pre-commit run --all`
 3. Commit: `git add -A && git commit -m "Release vX.Y.Z"`

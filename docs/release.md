@@ -7,6 +7,12 @@ This project uses **GitHub Actions + trusted publishing** for PyPI releases. No 
 **Every time before releasing, run this exact sequence:**
 
 ```bash
+# 0. Confirm versions (MUST do this first!)
+CURRENT=$(curl -s https://pypi.org/pypi/feedship/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
+echo "Current PyPI version: $CURRENT"
+echo "What version do you want to release? (e.g., 1.2.3)"
+# If CURRENT is already the version you want, NO need to release!
+
 # 1. Ensure working tree is COMPLETELY clean
 git status --short
 # If any files show (M, A, D, ??), commit or stash them first
