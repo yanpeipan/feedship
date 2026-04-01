@@ -11,7 +11,7 @@ tavily:
 
 # Nitter RSS provider configuration for Twitter/X via Nitter instances
 nitter:
-  default_instance: "https://nitter.privacydev.net"
+  default_instance: "https://nitter.net"
   instances:
     - "https://nitter.privacydev.net"
     - "https://nitter.net"

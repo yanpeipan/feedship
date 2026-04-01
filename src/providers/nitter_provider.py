@@ -54,20 +54,28 @@ class NitterProvider:
         """
         from src.models import FeedType
 
-        # If feed_type is specified and is not NITTER, reject
-        if feed_type is not None and feed_type != FeedType.NITTER:
+        # If feed_type is specified and is not RSS or NITTER, reject
+        if feed_type is not None and feed_type not in (FeedType.RSS, FeedType.NITTER):
             return False
 
-        # URL-only matching for performance
-        return url.startswith(("nitter:", "twitter:", "x:"))
+        # Match nitter: pseudo-URLs and https://x.com/ twitter.com URLs
+        if url.startswith(("nitter:", "twitter:", "x:")):
+            return True
+
+        # Also match https://x.com/username and https://twitter.com/username
+        import re
+
+        return bool(
+            re.match(r"https://(?:x|twitter)\.com/([^/?]+)/?", url, re.IGNORECASE)
+        )
 
     def priority(self) -> int:
         """Return provider priority.
 
         Returns:
-            300 - same tier as GitHubReleaseProvider.
+            150 - lower than RSSProvider (200), so RSS tries first.
         """
-        return 300
+        return 150
 
     def fetch_articles(self, feed: Feed) -> FetchedResult:
         """Fetch tweets from Nitter RSS feed.
@@ -104,20 +112,33 @@ class NitterProvider:
             return FetchedResult(articles=[])
 
     def _extract_username(self, url: str) -> str | None:
-        """Extract username from nitter:/twitter:/x: URL.
+        """Extract username from nitter:/twitter:/x: URL or https://x.com/ URL.
 
         Args:
-            url: URL like 'nitter:elonmusk', 'twitter:@elonmusk', or 'x:elonmusk'
+            url: URL like 'nitter:elonmusk', 'twitter:@elonmusk', 'x:elonmusk',
+                 or 'https://x.com/elonmusk'
 
         Returns:
             Extracted username without @ prefix, or None if invalid.
         """
+        # Handle nitter:/twitter:/x: pseudo-URLs
         for prefix in ("nitter:", "twitter:", "x:"):
             if url.startswith(prefix):
                 username = url[len(prefix) :].strip()
                 if username.startswith("@"):
                     username = username[1:]
                 return username if username else None
+
+        # Handle https://x.com/username and https://twitter.com/username
+        import re
+
+        match = re.match(r"https://(?:x|twitter)\.com/([^/?]+)/?", url, re.IGNORECASE)
+        if match:
+            username = match.group(1)
+            if username.startswith("@"):
+                username = username[1:]
+            return username if username else None
+
         return None
 
     def _get_rss_url_with_fallback(
@@ -304,7 +325,7 @@ class NitterProvider:
             return DiscoveredFeed(
                 url=url,
                 title=f"Use 'nitter:{self._extract_twitter_username(url)}' instead of '{url}'",
-                feed_type="nitter",
+                feed_type="rss",
                 source=f"provider_{self.__class__.__name__}",
                 page_url=url,
                 valid=False,
@@ -315,7 +336,7 @@ class NitterProvider:
             return DiscoveredFeed(
                 url=url,
                 title=None,
-                feed_type="nitter",
+                feed_type="rss",
                 source=f"provider_{self.__class__.__name__}",
                 page_url=url,
                 valid=False,
@@ -324,7 +345,7 @@ class NitterProvider:
         return DiscoveredFeed(
             url=url,
             title=f"Nitter: {username}",
-            feed_type="nitter",
+            feed_type="rss",
             source=f"provider_{self.__class__.__name__}",
             page_url=url,
             valid=True,
@@ -379,5 +400,5 @@ class NitterProvider:
         return []
 
 
-# Register this provider - priority 300
+# Register this provider - priority 150 (lower than RSSProvider at 200)
 PROVIDERS.append(NitterProvider())
