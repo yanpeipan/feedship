@@ -33,6 +33,15 @@ Key technologies:
 ## Conventions
 
 See [docs/](docs/) for project documentation.
+
+### Release Process
+
+See [docs/release.md](docs/release.md) for release workflow. **TL;DR**:
+
+1. Ensure lint passes locally: `uv run ruff format --check . && uv run ruff check .`
+2. Commit all changes
+3. Create release: `gh release create v1.x.x --title "v1.x.x" --notes "..."`
+4. This triggers PyPI publish via GitHub Actions
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:docs/Architecture.md -->

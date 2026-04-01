@@ -7,12 +7,12 @@ This project uses **GitHub Actions + trusted publishing** for PyPI releases. No 
 Before each release, verify:
 
 ```bash
-# 1. Format + lint passes (auto-fix available)
-python -m ruff format src/ tests/
-python -m ruff check src/ tests/ --fix
+# 1. Format + lint passes locally (pre-commit hooks must pass)
+uv run ruff check . --fix
+uv run ruff format --check .
 
-# 2. Tests pass
-python -m pytest tests/ -x -q
+# 2. Working tree is clean (no uncommitted changes)
+git status --short
 
 # 3. Build succeeds locally
 rm -rf dist/ build/ *.egg-info
@@ -24,32 +24,25 @@ grep 'version = ' pyproject.toml
 
 ## Release Steps
 
-### 1. Update Version
+### 1. Commit All Changes
 
 ```bash
-# Edit pyproject.toml
-version = "1.2.0"
+git add -A && git commit -m "Release v1.2.2"
 ```
 
-### 2. Commit & Tag
+### 2. Create GitHub Release (triggers PyPI publish)
 
 ```bash
-git add -A && git commit -m "Release v1.2.0"
-git tag -a v1.2.0 -m "Release v1.2.0"
-git push && git push origin v1.2.0
-```
-
-### 3. Create GitHub Release
-
-```bash
-gh release create v1.2.0 \
-  --title "v1.2.0" \
+gh release create v1.2.2 \
+  --title "v1.2.2" \
   --notes "## Changes\n- ..."
 ```
 
+**Important**: Use `gh release create` instead of `git tag && git push --tags`. The `gh` command creates both the tag and GitHub Release, which triggers the `Release to PyPI` workflow.
+
 Publishing the GitHub release automatically triggers `Release to PyPI` workflow.
 
-### 4. Verify
+### 3. Verify
 
 ```bash
 # Check PyPI (takes ~1 min to update)
@@ -61,7 +54,7 @@ print('Releases:', list(d['releases'].keys()))
 "
 ```
 
-Expected output: `Latest: 1.2.0`
+Expected output: `Latest: 1.2.2`
 
 ## CI/CD Pipeline
 
