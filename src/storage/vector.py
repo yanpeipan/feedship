@@ -33,24 +33,32 @@ _embedding_function: SentenceTransformer | None = None
 _chroma_lock = threading.Lock()
 
 
-def _published_at_to_timestamp(published_at: str | int | None) -> int | None:
+def _published_at_to_timestamp(published_at: str | int | float | None) -> int | None:
     """Convert published_at to unix timestamp for ChromaDB storage/query.
 
     Handles RFC 2822 dates from RSS feeds (e.g., 'Thu, 26 Mar 2026 10:30:00 +0000')
     and ISO format dates (e.g., '2026-03-26', '2026-03-26T10:30:00+00:00').
     Also handles INTEGER unix timestamps from SQLite directly.
+    Handles datetime objects directly (from feedparser raw values).
+    Handles float unix timestamps.
 
     Args:
-        published_at: Publication date as string, int timestamp, or None.
+        published_at: Publication date as string, int/float timestamp, datetime object, or None.
 
     Returns:
         Unix timestamp (seconds since epoch) or None if parsing fails.
     """
     if published_at is None:
         return None
-    # Handle INTEGER unix timestamp from SQLite
-    if isinstance(published_at, int):
-        return published_at
+
+    # Handle datetime objects directly (feedparser sometimes returns datetime)
+    if isinstance(published_at, datetime):
+        return int(published_at.timestamp())
+
+    # Handle INTEGER or FLOAT unix timestamp from SQLite
+    if isinstance(published_at, int | float):
+        return int(published_at)
+
     if not published_at:
         return None
 
@@ -248,6 +256,10 @@ def add_article_embeddings(articles: list[dict]) -> None:
         author = article.get("author") or ""
         tags = article.get("tags") or ""
         category = article.get("category") or ""
+
+        # Ensure title and url are strings (defensive against unexpected types)
+        title = str(title) if title else ""
+        url = str(url) if url else ""
 
         # Compose rich embedding text from all available fields
         parts = [title, author, tags, category, content]
