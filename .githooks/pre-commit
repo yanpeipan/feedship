@@ -1,14 +1,27 @@
 #!/bin/sh
 # Pre-commit hook: run ruff lint on staged Python files
 
+# Try multiple ruff locations
+if command -v ruff >/dev/null 2>&1; then
+    RUFF="ruff"
+elif [ -f ".venv/bin/ruff" ]; then
+    RUFF=".venv/bin/ruff"
+elif [ -f ".venv/bin/python" ]; then
+    RUFF=".venv/bin/python -m ruff"
+else
+    echo "ruff not found. Install with: uv pip install ruff"
+    exit 1
+fi
+
 echo "Running ruff lint..."
 
 # Lint only staged Python files
-ruff check --quiet 2>&1 | head -20
+git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$' | xargs $RUFF check --quiet 2>&1 | head -20
 RESULT=$?
 
 if [ $RESULT -ne 0 ]; then
     echo "Lint errors found. Fix them before committing."
+    echo "Run: .venv/bin/ruff check --fix"
     echo "Or bypass with: git commit --no-verify"
     exit 1
 fi
