@@ -127,7 +127,7 @@ class GitHubTrendingProvider:
             List of Article dicts for this period.
         """
         try:
-            fetcher = Fetcher.fetch(url)
+            fetcher = Fetcher().fetch(url, timeout=30000)
         except Exception as e:
             logger.error("Failed to fetch %s: %s", url, e)
             return []

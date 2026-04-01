@@ -130,22 +130,21 @@ class TestGitHubTrendingProvider:
         """Verify fetch_articles fetches daily, weekly, and monthly periods."""
         from src.providers.github_trending_provider import GitHubTrendingProvider
 
-        # Mock Fetcher.fetch to return empty results (just tracking URLs)
-        mock_fetcher = MagicMock()
-        mock_fetcher.css.return_value.all.return_value = []
-
         # Track which URLs are fetched
         fetched_urls = []
 
-        def mock_fetch(url):
-            fetched_urls.append(url)
-            return mock_fetcher
-
+        # Mock Fetcher to track URLs and return empty results
         mock_fetcher_instance = MagicMock()
         mock_fetcher_instance.css.return_value.all.return_value = []
 
+        def mock_fetch(url, timeout=None):
+            fetched_urls.append(url)
+            return mock_fetcher_instance
+
+        mock_fetcher_instance.fetch = mock_fetch
+
         with patch("src.providers.github_trending_provider.Fetcher") as mock_fetcher_class:
-            mock_fetcher_class.fetch = mock_fetch
+            mock_fetcher_class.return_value = mock_fetcher_instance
 
             provider = GitHubTrendingProvider()
             feed = Feed(
