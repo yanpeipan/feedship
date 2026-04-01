@@ -13,11 +13,10 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
-from scrapling import Fetcher
-
 from src.discovery.models import DiscoveredFeed
 from src.providers import PROVIDERS
 from src.providers.base import Article, FetchedResult
+from src.utils.scraping_utils import fetch_selector
 
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
@@ -127,7 +126,10 @@ class GitHubTrendingProvider:
             List of Article dicts for this period.
         """
         try:
-            fetcher = Fetcher().fetch(url, timeout=30000)
+            fetcher = fetch_selector(url)
+            if fetcher is None:
+                logger.error("Failed to fetch %s", url)
+                return []
         except Exception as e:
             logger.error("Failed to fetch %s: %s", url, e)
             return []

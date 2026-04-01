@@ -133,18 +133,16 @@ class TestGitHubTrendingProvider:
         # Track which URLs are fetched
         fetched_urls = []
 
-        # Mock Fetcher to track URLs and return empty results
+        # Mock fetch_selector to track URLs and return empty results
         mock_fetcher_instance = MagicMock()
         mock_fetcher_instance.css.return_value.all.return_value = []
 
-        def mock_fetch(url, timeout=None):
+        def mock_fetch_selector(url):
             fetched_urls.append(url)
             return mock_fetcher_instance
 
-        mock_fetcher_instance.fetch = mock_fetch
-
-        with patch("src.providers.github_trending_provider.Fetcher") as mock_fetcher_class:
-            mock_fetcher_class.return_value = mock_fetcher_instance
+        with patch("src.providers.github_trending_provider.fetch_selector") as mock_fetch:
+            mock_fetch.side_effect = mock_fetch_selector
 
             provider = GitHubTrendingProvider()
             feed = Feed(
@@ -277,9 +275,9 @@ class TestGitHubTrendingProvider:
         """Verify fetch returns empty articles on rate limit (429)."""
         from src.providers.github_trending_provider import GitHubTrendingProvider
 
-        # Mock Fetcher.fetch to raise exception (simulating rate limit)
-        with patch("src.providers.github_trending_provider.Fetcher") as mock_fetcher_class:
-            mock_fetcher_class.fetch.side_effect = Exception("429 Too Many Requests")
+        # Mock fetch_selector to raise exception (simulating rate limit)
+        with patch("src.providers.github_trending_provider.fetch_selector") as mock_fetch:
+            mock_fetch.side_effect = Exception("429 Too Many Requests")
 
             provider = GitHubTrendingProvider()
             feed = Feed(
@@ -297,12 +295,12 @@ class TestGitHubTrendingProvider:
         """Verify fetch returns empty articles when no repos found."""
         from src.providers.github_trending_provider import GitHubTrendingProvider
 
-        # Mock Fetcher with no repo entries
+        # Mock fetch_selector with no repo entries
         mock_fetcher_instance = MagicMock()
         mock_fetcher_instance.css.return_value.all.return_value = []
 
-        with patch("src.providers.github_trending_provider.Fetcher") as mock_fetcher_class:
-            mock_fetcher_class.fetch.return_value = mock_fetcher_instance
+        with patch("src.providers.github_trending_provider.fetch_selector") as mock_fetch:
+            mock_fetch.return_value = mock_fetcher_instance
 
             provider = GitHubTrendingProvider()
             feed = Feed(
