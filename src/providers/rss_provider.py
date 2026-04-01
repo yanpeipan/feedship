@@ -377,7 +377,20 @@ class RSSProvider:
             async def _discover_parallel():
                 return await probe_feed_paths_parallel(url, html)
 
-            feeds.extend(asyncio.run(_discover_parallel()))
+            # Use existing event loop if available (nested async context),
+            # otherwise create a new one with asyncio.run()
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                # No running loop - safe to use asyncio.run()
+                feeds.extend(asyncio.run(_discover_parallel()))
+            else:
+                # Already in async context - create a new task and wait for it
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(asyncio.run, _discover_parallel())
+                    feeds.extend(future.result())
 
         return feeds
 
