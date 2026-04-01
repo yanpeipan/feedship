@@ -16,6 +16,7 @@ class FeedType(Enum):
     GITHUB_RELEASE = "github_release"
     TAVILY = "tavily"
     GITHUB_TRENDING = "github_trending"
+    NITTER = "nitter"
 
 
 @dataclass
