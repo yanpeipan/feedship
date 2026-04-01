@@ -12,7 +12,7 @@ def _get_settings() -> Dynaconf:
     global _settings
     if _settings is None:
         _settings = Dynaconf(
-            envvar_prefix="RADAR",
+            envvar_prefix="FEEDSHIP",
             settings_files=[
                 Path(__file__).parent.parent / "config.yaml",
             ],
