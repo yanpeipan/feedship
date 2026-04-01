@@ -424,8 +424,8 @@ class TestProviderRegistry:
         # Verify sorted by priority descending
         priorities = [p.priority() for p in all_providers]
         assert priorities == sorted(priorities, reverse=True)
-        # GitHubReleaseProvider should be first (priority 300 > RSSProvider 50)
-        assert all_providers[0].__class__.__name__ == "GitHubReleaseProvider"
+        # TavilyProvider should be first (priority 400 > GitHubReleaseProvider 300 > RSSProvider 50)
+        assert all_providers[0].__class__.__name__ == "TavilyProvider"
 
     def test_provider_registry_discover_none(self):
         """Call discover('https://unknown.example/feed') which no provider matches."""
