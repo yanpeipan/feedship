@@ -2,6 +2,13 @@
 timezone: Asia/Shanghai
 bm25_factor: 0.5
 
+# Tavily search provider configuration
+tavily:
+  api_key: ${TAVILY_API_KEY}  # Env var reference
+  default_search_depth: "advanced"  # basic | advanced
+  default_max_results: 10
+  refresh_interval: 3600  # seconds
+
 # WebpageProvider site configurations
 # See: docs/webpage-provider.md
 webpage_sites:
