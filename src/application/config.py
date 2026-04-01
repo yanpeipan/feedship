@@ -14,7 +14,7 @@ def _get_settings() -> Dynaconf:
         _settings = Dynaconf(
             envvar_prefix="FEEDSHIP",
             settings_files=[
-                Path(__file__).parent.parent / "config.yaml",
+                Path(__file__).parent.parent.parent / "config.yaml",
             ],
         )
     return _settings

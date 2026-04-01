@@ -85,6 +85,34 @@ def _looks_like_block_page(html_content: str | None) -> bool:
 
 
 # ============================================================================
+# Proxy Configuration
+# ============================================================================
+
+
+def _get_proxy() -> str | None:
+    """Get proxy URL from environment variables.
+
+    Returns HTTP_PROXY, HTTPS_PROXY, or ALL_PROXY in that order of preference.
+    Converts SOCKS5 to HTTP proxy if needed (Playwright doesn't support SOCKS5 directly).
+
+    Returns:
+        Proxy URL string or None if no proxy is configured.
+    """
+    import os
+
+    for var in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY"):
+        proxy = os.environ.get(var) or os.environ.get(var.lower())
+        if proxy:
+            # StealthyFetcher (Playwright) doesn't support SOCKS5 proxy directly
+            # If ALL_PROXY is SOCKS5, try to use HTTP_PROXY/HTTPS_PROXY instead
+            if proxy.startswith("socks5://"):
+                # SOCKS5 not supported, skip
+                continue
+            return proxy
+    return None
+
+
+# ============================================================================
 # Fetcher Configuration
 # ============================================================================
 
@@ -124,6 +152,7 @@ _STEALTH_SETTINGS = {
     # Wait after page load to ensure JS executes
     "wait": 500,  # ms
 }
+
 
 # Page action for stealth fetcher - scroll to bottom to trigger lazy loading
 # This must be a Python callable that accepts a Playwright page object
@@ -221,14 +250,17 @@ def _sync_fetch_with_fallback(
     # -------------------------------------------------------------------
     try:
         stealth = StealthyFetcher()
-        return stealth.fetch(
-            url,
-            headers=headers,
-            timeout=stealth_timeout,
-            page_action=_scroll_page,
-            follow_redirects=True,
+        proxy = _get_proxy()
+        fetch_kwargs = {
+            "headers": headers,
+            "timeout": stealth_timeout,
+            "page_action": _scroll_page,
+            "follow_redirects": True,
             **_STEALTH_SETTINGS,
-        )
+        }
+        if proxy:
+            fetch_kwargs["proxy"] = proxy
+        return stealth.fetch(url, **fetch_kwargs)
     except Exception as e:
         _logger.warning(f"Stealth fetcher also failed for {url}: {e}")
         return None

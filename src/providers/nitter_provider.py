@@ -149,7 +149,7 @@ class NitterProvider:
                 "NitterProvider: Trying instance %s for username %s", instance, username
             )
             # Verify the RSS URL is accessible
-            from src.utils.scrapling_utils import fetch_with_fallback
+            from src.utils.scraping_utils import fetch_with_fallback
 
             try:
                 response = fetch_with_fallback(
@@ -179,7 +179,7 @@ class NitterProvider:
         Returns:
             List of Article dicts.
         """
-        from src.utils.scrapling_utils import fetch_with_fallback
+        from src.utils.scraping_utils import fetch_with_fallback
 
         response = fetch_with_fallback(rss_url, headers=BROWSER_HEADERS, timeout=30)
         if not response or response.status != 200:
