@@ -30,6 +30,15 @@ uv pip install 'feedship[cloudflare,ml]'
 > **Note:** `cloudflare` extra provides scrapling (HTML fetching); `ml` extra provides
 > sentence-transformers + chromadb (semantic search). Both are required for full functionality.
 
+### Offline/HuggingFace Mirror Setup
+
+If HuggingFace is not accessible (e.g. in China), set mirror before installing:
+
+```bash
+export HF_ENDPOINT=https://hf-mirror.com
+pipx install 'feedship[cloudflare,ml]'
+```
+
 After installation, verify with: `feedship --version`
 
 ---
