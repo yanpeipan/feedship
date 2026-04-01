@@ -11,6 +11,12 @@ from rich.panel import Panel
 from rich.table import Table
 
 from src.application.articles import ArticleListItem, get_article_detail, list_articles
+from src.cli.ui import (
+    format_article_item,
+    format_article_list,
+    print_json,
+    print_json_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +113,7 @@ def article(ctx: click.Context) -> None:
 @click.option("--since", default=None, help="Start date (YYYY-MM-DD)")
 @click.option("--until", default=None, help="End date (YYYY-MM-DD)")
 @click.option("--on", multiple=True, help="Specific date (YYYY-MM-DD), can repeat")
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 @click.pass_context
 def article_list(
     ctx: click.Context,
@@ -115,6 +122,7 @@ def article_list(
     since: str | None,
     until: str | None,
     on: tuple,
+    json_output: bool,
 ) -> None:
     """List recent articles from all feeds or a specific feed."""
     try:
@@ -122,8 +130,13 @@ def article_list(
         articles = list_articles(
             limit=limit, feed_id=feed_id, since=since, until=until, on=on_list
         )
+        if json_output:
+            print_json(format_article_list(articles, limit))
+            return
         print_articles(articles)
     except Exception as e:
+        if json_output:
+            print_json_error(f"Failed to list articles: {e}", "list_error")
         click.secho(f"Error: Failed to list articles: {e}", err=True, fg="red")
         logger.exception("Failed to list articles")
         sys.exit(1)
@@ -131,13 +144,21 @@ def article_list(
 
 @article.command("view")
 @click.argument("article_id")
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 @click.pass_context
-def article_view(ctx: click.Context, article_id: str) -> None:
+def article_view(ctx: click.Context, article_id: str, json_output: bool) -> None:
     try:
         article = get_article_detail(article_id)
         if not article:
+            if json_output:
+                print_json_error(
+                    f"Article not found: {article_id}", "not_found", exit_code=1
+                )
             click.secho(f"Article not found: {article_id}", fg="red")
             sys.exit(1)
+        if json_output:
+            print_json(format_article_item(article))
+            return
         console = Console()
         meta_table = Table(show_header=False, box=None)
         meta_table.add_row("Source:", article["feed_name"] or "Unknown")
@@ -165,6 +186,8 @@ def article_view(ctx: click.Context, article_id: str) -> None:
                 Panel("[dim]No content available[/dim]", border_style="yellow")
             )
     except Exception as e:
+        if json_output:
+            print_json_error(f"Failed to view article: {e}", "view_error")
         click.secho(f"Error: Failed to view article: {e}", err=True, fg="red")
         logger.exception("Failed to view article")
         sys.exit(1)
@@ -205,6 +228,7 @@ def article_open(ctx: click.Context, article_id: str) -> None:
 @click.option("--since", default=None, help="Start date (YYYY-MM-DD)")
 @click.option("--until", default=None, help="End date (YYYY-MM-DD)")
 @click.option("--on", multiple=True, help="Specific date (YYYY-MM-DD), can repeat")
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 @click.pass_context
 def article_search(
     ctx: click.Context,
@@ -216,6 +240,7 @@ def article_search(
     since: str | None,
     until: str | None,
     on: tuple,
+    json_output: bool,
 ) -> None:
     try:
         import asyncio
@@ -274,8 +299,13 @@ def article_search(
                 articles, alpha=0.3, beta=0.3, gamma=0.0, delta=0.2
             )
 
+        if json_output:
+            print_json(format_article_list(articles, limit))
+            return
         print_articles(articles)
     except Exception as e:
+        if json_output:
+            print_json_error(f"Search unavailable: {e}", "search_error")
         click.secho(f"Search unavailable: {e}.", err=True, fg="yellow")
         logger.exception("Failed to search articles")
         sys.exit(1)
@@ -284,15 +314,23 @@ def article_search(
 @article.command("related")
 @click.argument("article-id")
 @click.option("--limit", default=5, help="Maximum number of related articles")
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 @click.pass_context
-def article_related(ctx: click.Context, article_id: str, limit: int) -> None:
+def article_related(
+    ctx: click.Context, article_id: str, limit: int, json_output: bool
+) -> None:
     try:
         # Lazy import to avoid torch dependency when not using related articles
         from src.application.related import get_related_articles
 
         articles = get_related_articles(article_id=article_id, limit=limit)
+        if json_output:
+            print_json(format_article_list(articles, limit))
+            return
         print_articles(articles)
     except Exception as e:
+        if json_output:
+            print_json_error(f"Failed to find related articles: {e}", "related_error")
         click.secho(f"Error: Failed to find related articles: {e}", err=True, fg="red")
         logger.exception("Failed to find related articles")
         sys.exit(1)
