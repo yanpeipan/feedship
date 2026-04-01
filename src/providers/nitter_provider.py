@@ -59,7 +59,7 @@ class NitterProvider:
             return False
 
         # URL-only matching for performance
-        return url.startswith("nitter:")
+        return url.startswith(("nitter:", "twitter:", "x:"))
 
     def priority(self) -> int:
         """Return provider priority.
