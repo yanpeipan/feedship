@@ -1,4 +1,31 @@
-"""Generic HTML parsing utilities."""
+"""Generic HTML parsing utilities.
+
+This module provides unified fetching utilities with anti-bot mitigation,
+caching, and rate limiting. It wraps scrapling's Fetcher and StealthyFetcher
+to provide a consistent API for synchronous fetching.
+
+Architecture:
+    1. Fast path: Fetcher().get() - uses curl_cffi with browser impersonation,
+       suitable for most public websites without anti-bot protection.
+    2. Fallback path: StealthyFetcher().fetch() - launches headless Chrome with
+       stealth settings, bypasses Cloudflare and other anti-bot measures.
+
+Key features:
+    - Automatic fallback from fast to stealth fetcher on block detection
+    - URL response caching (5-min TTL) for repeated fetches
+    - Per-host rate limiting (1 req/sec default)
+    - Selector API support via fetch_selector() for CSS selection
+
+Usage:
+    # Get Selector object (for CSS selection)
+    selector = fetch_selector("https://example.com")
+    articles = selector.css("article.post").all()
+
+    # Get raw HTML response
+    response = fetch_with_fallback("https://example.com")
+    if response:
+        html = response.html_content
+"""
 
 from __future__ import annotations
 
@@ -32,9 +59,17 @@ _host_rate_limits: dict[str, deque] = {}
 _rate_limit_lock = asyncio.Lock()
 _DEFAULT_RATE_LIMIT = 1.0  # seconds between requests per host
 
+# ============================================================================
+# Block Detection
+# ============================================================================
+
 
 def _looks_like_block_page(html_content: str | None) -> bool:
     """Check if HTML content looks like a block/challenge page.
+
+    Detects anti-bot blocking by checking for:
+    - Empty or very small content (< 1000 bytes)
+    - Common challenge page patterns
 
     Args:
         html_content: HTML string to check.
@@ -49,25 +84,92 @@ def _looks_like_block_page(html_content: str | None) -> bool:
     return len(html_content) < _BLOCK_CONTENT_MIN_BYTES
 
 
+# ============================================================================
+# Fetcher Configuration
+# ============================================================================
+
+# Default fetcher settings - used by both Fetcher.get() and StealthyFetcher.fetch()
+# See scrapling docs for full parameter descriptions:
+# - Fetcher.get(): curl_cffi-based, fast, impersonates Chrome
+# - StealthyFetcher.fetch(): headless Chrome, bypasses anti-bots
+
+# Browser impersonation level for Fetcher.get()
+# Options: "chrome", "firefox", "safari", "edge" or specific version strings
+_IMPERSONATE = "chrome"
+
+# Fetcher.get() timeout in seconds (passed to curl_cffi)
+_BASIC_FETCH_TIMEOUT = 10
+
+# StealthyFetcher.fetch() timeout in milliseconds
+# Note: StealthyFetcher uses ms, not seconds!
+_STEALTH_TIMEOUT_MS = 30000
+
+# Stealth fetcher settings - enabled when basic fetcher is blocked
+# These settings help bypass Cloudflare, hCaptcha, and other anti-bot systems
+_STEALTH_SETTINGS = {
+    # Disable images/fonts/stylesheets for speed, they don't affect CSS selection
+    "disable_resources": True,
+    # Wait for network to be idle before returning (ensures dynamic content loads)
+    "network_idle": True,
+    # Add random noise to canvas to prevent fingerprinting
+    "hide_canvas": True,
+    # Prevent WebRTC from leaking local IP (important when using proxy)
+    "block_webrtc": True,
+    # Use real Chrome browser if installed (more realistic fingerprint)
+    "real_chrome": False,  # Disabled by default - requires Chrome installation
+    # Solve Cloudflare Turnstile challenges automatically
+    "solve_cloudflare": True,
+    # Set Google referer header (some sites require this)
+    "google_search": True,
+    # Wait after page load to ensure JS executes
+    "wait": 500,  # ms
+}
+
+# Page action for stealth fetcher - scroll to bottom to trigger lazy loading
+# This is a lambda that gets passed to page_action parameter
+_PAGE_ACTION_SCROLL = """async (page) => {
+    await page.evaluate(async () => {
+        await new Promise((resolve) => {
+            let totalHeight = 0;
+            const distance = 100;
+            const timer = setInterval(() => {
+                window.scrollBy(0, distance);
+                totalHeight += distance;
+                if (totalHeight >= document.body.scrollHeight - window.innerHeight) {
+                    clearInterval(timer);
+                    resolve();
+                }
+            }, 100);
+        });
+    });
+}"""
+
+
+# ============================================================================
+# Sync Fetching (Core)
+# ============================================================================
+
+
 def _sync_fetch_with_fallback(
     url: str,
     headers: dict | None = None,
-    timeout: int = 10,
+    timeout: int | None = None,
     stealth_timeout: int | None = None,
 ) -> Response | None:
-    """Sync fetch with fallback (no caching). Internal use only.
+    """Fetch URL with automatic fallback from fast Fetcher to stealth Chrome.
 
     Strategy:
-        1. Try Fetcher().get() - fast, works for most sites
+        1. Try Fetcher().get() with Chrome impersonation - fast, handles most sites
         2. If blocked (403/429) or content looks like block page,
-           fall back to StealthyFetcher().fetch() - slower but bypasses bots
+           fall back to StealthyFetcher().fetch() - slower but bypasses anti-bots
 
     Args:
         url: URL to fetch.
         headers: Optional HTTP headers (uses BROWSER_HEADERS if None).
         timeout: Request timeout in seconds for basic Fetcher.
+            Defaults to BASIC_FETCH_TIMEOUT (10s).
         stealth_timeout: Timeout in milliseconds for stealth fetcher.
-            Defaults to timeout * 1000 (same as basic fetcher but in ms).
+            Defaults to STEALTH_TIMEOUT_MS (30000ms = 30s).
 
     Returns:
         Response object with .html_content, .status, etc., or None on failure.
@@ -79,14 +181,25 @@ def _sync_fetch_with_fallback(
 
         headers = BROWSER_HEADERS
 
-    # Default stealth timeout to timeout * 1000 (convert seconds to ms)
-    if stealth_timeout is None:
-        stealth_timeout = timeout * 1000
+    if timeout is None:
+        timeout = _BASIC_FETCH_TIMEOUT
 
-    # Fast path: try basic Fetcher
+    if stealth_timeout is None:
+        stealth_timeout = _STEALTH_TIMEOUT_MS
+
+    # -------------------------------------------------------------------
+    # Fast path: try basic Fetcher with Chrome impersonation
+    # -------------------------------------------------------------------
     try:
         fetcher = Fetcher()
-        response = fetcher.get(url, headers=headers, timeout=timeout)
+        response = fetcher.get(
+            url,
+            headers=headers,
+            timeout=timeout,
+            follow_redirects=True,
+            stealthy_headers=True,
+            impersonate=_IMPERSONATE,
+        )
         status = getattr(response, "status", 0)
         html = getattr(response, "html_content", None) or ""
 
@@ -99,11 +212,19 @@ def _sync_fetch_with_fallback(
     except Exception as e:
         _logger.debug(f"Basic fetch failed ({e}), trying stealth fetcher for {url}")
 
+    # -------------------------------------------------------------------
     # Fallback: try stealth fetcher (slower but bypasses most anti-bots)
-    # Use configurable timeout for stealth fetcher (handles JS rendering)
+    # -------------------------------------------------------------------
     try:
         stealth = StealthyFetcher()
-        return stealth.fetch(url, headers=headers, timeout=stealth_timeout)
+        return stealth.fetch(
+            url,
+            headers=headers,
+            timeout=stealth_timeout,
+            page_action=_PAGE_ACTION_SCROLL,
+            follow_redirects=True,
+            **_STEALTH_SETTINGS,
+        )
     except Exception as e:
         _logger.warning(f"Stealth fetcher also failed for {url}: {e}")
         return None
@@ -113,8 +234,65 @@ def _sync_fetch_with_fallback(
 fetch_with_fallback = _sync_fetch_with_fallback
 
 
+def fetch_selector(url: str, headers: dict | None = None) -> Selector | None:
+    """Fetch a URL and return a Selector object for CSS selection.
+
+    This is the primary entry point for HTML parsing in this codebase.
+    Use this when you need to select elements with CSS selectors.
+
+    The returned Selector provides methods like:
+        - .css("article.post").all()  -> list of matching elements
+        - .css_first("h1.title")      -> first match or None
+        - .find("a[href]")             -> find with BeautifulSoup-like API
+
+    Args:
+        url: URL to fetch and parse.
+        headers: Optional HTTP headers (uses BROWSER_HEADERS if None).
+
+    Returns:
+        Selector object for CSS/DOM manipulation, or None if fetch failed.
+
+    Example:
+        selector = fetch_selector("https://github.com/trending")
+        if selector:
+            repos = selector.css("article.Box-row").all()
+            for repo in repos:
+                name = repo.css_first("h2 a").text
+                desc = repo.css_first("p").text
+    """
+    response = _sync_fetch_with_fallback(url, headers=headers)
+    if response is None:
+        return None
+
+    # Import here to avoid circular imports
+    from scrapling import Selector
+
+    try:
+        # Response body is bytes, decode to HTML string
+        html = response.html_content
+        if isinstance(html, bytes):
+            html = html.decode("utf-8", errors="replace")
+        return Selector(html)
+    except Exception as e:
+        _logger.warning(f"Failed to parse HTML from response for {url}: {e}")
+        return None
+
+
+# ============================================================================
+# Async Fetching with Caching and Rate Limiting
+# ============================================================================
+
+
 async def _rate_limit_host(url: str, rate_limit: float = _DEFAULT_RATE_LIMIT) -> None:
-    """Enforce per-host rate limit using sliding window."""
+    """Enforce per-host rate limit using sliding window.
+
+    Prevents hitting rate limits by ensuring only 1 request per second
+    per host by default.
+
+    Args:
+        url: URL to extract host from for rate limiting.
+        rate_limit: Minimum seconds between requests to same host.
+    """
     parsed = urlparse(url)
     host = parsed.netloc.lower()
     if not host:
@@ -151,7 +329,20 @@ async def _fetch_with_fallback_async(
     headers: dict | None,
     timeout: int,
 ) -> Response | None:
-    """Async wrapper for fetch_with_fallback with caching."""
+    """Async wrapper for fetch_with_fallback with caching.
+
+    Caches responses for 5 minutes to reduce redundant requests.
+    Uses per-URL locks to prevent cache stampede (multiple concurrent
+    requests to same URL).
+
+    Args:
+        url: URL to fetch.
+        headers: Optional HTTP headers.
+        timeout: Request timeout in seconds.
+
+    Returns:
+        Cached or fresh Response object, or None on failure.
+    """
     # Check cache first
     cache_key = url
     cached = _url_cache.get(cache_key)
@@ -173,7 +364,9 @@ async def _fetch_with_fallback_async(
             return cached
 
         # Perform actual fetch (run sync function in thread)
-        result = await asyncio.to_thread(_sync_fetch_with_fallback, url, headers, timeout)
+        result = await asyncio.to_thread(
+            _sync_fetch_with_fallback, url, headers, timeout
+        )
 
         # Store in cache if successful
         if result is not None:
@@ -192,6 +385,8 @@ async def async_fetch_with_fallback(
     Fetches a URL with automatic fallback from basic Fetcher to stealth fetcher,
     with URL response caching (5-min TTL) and per-host rate limiting.
 
+    Use this for concurrent fetching of multiple URLs.
+
     Args:
         url: URL to fetch.
         headers: Optional HTTP headers (uses BROWSER_HEADERS if None).
@@ -209,6 +404,11 @@ async def async_fetch_with_fallback(
     await _rate_limit_host(url)
 
     return await _fetch_with_fallback_async(url, headers, timeout)
+
+
+# ============================================================================
+# HTML/Response Utilities
+# ============================================================================
 
 
 def parse_html_body(response: Response) -> str | None:
@@ -237,11 +437,14 @@ def parse_html_body(response: Response) -> str | None:
 def find_base_href(page: Selector) -> str | None:
     """Extract <base href> override from page head.
 
+    Some pages use <base href> to set a different base URL for relative links.
+    This function extracts it for resolving relative URLs correctly.
+
     Args:
         page: Parsed HTML page (scrapling Selector).
 
     Returns:
-        Base href URL or None.
+        Base href URL or None if not present.
     """
     head = page.find("head")
     if head:
