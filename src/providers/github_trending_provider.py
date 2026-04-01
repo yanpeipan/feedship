@@ -138,7 +138,7 @@ class GitHubTrendingProvider:
         rank = 0
 
         # Find all repo entries
-        repo_entries = fetcher.css(TRENDING_SELECTORS["article"]).all()
+        repo_entries = fetcher.css(TRENDING_SELECTORS["article"]).getall()
         if not repo_entries:
             logger.warning("No trending repos found at %s", url)
             return []
