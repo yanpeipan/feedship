@@ -32,20 +32,20 @@ unzip -p dist/*.whl '*.dist-info/METADATA' 2>/dev/null | grep '^Version:'
 
 ```bash
 # Edit pyproject.toml line 3
-version = "1.2.2"  # <- change to your release version
+version = "X.Y.Z"  # <- change to your release version
 ```
 
 ### 2. Commit
 
 ```bash
-git add -A && git commit -m "Release v1.2.2"
+git add -A && git commit -m "Release vX.Y.Z"
 ```
 
 ### 3. Create GitHub Release
 
 ```bash
-gh release create v1.2.2 \
-  --title "v1.2.2" \
+gh release create vX.Y.Z \
+  --title "vX.Y.Z" \
   --notes "## Changes\n- ..."
 ```
 
@@ -63,7 +63,7 @@ import sys,json
 d=json.load(sys.stdin)
 print('Latest:', d['info']['version'])
 "
-# Expected: Latest: 1.2.2
+# Expected: Latest: X.Y.Z
 ```
 
 ## CI/CD Pipeline
@@ -99,11 +99,11 @@ print('Latest:', d['info']['version'])
 
 ```bash
 # 1. Delete GitHub release
-gh release delete v1.2.2 --yes
+gh release delete vX.Y.Z --yes
 
 # 2. Delete local and remote tags
-git tag -d v1.2.2
-git push origin --delete v1.2.2
+git tag -d vX.Y.Z
+git push origin --delete vX.Y.Z
 
 # 3. Fix code, update version in pyproject.toml, then re-release from step 1
 ```

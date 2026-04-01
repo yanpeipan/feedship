@@ -38,10 +38,10 @@ See [docs/](docs/) for project documentation.
 
 See [docs/release.md](docs/release.md) for full workflow. **Critical steps**:
 
-1. **Bump version FIRST** in `pyproject.toml`: `version = "1.2.2"`
+1. **Bump version FIRST** in `pyproject.toml`: `version = "X.Y.Z"` (actual version)
 2. Run pre-commit: `uv run pre-commit run --all`
-3. Commit: `git add -A && git commit -m "Release v1.2.2"`
-4. Create release: `gh release create v1.2.2 --title "v1.2.2" --notes "..."`
+3. Commit: `git add -A && git commit -m "Release vX.Y.Z"`
+4. Create release: `gh release create vX.Y.Z --title "vX.Y.Z" --notes "..."`
 5. Verify: `curl -s pypi.org/pypi/feedship/json | grep version`
 
 **Common failures**: Wrong version in pyproject.toml, using `git tag` instead of `gh release create`
