@@ -622,6 +622,7 @@ def list_articles(
     since: str | None = None,
     until: str | None = None,
     on: list[str] | None = None,
+    groups: list[str] | None = None,
 ) -> list:
     """List articles ordered by publication date.
 
@@ -631,6 +632,7 @@ def list_articles(
         since: Optional start date (inclusive), format YYYY-MM-DD.
         until: Optional end date (inclusive), format YYYY-MM-DD.
         on: Optional list of specific dates to match.
+        groups: Optional list of feed groups to filter by (OR semantics).
     """
     import math
     from datetime import datetime, timezone
@@ -660,6 +662,10 @@ def list_articles(
             end = _date_to_timestamp_end(d, tz)
             conditions.append("a.published_at BETWEEN ? AND ?")
             params.extend([start, end])
+    if groups:
+        placeholders = ",".join("?" * len(groups))
+        conditions.append(f'f."group" IN ({placeholders}) AND f."group" IS NOT NULL')
+        params.extend(groups)
     where_clause = " AND ".join(conditions) if conditions else "1=1"
 
     with get_db() as conn:
@@ -767,8 +773,8 @@ def get_articles_by_ids(ids: list[str]) -> list:
         cursor = conn.cursor()
         placeholders = ",".join("?" * len(ids))
         cursor.execute(
-            f"""SELECT a.id, a.feed_id, f.name AS feed_name, a.title, a.link, a.guid,
-                       a.published_at, a.description
+            f"""SELECT a.id, a.feed_id, f.name AS feed_name, f."group" AS feed_group,
+                       a.title, a.link, a.guid, a.published_at, a.description
                 FROM articles a
                 JOIN feeds f ON a.feed_id = f.id
                 WHERE a.id IN ({placeholders})""",
@@ -830,6 +836,7 @@ def search_articles_fts(
     since: str | None = None,
     until: str | None = None,
     on: list[str] | None = None,
+    groups: list[str] | None = None,
 ) -> list:
     """Search articles using FTS5 full-text search.
 
@@ -840,6 +847,7 @@ def search_articles_fts(
         since: Optional start date (inclusive), format YYYY-MM-DD.
         until: Optional end date (inclusive), format YYYY-MM-DD.
         on: Optional list of specific dates to match.
+        groups: Optional list of feed groups to filter by (OR semantics).
     """
     import math
 
@@ -875,6 +883,10 @@ def search_articles_fts(
             if date_clause:
                 where_parts.append(date_clause)
                 params.extend(date_params)
+            if groups:
+                placeholders = ",".join("?" * len(groups))
+                where_parts.append(f'f."group" IN ({placeholders}) AND f."group" IS NOT NULL')
+                params.extend(groups)
             where_sql = " AND ".join(where_parts)
             cursor.execute(
                 f"""
@@ -891,7 +903,40 @@ def search_articles_fts(
                 [*params, limit],
             )
         else:
-            if date_clause:
+            if groups:
+                placeholders = ",".join("?" * len(groups))
+                groups_clause = f'f."group" IN ({placeholders}) AND f."group" IS NOT NULL'
+                if date_clause:
+                    cursor.execute(
+                        f"""
+                        SELECT a.id, a.feed_id, f.name as feed_name,
+                               a.title, a.link, a.guid, a.published_at, a.description,
+                               bm25(articles_fts, 2.0, 1.0, 0.5) as bm25_score
+                        FROM articles_fts
+                        JOIN articles a ON articles_fts.rowid = a.rowid
+                        JOIN feeds f ON a.feed_id = f.id
+                        WHERE articles_fts MATCH ? AND {date_clause} AND {groups_clause}
+                        ORDER BY bm25(articles_fts, 2.0, 1.0, 0.5)
+                        LIMIT ?
+                        """,
+                        [query, *date_params, *groups, limit],
+                    )
+                else:
+                    cursor.execute(
+                        f"""
+                        SELECT a.id, a.feed_id, f.name as feed_name,
+                               a.title, a.link, a.guid, a.published_at, a.description,
+                               bm25(articles_fts, 2.0, 1.0, 0.5) as bm25_score
+                        FROM articles_fts
+                        JOIN articles a ON articles_fts.rowid = a.rowid
+                        JOIN feeds f ON a.feed_id = f.id
+                        WHERE articles_fts MATCH ? AND {groups_clause}
+                        ORDER BY bm25(articles_fts, 2.0, 1.0, 0.5)
+                        LIMIT ?
+                        """,
+                        [query, *groups, limit],
+                    )
+            elif date_clause:
                 cursor.execute(
                     f"""
                     SELECT a.id, a.feed_id, f.name as feed_name,

@@ -366,6 +366,7 @@ def search_articles_semantic(
     since: str | None = None,
     until: str | None = None,
     on: list[str] | None = None,
+    groups: list[str] | None = None,
 ) -> list[ArticleListItem]:
     """Search articles by semantic similarity using ChromaDB.
 
@@ -375,6 +376,7 @@ def search_articles_semantic(
         since: Optional start date (inclusive), format YYYY-MM-DD.
         until: Optional end date (inclusive), format YYYY-MM-DD.
         on: Optional list of specific dates to match.
+        groups: Optional list of feed groups to filter by (OR semantics).
 
     Returns:
         List of ArticleListItem with keys: id, feed_id, feed_name, title, link, guid, published_at, score
@@ -419,10 +421,12 @@ def search_articles_semantic(
             raise
         embedding_vector = emb.tolist()
 
+        # Fetch more results when groups filter is active to have enough candidates after filtering
+        fetch_limit = limit * 3 if groups else limit
         try:
             results = collection.query(
                 query_embeddings=[embedding_vector],
-                n_results=limit,
+                n_results=fetch_limit,
                 where=where_clause,
                 include=["documents", "metadatas", "distances"],
             )
@@ -470,6 +474,7 @@ def search_articles_semantic(
                 "article_id": article_id,
                 "feed_id": article_info.get("feed_id") or "",
                 "feed_name": article_info.get("feed_name") or "",
+                "feed_group": article_info.get("feed_group"),
                 "title": metadatas[i].get("title") if metadatas[i] else None,
                 "url": metadatas[i].get("url") if metadatas[i] else None,
                 "published_at": published_at,
@@ -478,6 +483,12 @@ def search_articles_semantic(
         )
 
     # ChromaDB returns results ordered by similarity - no additional sort needed
+    # Post-fetch group filtering (ChromaDB doesn't store group metadata)
+    if groups:
+        ranked_results = [
+            r for r in ranked_results
+            if r.get("feed_group") in groups
+        ]
     ranked_results = ranked_results[:limit]
 
     # Convert to ArticleListItem
