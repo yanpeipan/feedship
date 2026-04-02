@@ -96,10 +96,6 @@ class RSSProvider:
             return False
 
         if response:
-            # 403 triggers Cloudflare fallback - allow crawl
-            if response.status == 403:
-                return True
-
             # Use feedparser to validate actual feed content (more reliable than content-type)
             raw_content = (
                 response.body
@@ -109,11 +105,7 @@ class RSSProvider:
             if raw_content:
                 parsed = feedparser.parse(raw_content)
                 # Valid feed must have entries and not be bozo (parsing error)
-                if parsed.entries and not parsed.bozo:
-                    return True
-                # Not a valid feed, but could be HTML page for discover phase
-                content_type = response.headers.get("content-type", "") or ""
-                return "text/html" in content_type
+                return bool(parsed.entries and not parsed.bozo)
 
             return False
 
