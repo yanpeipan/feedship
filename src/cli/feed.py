@@ -491,30 +491,22 @@ def fetch(
                     )
             else:
                 # Multiple IDs: use semaphore concurrency
-                feed_results: list[dict] = []
-                results_collector = []
-
-                async def _collect_and_update():
-                    """Collect results and update progress."""
-                    async for result in fetch_ids_async(ids, concurrency):
-                        results_collector.append(result)
-                        fp.update(result)
-                    return results_collector
-
-                with FetchProgress(
-                    len(ids),
-                    f"[cyan]Fetching {len(ids)} feeds by ID (concurrency:{concurrency})...",
-                    concurrency,
-                ) as fp:
-                    feed_results = uvloop.run(_collect_and_update())
-
-                elapsed = fp.elapsed_time
-                total_new = fp.total_new
-                success_count = fp.success_count
-                error_count = fp.error_count
-
                 if json_output:
-                    # Build feed results list
+                    # JSON mode: skip progress bar
+                    import time
+
+                    async def _collect_json():
+                        results = []
+                        async for r in fetch_ids_async(ids, concurrency):
+                            results.append(r)
+                        return results
+
+                    start_time = time.time()
+                    feed_results = uvloop.run(_collect_json())
+                    elapsed = time.time() - start_time
+                    total_new = sum(r.get("new_articles", 0) for r in feed_results)
+                    success_count = sum(1 for r in feed_results if not r.get("error"))
+                    error_count = sum(1 for r in feed_results if r.get("error"))
                     serialized_feeds = []
                     for result in feed_results:
                         serialized_feeds.append(
@@ -535,6 +527,28 @@ def fetch(
                         )
                     )
                 else:
+                    # Progress bar mode
+                    feed_results: list[dict] = []
+                    results_collector = []
+
+                    async def _collect_and_update():
+                        """Collect results and update progress."""
+                        async for result in fetch_ids_async(ids, concurrency):
+                            results_collector.append(result)
+                            fp.update(result)
+                        return results_collector
+
+                    with FetchProgress(
+                        len(ids),
+                        f"[cyan]Fetching {len(ids)} feeds by ID (concurrency:{concurrency})...",
+                        concurrency,
+                    ) as fp:
+                        feed_results = uvloop.run(_collect_and_update())
+
+                    elapsed = fp.elapsed_time
+                    total_new = fp.total_new
+                    success_count = fp.success_count
+                    error_count = fp.error_count
                     print_summary(
                         total_new, success_count, error_count, fp.errors, elapsed
                     )
@@ -560,29 +574,22 @@ def fetch(
                     )
                 return
 
-            feed_results: list[dict] = []
-            results_collector = []
-
-            async def _collect_and_update():
-                """Collect results and update progress."""
-                async for result in fetch_all_async(concurrency=concurrency):
-                    results_collector.append(result)
-                    fp.update(result)
-                return results_collector
-
-            with FetchProgress(
-                len(feeds),
-                f"[cyan]Fetching {len(feeds)} feeds (concurrency:{concurrency})...",
-                concurrency,
-            ) as fp:
-                feed_results = uvloop.run(_collect_and_update())
-
-            elapsed = fp.elapsed_time
-            total_new = fp.total_new
-            success_count = fp.success_count
-            error_count = fp.error_count
-
             if json_output:
+                # JSON mode: skip progress bar, collect results directly
+                import time
+
+                async def _collect_all_json():
+                    results = []
+                    async for r in fetch_all_async(concurrency=concurrency):
+                        results.append(r)
+                    return results
+
+                start_time = time.time()
+                feed_results = uvloop.run(_collect_all_json())
+                elapsed = time.time() - start_time
+                total_new = sum(r.get("new_articles", 0) for r in feed_results)
+                success_count = sum(1 for r in feed_results if not r.get("error"))
+                error_count = sum(1 for r in feed_results if r.get("error"))
                 serialized_feeds = []
                 for result in feed_results:
                     serialized_feeds.append(
@@ -599,6 +606,28 @@ def fetch(
                     )
                 )
             else:
+                # Progress bar mode
+                feed_results: list[dict] = []
+                results_collector = []
+
+                async def _collect_and_update():
+                    """Collect results and update progress."""
+                    async for result in fetch_all_async(concurrency=concurrency):
+                        results_collector.append(result)
+                        fp.update(result)
+                    return results_collector
+
+                with FetchProgress(
+                    len(feeds),
+                    f"[cyan]Fetching {len(feeds)} feeds (concurrency:{concurrency})...",
+                    concurrency,
+                ) as fp:
+                    feed_results = uvloop.run(_collect_and_update())
+
+                elapsed = fp.elapsed_time
+                total_new = fp.total_new
+                success_count = fp.success_count
+                error_count = fp.error_count
                 print_summary(
                     total_new,
                     success_count,
