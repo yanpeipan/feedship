@@ -319,12 +319,22 @@ class NitterProvider:
         Returns:
             DiscoveredFeed with valid=True if URL has a valid username.
         """
-        # Check if URL looks like a twitter.com URL and suggest nitter: alternative
+        # Check if URL looks like a twitter.com URL - auto-convert to x: format
         if self._looks_like_twitter_url(url):
-            # Return invalid feed with helpful message in title
+            username = self._extract_twitter_username(url)
+            if username:
+                normalized_url = f"x:{username}"
+                return DiscoveredFeed(
+                    url=normalized_url,
+                    title=f"Nitter: {username}",
+                    feed_type=FeedType.NITTER,
+                    source=f"provider_{self.__class__.__name__}",
+                    page_url=url,
+                    valid=True,
+                )
             return DiscoveredFeed(
                 url=url,
-                title=f"Use 'x:{self._extract_twitter_username(url)}' instead of '{url}'",
+                title=None,
                 feed_type=FeedType.NITTER,
                 source=f"provider_{self.__class__.__name__}",
                 page_url=url,
