@@ -17,7 +17,11 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install dependencies
-        run: pip install ruff
+        run: pip install ruff bandit pip-audit
+      - name: Run Bandit security scan
+        run: bandit -r . -ll
+      - name: Run pip-audit
+        run: pip-audit
       - name: Run Ruff linter
         run: ruff check .
       - name: Run Ruff formatter check
