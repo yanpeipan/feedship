@@ -41,7 +41,7 @@ echo 'export PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/' >> ~/.bashrc
 source ~/.bashrc
 
 # Install
-pipx install 'feedship[cloudflare,ml]'
+pipx install 'feedship[cloudflare,ml]' --force
 ```
 
 ### Upgrade
