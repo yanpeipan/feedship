@@ -318,7 +318,9 @@ def _serialize_discovered_feed(feed: DiscoveredFeed) -> dict:
         Dictionary with type, title, and url.
     """
     return {
-        "type": feed.feed_type,
+        "type": feed.feed_type.value
+        if hasattr(feed.feed_type, "value")
+        else feed.feed_type,
         "title": feed.title,
         "url": feed.url,
     }
