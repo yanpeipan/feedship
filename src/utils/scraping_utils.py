@@ -37,6 +37,8 @@ from urllib.parse import urlparse
 
 from cachetools import TTLCache
 
+from src.application.config import _get_settings
+
 if TYPE_CHECKING:
     from scrapling import Selector
     from scrapling.engines.toolbelt.custom import Response
@@ -445,15 +447,19 @@ def fetch_selector(url: str, headers: dict | None = None) -> Selector | None:
 async def _rate_limit_host(
     url: str, rate_limit: float | None = None
 ) -> asyncio.Semaphore:
-    """Enforce per-host rate limit using semaphore concurrency control.
+    """Enforce per-host rate limit using TokenBucket and semaphore.
 
-    Uses a per-host semaphore to limit concurrent requests (default: 5).
-    This allows multiple requests to be in-flight simultaneously without
-    convoying through a global lock.
+    Uses a per-host TokenBucket for time-based rate limiting and a
+    per-host semaphore for concurrency control (default: 5 concurrent).
+
+    Flow:
+    1. Acquire per-host semaphore (concurrency limit)
+    2. Acquire token from per-host TokenBucket (rate limit)
+    3. Return semaphore to caller (semaphore released after fetch)
 
     Args:
         url: URL to extract host from for rate limiting.
-        rate_limit: Ignored (semaphore provides concurrency control).
+        rate_limit: Ignored (uses settings.rate_limit.requests_per_minute).
 
     Returns:
         The acquired semaphore. Caller MUST call sem.release() after fetch.
@@ -463,11 +469,21 @@ async def _rate_limit_host(
     if not host:
         return None
 
-    # Get or create per-host semaphore
+    # Get requests_per_minute from settings
+    settings = _get_settings()
+    requests_per_minute = settings.get("rate_limit.requests_per_minute", 10.0)
+
+    # Get or create per-host semaphore for concurrency control
     async with _semaphore_lock:
         if host not in _host_semaphores:
             _host_semaphores[host] = asyncio.Semaphore(_DEFAULT_MAX_CONCURRENT)
         sem = _host_semaphores[host]
+
+    # Get or create per-host TokenBucket for time-based rate limiting
+    async with _bucket_lock:
+        if host not in _host_token_buckets:
+            _host_token_buckets[host] = TokenBucket(requests_per_minute)
+        bucket = _host_token_buckets[host]
 
     # Acquire semaphore (blocks if max concurrent requests reached)
     _logger.debug(
@@ -475,6 +491,12 @@ async def _rate_limit_host(
     )
     await sem.acquire()
     _logger.debug(f"Rate limiting {host}: semaphore acquired")
+
+    # Acquire token from TokenBucket (time-based rate limiting)
+    _logger.debug(f"Rate limiting {host}: acquiring token from bucket")
+    await bucket.acquire()
+    _logger.debug(f"Rate limiting {host}: token acquired")
+
     return sem
 
 
