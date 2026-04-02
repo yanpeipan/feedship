@@ -42,7 +42,7 @@
 - [ ] **Phase 4: HTTP Resilience & Rate Limiting** — Prevent IP bans, enable graceful degradation
 - [x] **Phase 5: Type Safety & Configuration Validation** — Catch config errors at startup, prevent data corruption (completed 2026-04-02)
 - [x] **Phase 6: Security Hardening & Graceful Degradation** — Protect against malicious feeds, automated vulnerability detection (completed 2026-04-02)
-- [ ] **Phase 7: Feed Grouping** — Add group/labels to feeds for organization
+- [x] **Phase 7: Feed Grouping** — Add group/labels to feeds for organization (completed 2026-04-02)
 
 ---
 
@@ -139,7 +139,7 @@
 4. Existing feeds without group have NULL group
 5. Group names are free-form text up to 100 characters
 
-**Plans:** 1/1
+**Plans:** 1/1 plans complete
 - [x] 07-PLAN.md — Add group functionality (6 tasks: DB migration, model, storage, business logic, CLI add, CLI list)
 
 ---
@@ -152,4 +152,4 @@
 | 4. HTTP Resilience & Rate Limiting | 1/2 | In Progress|  |
 | 5. Type Safety & Configuration Validation | 1/1 | Complete   | 2026-04-02 |
 | 6. Security Hardening & Graceful Degradation | 1/1 | Complete   | 2026-04-02 |
-| 7. Feed Grouping | 1/1 | Ready to Execute |  |
+| 7. Feed Grouping | 1/1 | Complete   | 2026-04-02 |
