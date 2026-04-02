@@ -56,16 +56,20 @@ def _get_provider_type(url: str) -> str:
 
 def _prompt_selection(feeds: list[DiscoveredFeed]) -> list[int]:
     """Prompt user to select feeds. Returns list of selected indices."""
-    console = Console()
+    # Auto-select single feed - no prompt needed for common case
+    if len(feeds) == 1:
+        return [0]
 
+    console = Console()
     click.secho("")
     click.secho("Select feeds to add:")
     click.secho("  a - Add all feeds")
-    click.secho("  s - Select individually")
+    if len(feeds) > 1:
+        click.secho("  s - Select individually")
     click.secho("  c - Cancel")
     click.secho("")
 
-    choice = console.input("Enter choice (a/s/c): ").strip().lower()
+    choice = console.input("[cyan]Enter choice (a/s/c): [/cyan] ").strip().lower()
 
     if choice == "a":
         return list(range(len(feeds)))
