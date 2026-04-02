@@ -84,6 +84,12 @@ class DatabaseInitializer:
                 "CREATE INDEX IF NOT EXISTS idx_articles_link ON articles(link)"
             )
 
+            # Covering index for efficient feed article retrieval
+            # Optimizes: SELECT * FROM articles WHERE feed_id = ? ORDER BY published_at DESC
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_articles_feed_published ON articles(feed_id, published_at DESC)"
+            )
+
             # FTS5 virtual table for full-text search
             # Uses porter tokenizer for English stemming
             cursor.execute("""
