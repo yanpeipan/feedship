@@ -36,7 +36,7 @@
 
 - [x] **Phase 3: SQLite Batch Operations & Profiling** — Fix N+1 query pattern, add profiling infrastructure
 - [ ] **Phase 4: HTTP Resilience & Rate Limiting** — Prevent IP bans, enable graceful degradation
-- [ ] **Phase 5: Type Safety & Configuration Validation** — Catch config errors at startup, prevent data corruption
+- [x] **Phase 5: Type Safety & Configuration Validation** — Catch config errors at startup, prevent data corruption (completed 2026-04-02)
 - [ ] **Phase 6: Security Hardening & Graceful Degradation** — Protect against malicious feeds, automated vulnerability detection
 
 ---
@@ -98,7 +98,7 @@
 3. FeedMetadata is stored as a typed Pydantic model, not a raw JSON string
 4. IDE autocomplete works for configuration fields and model attributes
 
-**Plans:** TBD
+**Plans:** 1/1 plans complete
 
 ---
 
@@ -116,7 +116,8 @@
 3. When system memory exceeds 80%, embedding generation is skipped with logged warnings
 4. XML entity expansion is limited to depth 100, preventing billion-laughs attacks
 
-**Plans:** TBD
+**Plans:** 1/1 plans created
+- [x] 06-PLAN.md — Security hardening (SEC-01, SEC-02, SEC-03, SEC-04)
 
 ---
 
@@ -126,5 +127,5 @@
 |-------|----------------|--------|-----------|
 | 3. SQLite Batch Operations & Profiling | 1/1 | Complete   | 2026-04-02 |
 | 4. HTTP Resilience & Rate Limiting | 1/2 | In Progress|  |
-| 5. Type Safety & Configuration Validation | 0/4 | Not started | - |
-| 6. Security Hardening & Graceful Degradation | 0/4 | Not started | - |
+| 5. Type Safety & Configuration Validation | 1/1 | Complete   | 2026-04-02 |
+| 6. Security Hardening & Graceful Degradation | 1/1 | Planned     | - |
