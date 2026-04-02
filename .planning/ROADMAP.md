@@ -37,7 +37,7 @@
 - [x] **Phase 3: SQLite Batch Operations & Profiling** — Fix N+1 query pattern, add profiling infrastructure
 - [ ] **Phase 4: HTTP Resilience & Rate Limiting** — Prevent IP bans, enable graceful degradation
 - [x] **Phase 5: Type Safety & Configuration Validation** — Catch config errors at startup, prevent data corruption (completed 2026-04-02)
-- [ ] **Phase 6: Security Hardening & Graceful Degradation** — Protect against malicious feeds, automated vulnerability detection
+- [x] **Phase 6: Security Hardening & Graceful Degradation** — Protect against malicious feeds, automated vulnerability detection (completed 2026-04-02)
 
 ---
 
@@ -116,7 +116,7 @@
 3. When system memory exceeds 80%, embedding generation is skipped with logged warnings
 4. XML entity expansion is limited to depth 100, preventing billion-laughs attacks
 
-**Plans:** 1/1 plans created
+**Plans:** 1/1 plans complete
 - [x] 06-PLAN.md — Security hardening (SEC-01, SEC-02, SEC-03, SEC-04)
 
 ---
@@ -128,4 +128,4 @@
 | 3. SQLite Batch Operations & Profiling | 1/1 | Complete   | 2026-04-02 |
 | 4. HTTP Resilience & Rate Limiting | 1/2 | In Progress|  |
 | 5. Type Safety & Configuration Validation | 1/1 | Complete   | 2026-04-02 |
-| 6. Security Hardening & Graceful Degradation | 1/1 | Planned     | - |
+| 6. Security Hardening & Graceful Degradation | 1/1 | Complete   | 2026-04-02 |
