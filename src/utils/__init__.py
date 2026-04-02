@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import time
 
 from nanoid import generate
 
@@ -43,30 +42,3 @@ def generate_article_id(entry) -> str:
     published_at = entry.get("published") or entry.get("updated") or ""
     hash_input = f"{link}:{published_at}"
     return hashlib.sha256(hash_input.encode()).hexdigest()
-
-
-def get_current_timestamp() -> str:
-    """Return current timestamp in YYYY-MM-DD HH:MM:SS format."""
-    return time.strftime("%Y-%m-%d %H:%M:%S")
-
-
-def parse_article_entry(entry: dict, feed_id: str) -> dict:
-    """Convert raw article entry to storage format dict.
-
-    Args:
-        entry: Feedparser article entry dict.
-        feed_id: ID of the feed this article belongs to.
-
-    Returns:
-        Dict with guid, title, content, description, link, feed_id, published_at.
-    """
-    article_guid = entry.get("guid") or generate_article_id(entry)
-    return {
-        "guid": article_guid,
-        "title": entry.get("title") or "",
-        "content": entry.get("content") or "",
-        "description": entry.get("description") or "",
-        "link": entry.get("link") or "",
-        "feed_id": feed_id,
-        "published_at": entry.get("published_at"),
-    }

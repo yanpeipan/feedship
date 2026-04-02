@@ -345,12 +345,13 @@ def _batch_upsert_articles(articles: list[dict]) -> list[tuple[str, str]]:
             batch_values,
         )
 
-        # Batch FTS sync
-        for article_id in article_ids:
+        # Batch FTS sync - single query for all articles
+        if article_ids:
+            placeholders = ",".join("?" * len(article_ids))
             cursor.execute(
-                """INSERT OR REPLACE INTO articles_fts(rowid, title, description, content, author, tags, category)
-                   SELECT rowid, title, description, content, author, tags, category FROM articles WHERE id = ?""",
-                (article_id,),
+                f"""INSERT OR REPLACE INTO articles_fts(rowid, title, description, content, author, tags, category)
+                   SELECT rowid, title, description, content, author, tags, category FROM articles WHERE id IN ({placeholders})""",
+                tuple(article_ids),
             )
 
         conn.commit()
@@ -664,7 +665,7 @@ def list_articles(
             params.extend([start, end])
     if groups:
         placeholders = ",".join("?" * len(groups))
-        conditions.append(f'f."group" IN ({placeholders}) AND f."group" IS NOT NULL')
+        conditions.append(f'f."group" IN ({placeholders})')
         params.extend(groups)
     where_clause = " AND ".join(conditions) if conditions else "1=1"
 
@@ -885,7 +886,7 @@ def search_articles_fts(
                 params.extend(date_params)
             if groups:
                 placeholders = ",".join("?" * len(groups))
-                where_parts.append(f'f."group" IN ({placeholders}) AND f."group" IS NOT NULL')
+                where_parts.append(f'f."group" IN ({placeholders})')
                 params.extend(groups)
             where_sql = " AND ".join(where_parts)
             cursor.execute(
@@ -905,7 +906,7 @@ def search_articles_fts(
         else:
             if groups:
                 placeholders = ",".join("?" * len(groups))
-                groups_clause = f'f."group" IN ({placeholders}) AND f."group" IS NOT NULL'
+                groups_clause = f'f."group" IN ({placeholders})'
                 if date_clause:
                     cursor.execute(
                         f"""

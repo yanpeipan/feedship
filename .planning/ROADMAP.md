@@ -150,10 +150,15 @@
 
 **Depends on:** Phase 7
 
+**Requirements:** REQ-08-01, REQ-08-02, REQ-08-03
+
 **Success Criteria** (what must be TRUE):
 1. `article list --groups LLM,AI` shows only articles from feeds in groups LLM or AI
 2. `search 'AI' --groups LLM,AI` searches within articles from feeds in groups LLM or AI
 3. `search --semantic "AI" --groups LLM,AI` performs semantic search within articles from feeds in groups LLM or AI
+
+**Plans:** 1/1 plans complete
+- [ ] 08-PLAN.md — Add --groups filter to article list, search, semantic search (Wave 1)
 
 ---
 
@@ -166,4 +171,4 @@
 | 5. Type Safety & Configuration Validation | 1/1 | Complete   | 2026-04-02 |
 | 6. Security Hardening & Graceful Degradation | 1/1 | Complete   | 2026-04-02 |
 | 7. Feed Grouping | 1/1 | Complete    | 2026-04-02 |
-| 8. Article/Search Group Filtering | 0/0 | In Progress |             |
+| 8. Article/Search Group Filtering | 1/1 | Complete   | 2026-04-02 |
