@@ -24,7 +24,7 @@ from src.providers.base import Article, FetchedResult
 if TYPE_CHECKING:
     from scrapling.engines.toolbelt.custom import Response
 
-    from src.models import Feed, FeedType
+from src.models import Feed, FeedType
 
 logger = logging.getLogger(__name__)
 
@@ -325,7 +325,7 @@ class NitterProvider:
             return DiscoveredFeed(
                 url=url,
                 title=f"Use 'x:{self._extract_twitter_username(url)}' instead of '{url}'",
-                feed_type="rss",
+                feed_type=FeedType.NITTER,
                 source=f"provider_{self.__class__.__name__}",
                 page_url=url,
                 valid=False,
@@ -336,7 +336,7 @@ class NitterProvider:
             return DiscoveredFeed(
                 url=url,
                 title=None,
-                feed_type="rss",
+                feed_type=FeedType.NITTER,
                 source=f"provider_{self.__class__.__name__}",
                 page_url=url,
                 valid=False,
@@ -348,7 +348,7 @@ class NitterProvider:
         return DiscoveredFeed(
             url=normalized_url,
             title=f"Nitter: {username}",
-            feed_type="rss",
+            feed_type=FeedType.NITTER,
             source=f"provider_{self.__class__.__name__}",
             page_url=url,
             valid=True,
