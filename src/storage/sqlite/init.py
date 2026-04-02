@@ -91,6 +91,10 @@ class DatabaseInitializer:
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_articles_link ON articles(link)"
             )
+            # Index for guid lookups (upsert, deduplication)
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_articles_guid ON articles(guid)"
+            )
 
             # Covering index for efficient feed article retrieval
             # Optimizes: SELECT * FROM articles WHERE feed_id = ? ORDER BY published_at DESC
