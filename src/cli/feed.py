@@ -146,12 +146,6 @@ def feed_add(
       feedship feed add nitter:elonmusk
       feedship feed add search:AI news
     """
-    if group and len(group) > 100:
-        click.secho(
-            "Error: Group name must be 100 characters or less", err=True, fg="red"
-        )
-        sys.exit(1)
-
     feeds: list = []
     result = None
     elapsed = 0.0
