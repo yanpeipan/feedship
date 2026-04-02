@@ -279,8 +279,8 @@ async def store_article_async(
         )
 
 
-def upsert_articles(articles: list[dict]) -> list[tuple[str, str]]:
-    """Batch upsert articles, returning list of (article_id, guid) tuples.
+def _batch_upsert_articles(articles: list[dict]) -> list[tuple[str, str]]:
+    """Batch upsert articles using single transaction with UPSERT.
 
     Args:
         articles: List of article dicts with keys: guid, title, content, link, feed_id, published_at, description, author, tags, category
@@ -288,26 +288,90 @@ def upsert_articles(articles: list[dict]) -> list[tuple[str, str]]:
     Returns:
         List of (article_id, guid) tuples for each article.
     """
+    if not articles:
+        return []
+
+    from src.application.config import get_timezone
+
+    tz = get_timezone()
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
     results = []
-    for article in articles:
-        article_id = store_article(
-            guid=article["guid"],
-            title=article["title"],
-            content=article["content"],
-            link=article["link"],
-            feed_id=article.get("feed_id"),
-            published_at=article.get("published_at"),
-            description=article.get("description"),
-            author=article.get("author"),
-            tags=article.get("tags"),
-            category=article.get("category"),
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Generate article IDs upfront
+        article_ids = [generate() for _ in articles]
+
+        # Prepare batch data
+        batch_values = []
+        for i, article in enumerate(articles):
+            article_id = article_ids[i]
+            normalized_published_at = _normalize_published_at(article.get("published_at"), tz)
+            batch_values.append((
+                article_id,
+                article.get("feed_id") or "",
+                article["title"],
+                article["link"],
+                article["guid"],
+                normalized_published_at,
+                article["content"],
+                article.get("description"),
+                now,  # created_at
+                now,  # modified_at
+                article.get("author"),
+                article.get("tags"),
+                article.get("category"),
+            ))
+
+        # Batch UPSERT with executemany - single transaction
+        cursor.executemany(
+            """INSERT INTO articles (id, feed_id, title, link, guid, published_at, content, description, created_at, modified_at, author, tags, category)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(feed_id, id) DO UPDATE SET
+                   title = excluded.title,
+                   link = excluded.link,
+                   published_at = excluded.published_at,
+                   content = excluded.content,
+                   description = excluded.description,
+                   modified_at = excluded.modified_at,
+                   author = excluded.author,
+                   tags = excluded.tags,
+                   category = excluded.category""",
+            batch_values,
         )
-        results.append((article_id, article["guid"]))
-    return results
+
+        # Batch FTS sync
+        for article_id in article_ids:
+            cursor.execute(
+                """INSERT OR REPLACE INTO articles_fts(rowid, title, description, content, author, tags, category)
+                   SELECT rowid, title, description, content, author, tags, category FROM articles WHERE id = ?""",
+                (article_id,),
+            )
+
+        conn.commit()
+
+        # Build results
+        for i, article in enumerate(articles):
+            results.append((article_ids[i], article["guid"]))
+
+        return results
+
+
+def upsert_articles(articles: list[dict]) -> list[tuple[str, str]]:
+    """Batch upsert articles using single transaction with UPSERT.
+
+    Args:
+        articles: List of article dicts with keys: guid, title, content, link, feed_id, published_at, description, author, tags, category
+
+    Returns:
+        List of (article_id, guid) tuples for each article.
+    """
+    return _batch_upsert_articles(articles)
 
 
 async def upsert_articles_async(articles: list[dict]) -> list[tuple[str, str]]:
-    """Async batch upsert articles, returning list of (article_id, guid) tuples.
+    """Async batch upsert articles with single transaction.
 
     Args:
         articles: List of article dicts with keys: guid, title, content, link, feed_id, published_at, description, author, tags, category
@@ -315,22 +379,12 @@ async def upsert_articles_async(articles: list[dict]) -> list[tuple[str, str]]:
     Returns:
         List of (article_id, guid) tuples for each article.
     """
-    results = []
-    for article in articles:
-        article_id = await store_article_async(
-            guid=article["guid"],
-            title=article["title"],
-            content=article["content"],
-            link=article["link"],
-            feed_id=article.get("feed_id"),
-            published_at=article.get("published_at"),
-            description=article.get("description"),
-            author=article.get("author"),
-            tags=article.get("tags"),
-            category=article.get("category"),
-        )
-        results.append((article_id, article["guid"]))
-    return results
+    if not articles:
+        return []
+
+    lock = _get_db_write_lock()
+    async with lock:
+        return await asyncio.to_thread(_batch_upsert_articles, articles)
 
 
 def feed_exists(url: str) -> bool:
