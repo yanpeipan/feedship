@@ -88,6 +88,7 @@ class Feed(BaseModel):
     fetched_at: str | None = None
     metadata: str | FeedMetaData | None = None  # Stored as JSON string for DB compat
     weight: float | None = Field(default=None, ge=0.0, le=1.0)
+    group: str | None = Field(default=None, max_length=100)
 
     @field_validator("url")
     @classmethod
