@@ -23,7 +23,10 @@ class FeedNotFoundError(Exception):
 
 
 def add_feed(
-    url: str, weight: float | None = None, feed_meta_data: FeedMetaData | None = None
+    url: str,
+    weight: float | None = None,
+    feed_meta_data: FeedMetaData | None = None,
+    group: str | None = None,
 ) -> tuple[Feed, bool]:
     """Add a new feed by URL.
 
@@ -60,6 +63,7 @@ def add_feed(
             created_at=now,
             weight=weight if weight is not None else get_default_feed_weight(),
             metadata=feed_meta_data.to_json(),
+            group=group,
         )
         upsert_feed(feed)
     else:
@@ -75,6 +79,7 @@ def add_feed(
             created_at=now,
             weight=weight if weight is not None else get_default_feed_weight(),
             metadata=None,
+            group=group,
         )
 
     for provider in providers:
@@ -111,6 +116,7 @@ def add_feed(
         created_at=now,
         weight=weight if weight is not None else get_default_feed_weight(),
         metadata=feed_meta_data.to_json() if feed_meta_data else None,
+        group=group,
     )
     return upsert_feed(feed)
 
@@ -120,6 +126,7 @@ def register_feed(
     feed_name: str | None = None,
     weight: float | None = None,
     feed_meta_data: FeedMetaData | None = None,
+    group: str | None = None,
 ) -> tuple[Feed, bool]:
     """Register a pre-discovered feed without crawling.
 
@@ -172,6 +179,7 @@ def register_feed(
         created_at=now,
         weight=weight if weight is not None else get_default_feed_weight(),
         metadata=feed_meta_data.to_json() if feed_meta_data else None,
+        group=group,
     )
     return upsert_feed(feed)
 
