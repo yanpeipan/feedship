@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
@@ -64,6 +65,116 @@ _DEFAULT_RATE_LIMIT = 1.0  # seconds between requests per host
 
 # Default max concurrent requests per host
 _DEFAULT_MAX_CONCURRENT = 5
+
+# ============================================================================
+# Token Bucket Rate Limiter
+# ============================================================================
+
+
+class TokenBucket:
+    """Time-based token bucket rate limiter using time.monotonic().
+
+    Refills tokens at a steady rate: requests_per_minute / 60 tokens per second.
+    Uses asyncio.Lock for thread-safe token consumption.
+    """
+
+    def __init__(self, requests_per_minute: float = 10.0):
+        self._rate = requests_per_minute / 60.0  # tokens per second
+        self._capacity = requests_per_minute
+        self._tokens = requests_per_minute
+        self._last_refill = time.monotonic()
+        self._lock = asyncio.Lock()
+
+    async def acquire(self) -> None:
+        """Acquire a token, waiting if necessary."""
+        async with self._lock:
+            now = time.monotonic()
+            elapsed = now - self._last_refill
+            self._tokens = min(self._capacity, self._tokens + elapsed * self._rate)
+            self._last_refill = now
+
+            if self._tokens < 1.0:
+                wait_time = (1.0 - self._tokens) / self._rate
+                await asyncio.sleep(wait_time)
+                self._tokens = 0.0
+            else:
+                self._tokens -= 1.0
+
+
+# ============================================================================
+# Circuit Breaker
+# ============================================================================
+
+
+class CircuitBreakerState:
+    """Circuit breaker per provider with CLOSED/OPEN/HALF_OPEN states.
+
+    State machine:
+    - CLOSED: Normal operation, tracks consecutive failures
+    - OPEN: After 5 consecutive failures, skip provider for 60s cooldown
+    - HALF_OPEN: After cooldown, allow 1 test request
+
+    Thread-safe using asyncio.Lock.
+    """
+
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(self, failure_threshold: int = 5, cooldown_seconds: float = 60.0):
+        self._failure_threshold = failure_threshold
+        self._cooldown = cooldown_seconds
+        self._failures = 0
+        self._state = self.CLOSED
+        self._last_failure_time: float | None = None
+        self._lock = asyncio.Lock()
+
+    @property
+    def state(self) -> str:
+        return self._state
+
+    async def record_success(self) -> None:
+        """Reset failure count on success."""
+        async with self._lock:
+            self._failures = 0
+            self._state = self.CLOSED
+
+    async def record_failure(self) -> None:
+        """Increment failure count, potentially opening circuit."""
+        async with self._lock:
+            self._failures += 1
+            self._last_failure_time = time.monotonic()
+            if self._failures >= self._failure_threshold:
+                self._state = self.OPEN
+
+    async def can_execute(self) -> bool:
+        """Check if request should proceed.
+
+        Returns True if circuit is CLOSED or HALF_OPEN.
+        Transitions OPEN -> HALF_OPEN after cooldown.
+        """
+        async with self._lock:
+            if self._state == self.CLOSED:
+                return True
+
+            if self._state == self.OPEN:
+                if self._last_failure_time and \
+                   time.monotonic() - self._last_failure_time >= self._cooldown:
+                    self._state = self.HALF_OPEN
+                    return True
+                return False
+
+            # HALF_OPEN: allow one test request
+            return True
+
+
+# Per-host token buckets for time-based rate limiting
+_host_token_buckets: dict[str, TokenBucket] = {}
+_bucket_lock = asyncio.Lock()
+
+# Per-provider circuit breakers
+_provider_circuits: dict[str, CircuitBreakerState] = {}
+_circuit_lock = asyncio.Lock()
 
 # ============================================================================
 # Block Detection
