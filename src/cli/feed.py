@@ -6,9 +6,13 @@ from __future__ import annotations
 # Python 3.13's shutdown_default_executor() waits up to 300 seconds for threads
 # to finish, which causes CLI to hang after fetch completes. Reducing to 10 seconds.
 import asyncio.constants
+import cProfile
+import io
 import logging
+import pstats
 import sys
 import time
+from pathlib import Path
 
 import click
 import uvloop
@@ -381,6 +385,11 @@ def feed_remove(ctx: click.Context, feed_id: str, json_output: bool) -> None:
 )
 @click.argument("ids", nargs=-1, required=False)
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.option(
+    "--profile",
+    is_flag=True,
+    help="Enable cProfile profiling, output to profiles/ directory",
+)
 @click.pass_context
 def fetch(
     ctx: click.Context,
@@ -388,6 +397,7 @@ def fetch(
     concurrency: int,
     ids: tuple,
     json_output: bool,
+    profile: bool,
 ) -> None:
     """Fetch new articles from subscribed feeds by ID.
 
@@ -404,57 +414,143 @@ def fetch(
         fetch_one_async_by_id,
     )
 
-    # Case 1: ID arguments provided
-    if ids:
-        try:
-            if len(ids) == 1:
-                # Single ID: use async-native path for better performance
-                feed_id = ids[0]
-                feed = get_feed(feed_id)
-                if not feed:
+    def _do_fetch() -> None:
+        """Main fetch logic extracted for profiling support."""
+        # Case 1: ID arguments provided
+        if ids:
+            try:
+                if len(ids) == 1:
+                    # Single ID: use async-native path for better performance
+                    feed_id = ids[0]
+                    feed = get_feed(feed_id)
+                    if not feed:
+                        if json_output:
+                            print_json_error(f"Feed not found: {feed_id}", "not_found")
+                        click.secho(f"Feed not found: {feed_id}", fg="yellow")
+                        sys.exit(1)
+                    result = uvloop.run(fetch_one_async_by_id(feed_id))
+                    total_new = result.get("new_articles", 0)
+                    error = result.get("error")
+                    if error:
+                        if json_output:
+                            print_json_error(
+                                f"Error fetching {feed.name}: {error}", "fetch_error"
+                            )
+                        click.secho(f"Error fetching {feed.name}: {error}", fg="red")
+                        sys.exit(1)
                     if json_output:
-                        print_json_error(f"Feed not found: {feed_id}", "not_found")
-                    click.secho(f"Feed not found: {feed_id}", fg="yellow")
-                    sys.exit(1)
-                result = uvloop.run(fetch_one_async_by_id(feed_id))
-                total_new = result.get("new_articles", 0)
-                error = result.get("error")
-                if error:
-                    if json_output:
-                        print_json_error(
-                            f"Error fetching {feed.name}: {error}", "fetch_error"
+                        print_json(
+                            {
+                                "feed": {
+                                    "feed_name": feed.name,
+                                    "feed_id": feed.id,
+                                    "new_articles": total_new,
+                                },
+                                "elapsed_seconds": 0.0,
+                            }
                         )
-                    click.secho(f"Error fetching {feed.name}: {error}", fg="red")
-                    sys.exit(1)
-                if json_output:
-                    print_json(
-                        {
-                            "feed": {
-                                "feed_name": feed.name,
-                                "feed_id": feed.id,
-                                "new_articles": total_new,
-                            },
-                            "elapsed_seconds": 0.0,
-                        }
-                    )
+                    else:
+                        click.secho(
+                            f"Fetched {total_new} articles from {feed.name}", fg="green"
+                        )
                 else:
-                    click.secho(
-                        f"Fetched {total_new} articles from {feed.name}", fg="green"
-                    )
-            else:
-                # Multiple IDs: use semaphore concurrency
+                    # Multiple IDs: use semaphore concurrency
+                    if json_output:
+                        # JSON mode: skip progress bar
+                        import time
+
+                        async def _collect_json():
+                            results = []
+                            async for r in fetch_ids_async(ids, concurrency):
+                                results.append(r)
+                            return results
+
+                        start_time = time.time()
+                        feed_results = uvloop.run(_collect_json())
+                        elapsed = time.time() - start_time
+                        total_new = sum(r.get("new_articles", 0) for r in feed_results)
+                        success_count = sum(1 for r in feed_results if not r.get("error"))
+                        error_count = sum(1 for r in feed_results if r.get("error"))
+                        serialized_feeds = []
+                        for result in feed_results:
+                            serialized_feeds.append(
+                                {
+                                    "feed_name": result.get("feed_name", "?"),
+                                    "feed_id": result.get("feed_id", "?"),
+                                    "new_articles": result.get("new_articles", 0),
+                                    "error": result.get("error"),
+                                }
+                            )
+                        print_json(
+                            format_fetch_results(
+                                serialized_feeds,
+                                total_new,
+                                success_count,
+                                error_count,
+                                elapsed,
+                            )
+                        )
+                    else:
+                        # Progress bar mode
+                        feed_results: list[dict] = []
+                        results_collector = []
+
+                        async def _collect_and_update():
+                            """Collect results and update progress."""
+                            async for result in fetch_ids_async(ids, concurrency):
+                                results_collector.append(result)
+                                fp.update(result)
+                            return results_collector
+
+                        with FetchProgress(
+                            len(ids),
+                            f"[cyan]Fetching {len(ids)} feeds by ID (concurrency:{concurrency})...",
+                            concurrency,
+                        ) as fp:
+                            feed_results = uvloop.run(_collect_and_update())
+
+                        elapsed = fp.elapsed_time
+                        total_new = fp.total_new
+                        success_count = fp.success_count
+                        error_count = fp.error_count
+                        print_summary(
+                            total_new, success_count, error_count, fp.errors, elapsed
+                        )
+            except Exception as e:
                 if json_output:
-                    # JSON mode: skip progress bar
+                    print_json_error(f"Failed to fetch feeds: {e}", "fetch_error")
+                    return
+                click.secho(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
+                logger.exception("Failed to fetch feeds")
+                sys.exit(1)
+            return
+
+        # Case 2: --all flag
+        if do_fetch_all:
+            try:
+                feeds = list_feeds()
+                if not feeds:
+                    if json_output:
+                        print_json(format_fetch_results([], 0, 0, 0, 0.0))
+                    else:
+                        click.secho(
+                            "No feeds subscribed. Use 'feed add <url>' to add one.",
+                            fg="yellow",
+                        )
+                    return
+
+                if json_output:
+                    # JSON mode: skip progress bar, collect results directly
                     import time
 
-                    async def _collect_json():
+                    async def _collect_all_json():
                         results = []
-                        async for r in fetch_ids_async(ids, concurrency):
+                        async for r in fetch_all_async(concurrency=concurrency):
                             results.append(r)
                         return results
 
                     start_time = time.time()
-                    feed_results = uvloop.run(_collect_json())
+                    feed_results = uvloop.run(_collect_all_json())
                     elapsed = time.time() - start_time
                     total_new = sum(r.get("new_articles", 0) for r in feed_results)
                     success_count = sum(1 for r in feed_results if not r.get("error"))
@@ -471,11 +567,7 @@ def fetch(
                         )
                     print_json(
                         format_fetch_results(
-                            serialized_feeds,
-                            total_new,
-                            success_count,
-                            error_count,
-                            elapsed,
+                            serialized_feeds, total_new, success_count, error_count, elapsed
                         )
                     )
                 else:
@@ -485,14 +577,14 @@ def fetch(
 
                     async def _collect_and_update():
                         """Collect results and update progress."""
-                        async for result in fetch_ids_async(ids, concurrency):
+                        async for result in fetch_all_async(concurrency=concurrency):
                             results_collector.append(result)
                             fp.update(result)
                         return results_collector
 
                     with FetchProgress(
-                        len(ids),
-                        f"[cyan]Fetching {len(ids)} feeds by ID (concurrency:{concurrency})...",
+                        len(feeds),
+                        f"[cyan]Fetching {len(feeds)} feeds (concurrency:{concurrency})...",
                         concurrency,
                     ) as fp:
                         feed_results = uvloop.run(_collect_and_update())
@@ -502,102 +594,45 @@ def fetch(
                     success_count = fp.success_count
                     error_count = fp.error_count
                     print_summary(
-                        total_new, success_count, error_count, fp.errors, elapsed
+                        total_new,
+                        success_count,
+                        error_count,
+                        fp.errors,
+                        elapsed,
+                        prefix="✓ ",
                     )
-        except Exception as e:
-            if json_output:
-                print_json_error(f"Failed to fetch feeds: {e}", "fetch_error")
-                return
-            click.secho(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
-            logger.exception("Failed to fetch feeds")
-            sys.exit(1)
-        return
-
-    # Case 2: --all flag
-    if do_fetch_all:
-        try:
-            feeds = list_feeds()
-            if not feeds:
+            except Exception as e:
                 if json_output:
-                    print_json(format_fetch_results([], 0, 0, 0, 0.0))
-                else:
-                    click.secho(
-                        "No feeds subscribed. Use 'feed add <url>' to add one.",
-                        fg="yellow",
-                    )
-                return
+                    print_json_error(f"Failed to fetch feeds: {e}", "fetch_error")
+                    return
+                click.secho(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
+                logger.exception("Failed to fetch feeds")
+                sys.exit(1)
+            return
 
-            if json_output:
-                # JSON mode: skip progress bar, collect results directly
-                import time
+        # Case 3: No arguments
+        click.secho("Use --all to fetch all feeds: feedship fetch --all")
+        click.secho("Or specify feed IDs to fetch: feedship fetch <feed_id> [<feed_id>...]")
 
-                async def _collect_all_json():
-                    results = []
-                    async for r in fetch_all_async(concurrency=concurrency):
-                        results.append(r)
-                    return results
+    if profile:
+        profiles_dir = Path("profiles")
+        profiles_dir.mkdir(exist_ok=True)
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        profile_file = profiles_dir / f"fetch_{timestamp}.prof"
 
-                start_time = time.time()
-                feed_results = uvloop.run(_collect_all_json())
-                elapsed = time.time() - start_time
-                total_new = sum(r.get("new_articles", 0) for r in feed_results)
-                success_count = sum(1 for r in feed_results if not r.get("error"))
-                error_count = sum(1 for r in feed_results if r.get("error"))
-                serialized_feeds = []
-                for result in feed_results:
-                    serialized_feeds.append(
-                        {
-                            "feed_name": result.get("feed_name", "?"),
-                            "feed_id": result.get("feed_id", "?"),
-                            "new_articles": result.get("new_articles", 0),
-                            "error": result.get("error"),
-                        }
-                    )
-                print_json(
-                    format_fetch_results(
-                        serialized_feeds, total_new, success_count, error_count, elapsed
-                    )
-                )
-            else:
-                # Progress bar mode
-                feed_results: list[dict] = []
-                results_collector = []
+        profiler = cProfile.Profile()
+        profiler.enable()
 
-                async def _collect_and_update():
-                    """Collect results and update progress."""
-                    async for result in fetch_all_async(concurrency=concurrency):
-                        results_collector.append(result)
-                        fp.update(result)
-                    return results_collector
+        try:
+            _do_fetch()
+        finally:
+            profiler.disable()
+            profiler.dump_stats(str(profile_file))
 
-                with FetchProgress(
-                    len(feeds),
-                    f"[cyan]Fetching {len(feeds)} feeds (concurrency:{concurrency})...",
-                    concurrency,
-                ) as fp:
-                    feed_results = uvloop.run(_collect_and_update())
-
-                elapsed = fp.elapsed_time
-                total_new = fp.total_new
-                success_count = fp.success_count
-                error_count = fp.error_count
-                print_summary(
-                    total_new,
-                    success_count,
-                    error_count,
-                    fp.errors,
-                    elapsed,
-                    prefix="✓ ",
-                )
-        except Exception as e:
-            if json_output:
-                print_json_error(f"Failed to fetch feeds: {e}", "fetch_error")
-                return
-            click.secho(f"Error: Failed to fetch feeds: {e}", err=True, fg="red")
-            logger.exception("Failed to fetch feeds")
-            sys.exit(1)
-        return
-
-    # Case 3: No arguments
-    click.secho("Use --all to fetch all feeds: feedship fetch --all")
-    click.secho("Or specify feed IDs to fetch: feedship fetch <feed_id> [<feed_id>...]")
+            s = io.StringIO()
+            ps = pstats.Stats(profiler, stream=s).sort_stats("cumulative")
+            ps.print_stats(20)
+            click.echo(f"\n[Profile saved to {profile_file}]")
+            click.echo(s.getvalue())
+    else:
+        _do_fetch()
