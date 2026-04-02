@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from scrapling import Selector
     from scrapling.engines.toolbelt.custom import Response
 
-    from src.models import Feed, FeedType
+from src.models import Feed, FeedType
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +288,7 @@ class RSSProvider:
                 return DiscoveredFeed(
                     url=url,
                     title=None,
-                    feed_type="rss",
+                    feed_type=FeedType.RSS,
                     source=f"provider_{self.__class__.__name__}",
                     page_url=url,
                     valid=False,
@@ -307,7 +307,7 @@ class RSSProvider:
                 return DiscoveredFeed(
                     url=url,
                     title=None,
-                    feed_type="rss",
+                    feed_type=FeedType.RSS,
                     source=f"provider_{self.__class__.__name__}",
                     page_url=url,
                     valid=False,
@@ -318,7 +318,7 @@ class RSSProvider:
             return DiscoveredFeed(
                 url=url,
                 title=title,
-                feed_type="rss",
+                feed_type=FeedType.RSS,
                 source=f"provider_{self.__class__.__name__}",
                 page_url=url,
                 valid=True,
@@ -327,7 +327,7 @@ class RSSProvider:
             return DiscoveredFeed(
                 url=url,
                 title=None,
-                feed_type="rss",
+                feed_type=FeedType.RSS,
                 source=f"provider_{self.__class__.__name__}",
                 page_url=url,
                 valid=False,
@@ -464,7 +464,7 @@ class RSSProvider:
                 DiscoveredFeed(
                     url=absolute,
                     title=link_tag.attrib.get("title"),
-                    feed_type="rss",
+                    feed_type=FeedType.RSS,
                     source="RSSProvider",
                     page_url=url,
                     valid=False,
@@ -528,7 +528,7 @@ class RSSProvider:
                         DiscoveredFeed(
                             url=absolute,
                             title=None,
-                            feed_type="rss",
+                            feed_type=FeedType.RSS,
                             source="RSSProvider",
                             page_url=url,
                             valid=False,
