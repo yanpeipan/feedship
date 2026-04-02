@@ -101,7 +101,11 @@ class NitterProvider:
 
         try:
             result = self._fetch_and_parse(
-                rss_url, username, instance_used, etag=feed.etag, modified_at=feed.modified_at
+                rss_url,
+                username,
+                instance_used,
+                etag=feed.etag,
+                modified_at=feed.modified_at,
             )
             logger.debug(
                 "NitterProvider.fetch_articles(%s) returned %d articles",
@@ -155,8 +159,8 @@ class NitterProvider:
             Tuple of (RSS URL, instance URL used) or (None, None) if all failed.
         """
         settings = _get_settings()
-        default_instance = settings.get("nitter.default_instance")
-        instances = settings.get("nitter.instances", [])
+        default_instance = settings.nitter.get("default_instance")
+        instances = settings.nitter.get("instances", [])
 
         # Build ordered list: default first, then others (skip duplicates)
         tried_instances = []
@@ -190,7 +194,12 @@ class NitterProvider:
         return None, None
 
     def _fetch_and_parse(
-        self, rss_url: str, username: str, instance: str, etag: str | None = None, modified_at: str | None = None
+        self,
+        rss_url: str,
+        username: str,
+        instance: str,
+        etag: str | None = None,
+        modified_at: str | None = None,
     ) -> FetchedResult:
         """Fetch and parse Nitter RSS feed.
 

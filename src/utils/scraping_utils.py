@@ -160,8 +160,10 @@ class CircuitBreakerState:
                 return True
 
             if self._state == self.OPEN:
-                if self._last_failure_time and \
-                   time.monotonic() - self._last_failure_time >= self._cooldown:
+                if (
+                    self._last_failure_time
+                    and time.monotonic() - self._last_failure_time >= self._cooldown
+                ):
                     self._state = self.HALF_OPEN
                     return True
                 return False
@@ -471,7 +473,7 @@ async def _rate_limit_host(
 
     # Get requests_per_minute from settings
     settings = _get_settings()
-    requests_per_minute = settings.get("rate_limit.requests_per_minute", 10.0)
+    requests_per_minute = settings.rate_limit.get("requests_per_minute", 10.0)
 
     # Get or create per-host semaphore for concurrency control
     async with _semaphore_lock:
