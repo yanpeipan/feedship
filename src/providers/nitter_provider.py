@@ -100,13 +100,15 @@ class NitterProvider:
             return FetchedResult(articles=[])
 
         try:
-            articles = self._fetch_and_parse(rss_url, username, instance_used)
+            result = self._fetch_and_parse(
+                rss_url, username, instance_used, etag=feed.etag, modified_at=feed.modified_at
+            )
             logger.debug(
                 "NitterProvider.fetch_articles(%s) returned %d articles",
                 feed.url,
-                len(articles),
+                len(result.articles),
             )
-            return FetchedResult(articles=articles)
+            return result
         except Exception as e:
             logger.error("NitterProvider.fetch_articles(%s) failed: %s", feed.url, e)
             return FetchedResult(articles=[])
@@ -188,25 +190,43 @@ class NitterProvider:
         return None, None
 
     def _fetch_and_parse(
-        self, rss_url: str, username: str, instance: str
-    ) -> list[Article]:
+        self, rss_url: str, username: str, instance: str, etag: str | None = None, modified_at: str | None = None
+    ) -> FetchedResult:
         """Fetch and parse Nitter RSS feed.
 
         Args:
             rss_url: Full RSS feed URL.
             username: Twitter username for author field.
             instance: Nitter instance URL used.
+            etag: Optional ETag for conditional request.
+            modified_at: Optional Last-Modified for conditional request.
 
         Returns:
-            List of Article dicts.
+            FetchedResult with articles list and updated etag/modified_at.
         """
         from src.utils.scraping_utils import fetch_with_fallback
 
-        response = fetch_with_fallback(rss_url, headers=BROWSER_HEADERS, timeout=30)
-        if not response or response.status != 200:
-            return []
+        headers = dict(BROWSER_HEADERS)
+        if etag:
+            headers["If-None-Match"] = etag
+        if modified_at:
+            headers["If-Modified-Since"] = modified_at
+
+        response = fetch_with_fallback(rss_url, headers=headers, timeout=30)
+        if not response:
+            return FetchedResult(articles=[], etag=None, modified_at=None)
+
+        if response.status == 304:
+            logger.info("Nitter RSS %s returned 304 Not Modified", rss_url)
+            return FetchedResult(articles=[], etag=etag, modified_at=modified_at)
+
+        if response.status != 200:
+            return FetchedResult(articles=[], etag=None, modified_at=None)
 
         content = response.body
+        # Extract etag and modified_at from response for next conditional request
+        new_etag = response.headers.get("etag")
+        new_modified = response.headers.get("last-modified")
         feed = feedparser.parse(content)
 
         # Log bozo (malformed feed) warnings
@@ -279,7 +299,7 @@ class NitterProvider:
                 )
             )
 
-        return articles
+        return FetchedResult(articles=articles, etag=new_etag, modified_at=new_modified)
 
     def _nitter_url_to_twitter(self, nitter_url: str) -> str:
         """Convert a Nitter instance URL to twitter.com URL.

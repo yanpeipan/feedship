@@ -78,7 +78,7 @@
 4. Rate limit events and circuit breaker state changes are logged for debugging
 
 **Plans:**
-- [x] 04-PLAN.md (Wave 1: TokenBucket + CircuitBreakerState) — RESL-01, RESL-03 infrastructure
+1/2 plans executed
 - [ ] 04-PLAN.md (Wave 2: 304 handling) — RESL-02 for Nitter/Webpage
 - [ ] 04-PLAN.md (Wave 3: Circuit breaker integration) — RESL-03 in fetch_one_async
 
@@ -125,6 +125,6 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 3. SQLite Batch Operations & Profiling | 1/1 | Complete   | 2026-04-02 |
-| 4. HTTP Resilience & Rate Limiting | 1/3 | In progress | - |
+| 4. HTTP Resilience & Rate Limiting | 1/2 | In Progress|  |
 | 5. Type Safety & Configuration Validation | 0/4 | Not started | - |
 | 6. Security Hardening & Graceful Degradation | 0/4 | Not started | - |
