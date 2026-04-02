@@ -355,6 +355,38 @@ class TestFeedDiscovery:
         assert "github.com/cli/cli" in result.output
         assert "Discovered 1 feed" in result.output
 
+    def test_feed_add_twitter_url_discovers_nitter(
+        self, cli_runner, initialized_db, monkeypatch
+    ):
+        """feed add https://twitter.com/elonmusk discovers NitterProvider feed as x:elonmusk."""
+        from src.discovery.models import DiscoveredFeed
+        from src.models import FeedType
+
+        # Mock providers.discover to return a Nitter feed
+        def mock_providers_discover(url):
+            if "twitter.com" in url or "x.com" in url:
+                return [
+                    DiscoveredFeed(
+                        url="x:elonmusk",
+                        title="Nitter: elonmusk",
+                        feed_type=FeedType.NITTER,
+                        source="provider_NitterProvider",
+                        page_url=url,
+                        valid=True,
+                    )
+                ]
+            return []
+
+        monkeypatch.setattr("src.providers.discover", mock_providers_discover)
+
+        result = cli_runner.invoke(
+            cli, ["feed", "add", "https://twitter.com/elonmusk"], input="c\n"
+        )
+        assert result.exit_code == 0
+        assert "x:elonmusk" in result.output
+        assert "NITTER" in result.output
+        assert "Discovered 1 feed" in result.output
+
 
 class TestFetchCommands:
     """Tests for fetch CLI commands: fetch --all, fetch <id>."""
