@@ -69,9 +69,13 @@ def _display_feeds(feeds: list[DiscoveredFeed], numbered: bool = False) -> None:
     }
 
     for i, feed in enumerate(feeds, 1):
-        color = color_map.get(feed.feed_type, "white")
+        # Handle both string and FeedType enum
+        feed_type_str = (
+            feed.feed_type.value if hasattr(feed.feed_type, "value") else feed.feed_type
+        )
+        color = color_map.get(feed_type_str, "white")
         title = feed.title if feed.title else "—"
-        type_display = Text(str(feed.feed_type.value).upper(), style=color)
+        type_display = Text(feed_type_str.upper(), style=color)
         if numbered:
             table.add_row(str(i), type_display, title, feed.url)
         else:
