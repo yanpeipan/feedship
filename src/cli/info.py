@@ -8,6 +8,7 @@ from pathlib import Path
 
 import click
 
+from src.cli import cli  # noqa: E402, F401
 from src.cli.ui import print_json
 from src.application.config import _get_settings
 from src.storage.sqlite.impl import get_db, get_db_path
@@ -120,4 +121,4 @@ def info(ctx: click.Context, version: bool, config: bool, storage: bool, json_ou
                 click.echo("DB Size: N/A")
 
 
-from src.cli import cli  # noqa: E402, F401
+from src.cli import FEEDSHIP_VERSION  # noqa: E402, F401
