@@ -31,7 +31,10 @@
   2. User can read feedship info command documentation in published SKILL.md
   3. User can see --json flag documented for all relevant feedship commands
   4. Both feedship and ai-daily skills are published and discoverable on clawhub
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 10-01-PLAN.md — Fix YAML frontmatter issues (SKILL-01~05, FEED-03, AID-02)
+- [ ] 10-02-PLAN.md — Add info command and --json flag docs (FEED-01, FEED-02, AID-01)
+- [ ] 10-03-PLAN.md — Validate and publish to clawhub (PUBLISH-01~03)
 
 ---
 

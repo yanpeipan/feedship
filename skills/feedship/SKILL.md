@@ -1,7 +1,6 @@
 ---
 name: feedship
-description: Manage RSS/Atom feeds, subscribe to websites, search and read articles. Use when working with feeds, RSS, Atom, subscribing to content sources, managing an information pipeline, or fetching articles from subscribed feeds. Commands: feed add|list|remove, fetch, article list|view|open|related, search, discover.
-compatibility: Install with pipx (recommended): `pipx install 'feedship[cloudflare,ml]'` or uv: `uv pip install 'feedship[cloudflare,ml]'`
+description: "Manage RSS/Atom feeds, subscribe to websites, search and read articles. Use when working with feeds, RSS, Atom, subscribing to content sources, managing an information pipeline, or fetching articles from subscribed feeds. Commands: feed add|list|remove, fetch, article list|view|open|related, search, discover."
 metadata:
   openclaw:
     requires:
@@ -11,7 +10,7 @@ metadata:
 
 # Feedship Skill
 
-**Version:** 1.0
+**Version:** 1.5
 **For:** Claude Code and OpenClaw compatible agents
 **Description:** Manage information feeds, subscribe to RSS/GitHub sources, and search articles
 
