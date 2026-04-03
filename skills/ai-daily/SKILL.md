@@ -264,3 +264,72 @@ Format:
 - For long articles, read summary via `feedship article view <id>` then select key points
 - Diversity matters: don't cluster all picks into same topic
 - For diagnostic info, run `feedship info --json` to see version, config, and storage details
+
+---
+
+## Troubleshooting
+
+### Cron Never Fires
+
+**Symptoms:** `openclaw cron list` shows the job but it never executes.
+
+**Diagnosis:**
+```bash
+openclaw gateway status
+```
+Must show: `Runtime: running`
+
+If gateway is stopped:
+```bash
+openclaw gateway start
+```
+
+Also verify the job is not disabled:
+```bash
+openclaw cron list | grep feedship-ai-daily
+```
+
+---
+
+### No Output Delivered
+
+**Symptoms:** Cron runs (exit 0) but no report appears in your channel.
+
+**Diagnosis:**
+
+1. Verify `--announce` flag is present in your cron command (see Step 2 above)
+
+2. Verify channel is configured:
+```bash
+openclaw channels list
+```
+
+3. Verify delivery target is correct:
+```bash
+openclaw cron list | grep -A5 feedship-ai-daily
+```
+Check that `--to` value matches your expected destination.
+
+---
+
+### Command Not Found in Isolated Session
+
+**Symptoms:** Cron fires but agent reports "command not found" for `feedship`.
+
+**Diagnosis:** Isolated sessions may have different PATH than your terminal.
+
+**Solution:** Use full path to feedship if needed, or verify feedship is in your PATH:
+```bash
+which feedship
+```
+
+If feedship is installed via `uv tool`, the isolated session should find it automatically. If issues persist, test with a diagnostic cron first:
+```bash
+openclaw cron add \
+  --name "diagnostic" \
+  --agent feedship-ai-daily \
+  --cron "0 8 * * *" \
+  --session isolated \
+  --announce \
+  --message "Check feedship: feedship --version"
+```
