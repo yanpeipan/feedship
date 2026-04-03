@@ -289,6 +289,28 @@ feedship feed remove old123
 feedship discover news-site.com --discover-depth 2
 ```
 
+### Scheduled Fetching (OpenClaw Best Practice)
+
+For automated periodic fetching, use platform-specific schedulers:
+
+**macOS (LaunchAgent):**
+```xml
+<!-- ~/Library/LaunchAgents/com.feedship.fetch.plist -->
+<key>ProgramArguments</key><array><string>/usr/local/bin/feedship</string><string>fetch</string><string>--all</string></array>
+<key>StartInterval</key><integer>3600</integer>  <!-- every hour -->
+```
+
+**Linux (systemd timer):**
+```ini
+# ~/.config/systemd/user/feedship-fetch.timer
+[Timer] OnBootSec=5min OnUnitActiveSec=1h
+```
+
+**Cron:**
+```bash
+0 * * * * feedship fetch --all >> ~/.feedship/fetch.log 2>&1
+```
+
 ---
 
 ## Optional Dependencies
