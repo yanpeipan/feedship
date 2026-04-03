@@ -3,6 +3,7 @@
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import platformdirs
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -68,6 +69,7 @@ def _get_settings() -> FeedshipSettings:
 
     Loads from config.yaml on first call. Subsequent calls return cached instance.
     For test isolation, settings are NOT cached across test runs.
+    Uses platformdirs to find the user config directory.
     """
     global _settings
 
@@ -75,10 +77,34 @@ def _get_settings() -> FeedshipSettings:
     import sys
 
     if "pytest" in sys.modules or _settings is None:
-        config_path = Path(__file__).parent.parent.parent / "config.yaml"
+        config_dir = platformdirs.user_config_dir("feedship", appauthor=False)
+        config_path = Path(config_dir) / "config.yaml"
+
+        # Create config directory and default config if it doesn't exist
+        if not config_path.exists():
+            Path(config_dir).mkdir(parents=True, exist_ok=True)
+            _create_default_config(config_path)
+
         _settings = FeedshipSettings.from_yaml(config_path)
 
     return _settings
+
+
+def _create_default_config(config_path: Path) -> None:
+    """Create a default config.yaml file."""
+    import yaml
+
+    default_config = {
+        "timezone": "Asia/Shanghai",
+        "bm25_factor": 0.5,
+        "feed_default_weight": 0.3,
+        "rate_limit": {},
+        "tavily": {},
+        "nitter": {},
+        "webpage_sites": {},
+    }
+    with open(config_path, "w") as f:
+        yaml.safe_dump(default_config, f, default_flow_style=False)
 
 
 def get_timezone() -> ZoneInfo:
