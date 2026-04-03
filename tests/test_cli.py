@@ -801,3 +801,67 @@ class TestDiscoverCommands:
             result = cli_runner.invoke(cli, ["discover", "https://no-feeds.com"])
         assert result.exit_code == 0
         assert "No feeds discovered" in result.output
+
+
+class TestInfoCommands:
+    """Tests for info CLI command: info --version, --config, --storage, --json."""
+
+    def test_info_all_sections(self, cli_runner, initialized_db):
+        """feedship info shows all sections (version, config, storage)."""
+        result = cli_runner.invoke(cli, ["info"])
+        assert result.exit_code == 0
+        assert "feedship v" in result.output
+        assert "Config:" in result.output
+        assert "Articles:" in result.output
+
+    def test_info_version_only(self, cli_runner, initialized_db):
+        """feedship info --version shows version only."""
+        result = cli_runner.invoke(cli, ["info", "--version"])
+        assert result.exit_code == 0
+        assert "feedship v" in result.output
+        assert "Config:" not in result.output
+        assert "Articles:" not in result.output
+
+    def test_info_config_only(self, cli_runner, initialized_db):
+        """feedship info --config shows config path and values."""
+        result = cli_runner.invoke(cli, ["info", "--config"])
+        assert result.exit_code == 0
+        assert "Config:" in result.output
+        assert "Articles:" not in result.output
+        assert "version:" in result.output.lower() or "timezone:" in result.output.lower()
+
+    def test_info_storage_only(self, cli_runner, initialized_db):
+        """feedship info --storage shows storage path and stats."""
+        result = cli_runner.invoke(cli, ["info", "--storage"])
+        assert result.exit_code == 0
+        assert "Articles:" in result.output
+        assert "feedship v" not in result.output
+
+    def test_info_json_output(self, cli_runner, initialized_db):
+        """feedship info --json outputs valid JSON."""
+        result = cli_runner.invoke(cli, ["info", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "version" in data
+        assert "config_path" in data
+        assert "config" in data
+        assert "storage_path" in data
+        assert "storage" in data
+
+    def test_info_json_with_filters(self, cli_runner, initialized_db):
+        """feedship info --config --json outputs filtered JSON."""
+        result = cli_runner.invoke(cli, ["info", "--config", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "config_path" in data
+        assert "config" in data
+        assert "version" not in data
+        assert "storage" not in data
+
+    def test_info_combined_filters(self, cli_runner, initialized_db):
+        """feedship info --version --config shows version and config only."""
+        result = cli_runner.invoke(cli, ["info", "--version", "--config"])
+        assert result.exit_code == 0
+        assert "feedship v" in result.output
+        assert "Config:" in result.output
+        assert "Articles:" not in result.output
