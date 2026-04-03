@@ -12,7 +12,7 @@ Personal information system for collecting, subscribing to, and organizing infor
 
 ## Tech Stack
 
-Python 3.10+ | click | feedparser | httpx | BeautifulSoup4 | sqlite3 | ChromaDB | sentence-transformers
+Python 3.10+ | click | feedparser | scrapling | sqlite3 | ChromaDB | sentence-transformers
 
 ## Installation
 
@@ -71,5 +71,4 @@ feedship search "python" --limit 10
 - @docs/feed.md - Feed provider architecture, fetch flow, refactoring status
 - @docs/providers.md - Provider/TagParser interfaces, registration
 - @docs/structure.md - Application structure, source files, structural rules
-- @docs/cli.md - CLI command reference
-- @docs/Automatic Discovery Feed.md - Automatic feed discovery system
+- @docs/cli-commands.md - CLI command reference

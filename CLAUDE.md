@@ -29,7 +29,7 @@ Key technologies:
 > **Note**: httpx has been replaced by scrapling.Fetcher
 <!-- GSD:stack-end -->
 
-<!-- GSD:conventions-start source:docs/Conventions.md -->
+<!-- GSD:conventions-start source:docs/structure.md -->
 ## Conventions
 
 See [docs/](docs/) for project documentation.
@@ -48,10 +48,10 @@ See [docs/release.md](docs/release.md) for full workflow. **Critical steps**:
 **Common failures**: Wrong version in pyproject.toml, using `git tag` instead of `gh release create`
 <!-- GSD:conventions-end -->
 
-<!-- GSD:architecture-start source:docs/Architecture.md -->
+<!-- GSD:architecture-start source:docs/structure.md -->
 ## Architecture
 
-See [docs/](docs/) for architecture diagrams and documentation.
+See [docs/structure.md](docs/structure.md) for application structure and source files.
 <!-- GSD:architecture-end -->
 
 <!-- GSD:workflow-start source:GSD defaults -->
