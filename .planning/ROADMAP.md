@@ -12,22 +12,86 @@
 
 ## Phases
 
-<details>
-<summary>✅ v1.6 OpenClaw Skills (Phases 10) — SHIPPED 2026-04-03</summary>
+### v1.7 OpenClaw AI Daily Report (Planning)
 
-- [x] Phase 10: Skill Enhancement and Publishing (3/3 plans) — completed 2026-04-03
+**Goal:** Integrate feedship with OpenClaw cron and multi-channel delivery for automated AI-powered daily reports
 
-</details>
+**Requirements:** DAILY-01~04, REPORT-01~04, MINE-01~03, CHANNEL-01~04 (15 total)
 
-### 🚧 v1.7 (Next Milestone)
+---
 
-**Status:** Planning pending
+- [ ] **Phase 11: OpenClaw Cron Integration** — Configure daily report scheduling via openclaw cron
+- [ ] **Phase 12: Daily Report Template** — Grouped articles, AI summary, ranking, configurable template
+- [ ] **Phase 13: AI Mining and Multi-Channel Delivery** — Startup signals, content ideas, Telegram/飞书 channels
+
+### Phase Details
+
+### Phase 11: OpenClaw Cron Integration
+
+**Goal:** Users can schedule daily report generation via `openclaw cron add` with proper isolation and announcement flags
+
+**Depends on:** None (first phase)
+
+**Requirements:** DAILY-01, DAILY-02, DAILY-03, DAILY-04
+
+**Success Criteria** (what must be TRUE):
+1. User can add cron job with `openclaw cron add --session isolated --announce --to <target>` targeting feedship ai-daily
+2. Cron job executes in isolated session mode without context pollution
+3. Cron job uses `--announce` flag to ensure report outputs to configured channel
+4. ai-daily SKILL.md contains complete cron configuration examples
+
+**Plans**: TBD
+
+**UI hint**: yes
+
+---
+
+### Phase 12: Daily Report Template
+
+**Goal:** Users receive daily reports with grouped articles, AI-generated summaries, and configurable ranking
+
+**Depends on:** Phase 11
+
+**Requirements:** REPORT-01, REPORT-02, REPORT-03, REPORT-04
+
+**Success Criteria** (what must be TRUE):
+1. Daily report displays articles grouped by feed/source
+2. Daily report includes AI-generated summary with 3-5 key points
+3. Daily report supports ranking by views/relevance (configurable)
+4. Report template is documented and configurable via ai-daily skill documentation
+
+**Plans**: TBD
+
+---
+
+### Phase 13: AI Mining and Multi-Channel Delivery
+
+**Goal:** Users receive AI-mined insights (startup signals, content ideas) delivered via Telegram and/or 飞书
+
+**Depends on:** Phase 12
+
+**Requirements:** MINE-01, MINE-02, MINE-03, CHANNEL-01, CHANNEL-02, CHANNEL-03, CHANNEL-04
+
+**Success Criteria** (what must be TRUE):
+1. Daily report includes "创业信号" section with funding, acquisitions, and trend opportunities
+2. Daily report includes "创作点" section with story angles and trending topics
+3. AI mining results are structured for clean channel delivery
+4. Telegram channel delivery works via openclaw channel configuration
+5. 飞书 channel delivery works via openclaw channel configuration
+6. ai-daily SKILL.md contains complete channel setup guides (Telegram + 飞书)
+7. Channel selection is flexible via OpenClaw config without code changes
+
+**Plans**: TBD
+
+---
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 10. Skill Enhancement and Publishing | v1.6 | 3/3 | Complete | 2026-04-03 |
+| 11. OpenClaw Cron Integration | v1.7 | 1/2 | In Progress|  |
+| 12. Daily Report Template | v1.7 | 0/1 | Not started | - |
+| 13. AI Mining and Multi-Channel Delivery | v1.7 | 0/1 | Not started | - |
 
 ---
 
