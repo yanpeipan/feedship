@@ -201,3 +201,4 @@ Format:
 - Use `feedship feed list -v` to see feed weights
 - For long articles, read summary via `feedship article view <id>` then select key points
 - Diversity matters: don't cluster all picks into same topic
+- For diagnostic info, run `feedship info --json` to see version, config, and storage details

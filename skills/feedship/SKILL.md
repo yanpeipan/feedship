@@ -1,6 +1,6 @@
 ---
 name: feedship
-description: "Manage RSS/Atom feeds, subscribe to websites, search and read articles. Use when working with feeds, RSS, Atom, subscribing to content sources, managing an information pipeline, or fetching articles from subscribed feeds. Commands: feed add|list|remove, fetch, article list|view|open|related, search, discover."
+description: "Manage RSS/Atom feeds, subscribe to websites, search and read articles. Use when working with feeds, RSS, Atom, subscribing to content sources, managing an information pipeline, or fetching articles from subscribed feeds. Commands: feed add|list|remove, fetch, article list|view|open|related, search, discover, info."
 metadata:
   openclaw:
     requires:
@@ -99,6 +99,7 @@ List all subscribed feeds with status.
 
 **Options:**
 - `-v, --verbose` — Show detailed output
+- `--json` — Output in JSON format for programmatic consumption
 
 #### feed remove
 
@@ -147,6 +148,7 @@ feedship article list [options]
 - `--since <date>` — Start date (YYYY-MM-DD)
 - `--until <date>` — End date (YYYY-MM-DD)
 - `--on <date>` — Specific date (can repeat for multiple)
+- `--json` — Output in JSON format for programmatic consumption
 
 #### article view
 
@@ -190,6 +192,7 @@ Search articles using full-text or semantic search.
 - `--since <date>` — Start date filter
 - `--until <date>` — End date filter
 - `--on <date>` — Specific date filter
+- `--json` — Output in JSON format for programmatic consumption
 
 **Examples:**
 ```bash
@@ -210,11 +213,36 @@ Discover RSS/Atom/RDF feeds on a website without subscribing.
 
 **Options:**
 - `--discover-depth N` — Crawl depth 1-10 (default: 1)
+- `--json` — Output in JSON format for programmatic consumption
 
 **Examples:**
 ```bash
 feedship discover example.com
 feedship discover example.com --discover-depth 3
+```
+
+### info
+
+```bash
+feedship info [options]
+```
+
+Display system information, configuration, and storage status.
+
+**Options:**
+- `--json` — Output in JSON format for programmatic consumption
+
+**Output includes:**
+- Version information
+- Configuration file location
+- Database/storage path
+- Feed count and article count
+- Installed extras (ml, cloudflare)
+
+**Examples:**
+```bash
+feedship info
+feedship info --json
 ```
 
 ---
