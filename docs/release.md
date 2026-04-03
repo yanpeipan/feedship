@@ -117,6 +117,23 @@ print('Latest:', d['info']['version'])
 - **Fix**: Re-trigger the workflow from GitHub Actions UI — the build is already done and PyPI will accept the same file
 - **Prevention**: `retry-time-seconds: 30` handles most transient failures
 
+## Manual PyPI Publish (Alternative to CI)
+
+If CI trusted publishing fails, publish manually with `uv`:
+
+```bash
+# 1. Build the package
+rm -rf dist/ && uv build
+
+# 2. Publish to PyPI
+uv publish
+
+# Or with explicit credentials:
+UV_PUBLISH_TOKEN="your-token" uv publish
+```
+
+**Note:** Requires PyPI token via `UV_PUBLISH_TOKEN` env var or keyring.
+
 ## Rollback
 
 ```bash

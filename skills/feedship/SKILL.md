@@ -20,12 +20,11 @@ metadata:
 Before using this skill, install feedship with ML and cloud extras:
 
 ```bash
-# Recommended: pipx (isolated, managed)
-pipx install 'feedship[cloudflare,ml]'
+# Recommended: uv (isolated, managed)
+uv tool install 'feedship[ml,cloudflare]' --python 3.12 --force
 
-# Alternative: uv
-uv pip install 'feedship[cloudflare,ml]'
-```
+# Alternative: pipx
+pipx install 'feedship[cloudflare,ml]'```
 
 > **Note:** `cloudflare` extra provides scrapling (HTML fetching); `ml` extra provides
 > sentence-transformers + chromadb (semantic search). Both are required for full functionality.
