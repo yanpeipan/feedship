@@ -53,7 +53,10 @@
 5. User can run `feedship info --json` and get machine-readable JSON output
 6. User can combine filter flags with `--json` to get filtered JSON output
 
-**Plans:** TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 09-01-PLAN.md — Create `feedship info` CLI command with --version, --config, --storage, --json flags
 
 ---
 
@@ -61,7 +64,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Info Command MVP | 0/TBD | Not started | - |
+| 1. Info Command MVP | 0/1 | Planning complete | - |
 
 ---
 
