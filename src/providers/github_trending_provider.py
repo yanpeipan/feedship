@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import urllib.parse
 from typing import TYPE_CHECKING
 
 from src.discovery.models import DiscoveredFeed
@@ -80,21 +81,51 @@ class GitHubTrendingProvider:
         """
         return 300
 
+    def _parse_period_from_url(self, url: str) -> str | None:
+        """Parse the period from a GitHub trending URL's query parameters.
+
+        Args:
+            url: GitHub trending URL to parse.
+
+        Returns:
+            'daily', 'weekly', 'monthly' if valid since= value found, else None.
+        """
+        try:
+            parsed = urllib.parse.urlparse(url)
+            params = urllib.parse.parse_qs(parsed.query)
+            since_values = params.get("since", [])
+            if since_values:
+                period = since_values[0].lower()
+                if period in ("daily", "weekly", "monthly"):
+                    return period
+        except Exception:
+            pass
+        return None
+
     def fetch_articles(self, feed: Feed) -> FetchedResult:
-        """Fetch trending repositories for all periods.
+        """Fetch trending repositories for specified period or all periods.
 
         Args:
             feed: Feed object containing url.
 
         Returns:
-            FetchedResult with combined articles from all periods.
+            FetchedResult with combined articles from selected period(s).
         """
         articles = []
         seen_guids = set()  # Track seen GUIDs to avoid duplicates
 
-        for period, period_url in TRENDING_URLS.items():
+        # Determine which periods to fetch
+        period = self._parse_period_from_url(feed.url)
+        if period:
+            periods_to_fetch = [(period, TRENDING_URLS[period])]
+        else:
+            periods_to_fetch = list(TRENDING_URLS.items())
+
+        for selected_period, period_url in periods_to_fetch:
             try:
-                period_articles = self._fetch_trending_for_period(period, period_url)
+                period_articles = self._fetch_trending_for_period(
+                    selected_period, period_url
+                )
                 # Deduplicate by GUID within this period
                 for article in period_articles:
                     if article["guid"] not in seen_guids:
@@ -104,7 +135,7 @@ class GitHubTrendingProvider:
                 logger.error(
                     "GitHubTrendingProvider.fetch_articles(%s) failed for %s: %s",
                     feed.url,
-                    period,
+                    selected_period,
                     e,
                 )
 
@@ -191,14 +222,24 @@ class GitHubTrendingProvider:
         stars_el = entry.css(TRENDING_SELECTORS["stars"]).first
         stars_text = stars_el.text.strip() if stars_el else "0"
         # Parse number from text (remove commas and non-digits)
-        stars_str = "".join(c for c in stars_text if c.isdigit() or c == ",")
-        stars = int(stars_str.replace(",", "")) if stars_str else 0
+        stars = 0
+        try:
+            stars_str = "".join(c for c in stars_text if c.isdigit() or c == ",")
+            if stars_str:
+                stars = int(float(stars_str.replace(",", "")))
+        except Exception:
+            stars = 0
 
         # Extract forks
         forks_el = entry.css(TRENDING_SELECTORS["forks"]).first
         forks_text = forks_el.text.strip() if forks_el else "0"
-        forks_str = "".join(c for c in forks_text if c.isdigit() or c == ",")
-        forks = int(forks_str.replace(",", "")) if forks_str else 0
+        forks = 0
+        try:
+            forks_str = "".join(c for c in forks_text if c.isdigit() or c == ",")
+            if forks_str:
+                forks = int(float(forks_str.replace(",", "")))
+        except Exception:
+            forks = 0
 
         # Build title: [15000★] user/repo: description
         title = f"[{stars}★] {user_repo}: {description}"
