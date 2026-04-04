@@ -1,5 +1,5 @@
 ---
-version: 1.6.0
+version: 1.7.0
 name: feedship-ai-daily
 description: "Generate daily AI news digest from feedship subscriptions. Use when user wants today's news summary, daily briefing, periodic news recap, AI daily digest, ai daily, AI 日报, ai 日报, 生成简报, or 大模型日报. Reads existing feedship subscriptions, fetches latest articles, and generates a 4-section digest: (A) AI五层蛋糕, (B) 精选推荐 (featured picks + hot topics merged), (C) 创业信号, (D) 创作点. Requires feedship skill."
 metadata:
@@ -70,7 +70,9 @@ openclaw cron add \
   --session isolated \
   --announce \
   --channel telegram \
-  --to <YOUR_CHAT_ID>
+  --to <YOUR_CHAT_ID> \
+  --timeout-seconds 600 \
+  --message "使用 feedship-ai-daily skill 生成今日日报。先读取 ~/clawd/skills/ai-daily/SKILL.md 和 REPORT_FORMAT.md 了解格式要求，然后严格遵循 A-D 四段式格式生成报告。"
 ```
 
 ### 飞书 Setup
@@ -112,7 +114,9 @@ openclaw cron add \
   --session isolated \
   --announce \
   --channel feishu \
-  --to <YOUR_FEISHU_OPEN_ID>
+  --to <YOUR_FEISHU_OPEN_ID> \
+  --timeout-seconds 600 \
+  --message "使用 feedship-ai-daily skill 生成今日日报。先读取 ~/clawd/skills/ai-daily/SKILL.md 和 REPORT_FORMAT.md 了解格式要求，然后严格遵循 A-D 四段式格式生成报告。"
 ```
 
 ---
@@ -169,12 +173,15 @@ openclaw cron add \
   --announce \
   --channel <your-channel> \
   --to <your-destination> \
-  --timeout-seconds 600
+  --timeout-seconds 600 \
+  --message "使用 feedship-ai-daily skill 生成今日日报。先读取 ~/clawd/skills/ai-daily/SKILL.md 和 REPORT_FORMAT.md 了解格式要求，然后严格遵循 A-D 四段式格式生成报告。"
 ```
 
 Replace:
 - `<your-channel>` with your channel type (e.g., `telegram`, `whatsapp`, `feishu`)
 - `<your-destination>` with your delivery target (e.g., `+15555550123` for WhatsApp, `@your_bot` for Telegram)
+
+**Note:** The `--message` flag with skill instructions is required because cron jobs currently route through the main agent, which does not auto-load skill instructions. The message tells the agent to read the skill files before generating the report.
 
 #### Step 3: Verify the Cron Job
 
