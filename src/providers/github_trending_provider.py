@@ -39,8 +39,8 @@ TRENDING_SELECTORS = {
     "repo_link": "h2 a",
     "description": "p",
     "language": "span[itemprop='programmingLanguage']",
-    "stars": "a.Link--muted:nth-of-type(2)",
-    "forks": "a.Link--muted:nth-of-type(3)",
+    "stars": "a.Link--muted:nth-of-type(1)",
+    "forks": "a.Link--muted:nth-of-type(2)",
 }
 
 
@@ -220,7 +220,7 @@ class GitHubTrendingProvider:
 
         # Extract stars - text is like "15,000 stars today"
         stars_el = entry.css(TRENDING_SELECTORS["stars"]).first
-        stars_text = stars_el.text.strip() if stars_el else "0"
+        stars_text = stars_el.css("::text").get().strip() if stars_el else "0"
         # Parse number from text (remove commas and non-digits)
         stars = 0
         try:
@@ -232,7 +232,7 @@ class GitHubTrendingProvider:
 
         # Extract forks
         forks_el = entry.css(TRENDING_SELECTORS["forks"]).first
-        forks_text = forks_el.text.strip() if forks_el else "0"
+        forks_text = forks_el.css("::text").get().strip() if forks_el else "0"
         forks = 0
         try:
             forks_str = "".join(c for c in forks_text if c.isdigit() or c == ",")
