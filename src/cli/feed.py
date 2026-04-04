@@ -483,33 +483,17 @@ def fetch(
                 result = provider.fetch_articles(feed)
                 articles = result.articles
 
-                # Format articles for JSON output
-                formatted_articles = []
-                for article in articles:
-                    formatted_articles.append(
-                        {
-                            "title": article.get("title"),
-                            "link": article.get("link"),
-                            "description": article.get("description"),
-                            "published_at": article.get("published_at"),
-                            "author": article.get("author"),
-                            "tags": article.get("tags"),
-                            "category": article.get("category"),
-                            "guid": article.get("guid"),
-                        }
-                    )
-
                 if json_output:
                     print_json(
                         {
-                            "articles": formatted_articles,
-                            "count": len(formatted_articles),
+                            "articles": articles,
+                            "count": len(articles),
                         }
                     )
                 else:
-                    if formatted_articles:
+                    if articles:
                         click.secho(
-                            f"Fetched {len(formatted_articles)} articles from {url_to_fetch}",
+                            f"Fetched {len(articles)} articles from {url_to_fetch}",
                             fg="green",
                         )
                     else:
