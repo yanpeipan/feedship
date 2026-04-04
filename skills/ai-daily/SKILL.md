@@ -1,7 +1,7 @@
 ---
-version: 1.10.0
+version: 1.11.0
 name: feedship-ai-daily
-description: "Generate daily AI news digest from feedship subscriptions. Use when user wants today's news summary, daily briefing, periodic news recap, AI daily digest, ai daily, AI 日报, ai 日报, 生成简报, or 大模型日报. Reads existing feedship subscriptions, fetches latest articles, and generates a 4-section digest: (A) AI五层蛋糕, (B) 精选推荐 (featured picks + hot topics merged), (C) 创业信号, (D) 创作点. Requires feedship skill."
+description: "Generate daily AI news digest from feedship subscriptions. Use when user wants today's news summary, daily briefing, periodic news recap, AI daily digest, ai daily, AI 日报, ai 日报, 生成简报, or 大模型日报. Reads existing feedship subscriptions, fetches latest articles, and generates a 6-section digest: (A) AI五层蛋糕, (B) 精选推荐, (C) 创业信号, (D) 创作点, (E) 政策解读, (F) 媒体热点. Requires feedship skill."
 metadata:
   openclaw:
     requires:
@@ -15,7 +15,7 @@ metadata:
 
 # AI 日报 (Feedship AI Daily)
 
-**Version:** 1.7.0
+**Version:** 1.11.0
 **For:** OpenClaw compatible agents
 **Description:** Generate daily AI news digest from feedship subscriptions
 
@@ -247,7 +247,7 @@ feedship article view <article-id>
 
 ## Report Format
 
-**IMPORTANT: Every report MUST contain exactly 4 sections (A-D) in order.**
+**IMPORTANT: Every report MUST contain exactly 6 sections (A-F) in order.**
 
 Read the full format specification: `SKILL.md/REPORT_FORMAT.md`
 
@@ -259,6 +259,8 @@ Read the full format specification: `SKILL.md/REPORT_FORMAT.md`
 | B | 精选推荐 | Top 5-8 ranked articles with links + hot topics merged |
 | C | 创业信号 | Funding, acquisitions, trends |
 | D | 创作点 | Content angles and story ideas |
+| E | 政策解读 | Policy & regulation developments |
+| F | 媒体热点 | Viral discussions and media trends |
 
 ---
 

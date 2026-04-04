@@ -1,6 +1,6 @@
 # AI 日报报告格式
 
-**MANDATORY: Every report MUST contain exactly these 4 sections in order. Do not skip, combine, or omit any section.**
+**MANDATORY: Every report MUST contain exactly these 6 sections in order. Do not skip, combine, or omit any section.**
 
 ---
 
@@ -136,6 +136,64 @@ Extract story angles and trending topics for content creation from existing arti
 - Trending: "viral", "trending", "breaking"
 - Controversial: "debate", "critics say", "controversial"
 - Actionable: "X steps to", "lessons from"
+
+---
+
+## Section E: 政策解读 (Policy & Regulation)
+
+Track AI regulations, government policies, and regulatory developments globally.
+
+**Format:**
+
+```
+## E. 政策解读
+
+### 全球监管
+- [n] 篇相关
+- [Source] Article Title — 描述监管动向
+
+### 法规动态
+- [n] 篇相关
+- [Source] Article Title — 描述具体法规或立法进展
+
+### 合规提示
+- [n] 篇相关
+- [Source] Article Title — 对从业者的合规建议
+```
+
+**Key patterns to detect:**
+- Regulation: "regulation", "law", "bill", "act", "policy"
+- Government: "government", "EU", "US", "China", "agency", "FCC", " FTC", "CMA"
+- Compliance: "compliance", "GDPR", "safety", "audit", "guidelines", "mandate"
+
+---
+
+## Section F: 媒体热点 (Media Highlights)
+
+Capture viral discussions, social media trends, and public sentiment around AI topics.
+
+**Format:**
+
+```
+## F. 媒体热点
+
+### 社交热议
+- [n] 篇相关
+- [Source] Article Title — 描述热点讨论
+
+### Viral内容
+- [n] 篇相关
+- [Source] Article Title — 描述viral或刷屏内容
+
+### 舆论焦点
+- [n] 篇相关
+- [Source] Article Title — 描述舆论关注点
+```
+
+**Key patterns to detect:**
+- Viral: "viral", "trending", "breaking", "going viral"
+- Social: "Twitter", "X", "Reddit", "LinkedIn", "social media", "viral"
+- Public sentiment: "public", "opinion", "reaction", "response", "backlash"
 
 ---
 
