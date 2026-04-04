@@ -2,7 +2,8 @@
 
 ## Milestones
 
-- 🟡 **v1.8 OpenClaw 本地测试与 Skill 迭代** — Phases 14-17 (in progress)
+- 🟡 **v1.9 fetch --url** — Phase 18 (in progress)
+- ✅ **v1.8 OpenClaw 本地测试与 Skill 迭代** — Phases 14-17 (shipped 2026-04-05)
 - ✅ **v1.7 OpenClaw AI Daily Report** — Phases 11-13 (shipped 2026-04-04)
 - ✅ **v1.6 OpenClaw Skills** — Phase 10 (shipped 2026-04-03)
 - ✅ **v1.5 Info Command** — SHIPPED 2026-04-03
@@ -14,9 +15,29 @@
 
 ## Phases
 
-### v1.8 (Current)
+### v1.9 (Current)
 
-**Goal:** 在本地 OpenClaw 环境测验 feedship-ai-daily，基于测试结果持续优化 skill 文档
+**Goal:** 对 `feedship fetch` 增加 `--url` 支持，允许不保存到数据库直接抓取 URL
+
+---
+
+### Phase 18: fetch --url 实现
+
+**Goal:** 实现 `--url` 参数和 `articles` 字段返回
+
+**Depends on:** None
+
+**Requirements:** FETCH-01, FETCH-02, FETCH-03, FETCH-04, FETCH-05, FETCH-06
+
+**Success Criteria** (what must be TRUE):
+1. `feedship fetch --url https://github.com/trending --json` 能抓取并返回 articles
+2. 返回的 JSON 包含 `articles` 数组，每个 article 有 title/link/description/published_at
+3. `--url` 和 `--id` 互斥，同时使用时报错
+4. 无效 URL 或无 provider 时返回友好错误信息
+5. GitHub Trending URL 抓取成功
+
+**Plans**:
+- [x] 18-01-PLAN.md — fetch --url 实现 (FETCH-01~06)
 
 ---
 
@@ -98,6 +119,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
+| 18. fetch --url 实现 | v1.9 | 1/1 | In Progress | — |
 | 14. 基础流程测试 | v1.8 | 1/1 | Complete | 2026-04-04 |
 | 15. Cron 与 Isolated Session | v1.8 | 1/1 | Complete | 2026-04-04 |
 | 16. 报告格式验证 | v1.8 | 1/1 | Complete | 2026-04-04 |
@@ -105,4 +127,4 @@
 
 ---
 
-_See `.planning/milestones/v1.7-ROADMAP.md` for full v1.7 details_
+_See `.planning/milestones/` for archived milestone roadmaps_
