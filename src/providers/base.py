@@ -5,7 +5,7 @@ Defines the ContentProvider protocol that all providers must implement.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
@@ -32,11 +32,7 @@ class Article:
     author: str | None = None
     tags: str | None = None
     category: str | None = None
-    meta: dict = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.meta is None:
-            self.meta = {}
+    meta: dict = field(default_factory=dict)
 
 
 @dataclass
