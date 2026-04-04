@@ -9,7 +9,6 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import logging
 import urllib.parse
 from typing import TYPE_CHECKING
@@ -244,15 +243,6 @@ class GitHubTrendingProvider:
         # Build title: [15000★] user/repo: description
         title = f"[{stars}★] {user_repo}: {description}"
 
-        # Build metadata JSON
-        metadata = {
-            "stars": stars,
-            "forks": forks,
-            "language": language,
-            "rank": rank,
-            "period": period,
-        }
-
         # Build tags: language:Python,stars:15000
         tags = f"language:{language},stars:{stars}" if language else f"stars:{stars}"
 
@@ -263,11 +253,16 @@ class GitHubTrendingProvider:
             title=title,
             link=repo_url,
             guid=guid,
-            published_at=None,  # No published date for trending
+            published_at=None,
             description=description,
-            content=json.dumps(metadata),  # Store metadata in content
+            content=description,
             tags=tags,
             category="",
+            stars=stars,
+            forks=forks,
+            language=language,
+            rank=rank,
+            period=period,
         )
 
     def parse_feed(self, url: str, response: Response = None) -> DiscoveredFeed:
