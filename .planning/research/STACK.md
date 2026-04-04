@@ -1,195 +1,239 @@
-# Stack Research: OpenClaw Skill Publishing
+# Stack Research: OpenClaw Scheduled AI Daily Reports
 
-**Domain:** Claude Code / OpenClaw skill publishing to clawhub
-**Researched:** 2026-04-03
-**Confidence:** MEDIUM
+**Domain:** CLI tool with OpenClaw integration for scheduled AI report delivery
+**Researched:** 2026-04-04
+**Confidence:** HIGH (verified via OpenClaw CLI v2026.4.2)
 
 ## Recommended Stack
 
-### Core Technologies
+### Core Integration Layer
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| SKILL.md | 1.0 | Skill definition format | Required file format for OpenClaw/clawhub skill registration |
-| YAML frontmatter | 1.1+ | Metadata specification | Standard for skill frontmatter; parsable by OpenClaw runtime |
-| Anthropic SDK | beta | Skill publishing API | Official API for creating/managing skills on clawhub |
-| uv | latest | Package installation | Recommended installer for Python-based skills |
+| **openclaw** | 2026.4.2 | Agent runtime, cron scheduler, channel management | Native CLI for scheduling and delivery; no additional libraries needed |
+| **openclaw CLI** | (bundled) | `cron add`, `agent --deliver`, `channels` subcommands | Already installed; provides full scheduling pipeline |
 
-### Skill Format (SKILL.md)
+### No New Python Dependencies Required
 
-The SKILL.md file uses YAML frontmatter followed by markdown content:
+The feedship project already has all necessary dependencies:
+- `scrapling` for HTTP fetching
+- `feedparser` for RSS parsing
+- `chromadb` + `sentence-transformers` for semantic search
+- Existing `feedship` CLI for article retrieval
 
-```yaml
+OpenClaw integration is entirely CLI-based (shell commands), not Python imports.
+
 ---
-name: skill-name
-description: |
-  One-line summary. Use when [trigger phrases].
-  Commands: cmd1, cmd2, cmd3.
-compatibility: Install with uv or pipx
-metadata:
-  openclaw:
-    requires:
-      bins:
-        - uv
-      cron:
-        syntax: cron([minute,] [hour,] [day-of-month,] [month,] [day-of-week])
-        default: "0 8 * * *"
-        description: "Optional cron schedule description"
+
+## OpenClaw Commands Reference
+
+### `openclaw cron add` — Schedule Daily Reports
+
+```bash
+openclaw cron add [options]
+```
+
+**Key options for daily AI report:**
+
+| Option | Purpose | Example |
+|--------|---------|---------|
+| `--cron <expr>` | Cron expression (5 or 6 fields) | `--cron "0 8 * * *"` (daily 8 AM) |
+| `--agent <id>` | Agent ID to invoke | `--agent feedship-ai-daily` |
+| `--message <text>` | Message payload for agent | `--message "Generate daily digest"` |
+| `--session <mode>` | Session mode: `main` or `isolated` | `--session isolated` |
+| `--channel <ch>` | Delivery channel | `--channel whatsapp` |
+| `--to <dest>` | Delivery destination | `--to +15555550123` |
+| `--announce` | Announce summary to chat (replaces deprecated `--deliver`) | `--announce` |
+| `--name <name>` | Job name for identification | `--name "daily-ai-report"` |
+| `--description <text>` | Job description | `--description "Daily AI news digest"` |
+| `--tz <iana>` | Timezone (IANA) | `--tz Asia/Shanghai` |
+| `--timeout-seconds <n>` | Agent timeout | `--timeout-seconds 600` |
+| `--thinking <level>` | Thinking level | `--thinking medium` |
+
+**Example command:**
+```bash
+openclaw cron add \
+  --name "feedship-ai-daily" \
+  --description "Daily AI news digest from feedship subscriptions" \
+  --agent feedship-ai-daily \
+  --cron "0 8 * * *" \
+  --tz Asia/Shanghai \
+  --session isolated \
+  --channel whatsapp \
+  --to +15555550123 \
+  --announce \
+  --timeout-seconds 600 \
+  --thinking medium
+```
+
+### `openclaw agent --deliver` — On-Demand Report Generation
+
+```bash
+openclaw agent --message "Generate daily digest" --deliver [options]
+```
+
+**Key options:**
+
+| Option | Purpose | Example |
+|--------|---------|---------|
+| `--message <text>` | Message to agent | `--message "Generate daily digest"` |
+| `--deliver` | Send reply to channel | `--deliver` |
+| `--channel <ch>` | Delivery channel | `--channel telegram` |
+| `--reply-to <target>` | Override delivery target | `--reply-to "#reports"` |
+| `--session-id <id>` | Use specific session | `--session-id abc123` |
+| `--agent <id>` | Use specific agent | `--agent feedship-ai-daily` |
+| `--thinking <level>` | Thinking level | `--thinking medium` |
+
+**Example command:**
+```bash
+openclaw agent \
+  --agent feedship-ai-daily \
+  --message "Generate daily digest" \
+  --deliver \
+  --channel whatsapp \
+  --to +15555550123
+```
+
 ---
-```
 
-### Required Frontmatter Fields
+## Session Modes: Main vs Isolated
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | Yes | Skill identifier (kebab-case recommended) |
-| `description` | Yes | Trigger phrases and command summary for agent routing |
-| `compatibility` | Recommended | Installation instructions |
-| `metadata.openclaw.requires.bins` | For CLI tools | Required binary executables |
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| **main** | Shares main conversation context | Interactive chat with context history |
+| **isolated** | Fresh session, no prior context | Scheduled jobs; clean slate each run |
 
-### Optional Frontmatter Fields
+**Recommendation:** Use `--session isolated` for cron jobs to avoid polluting main session context.
 
-| Field | When to Use | Example |
-|-------|-------------|---------|
-| `metadata.openclaw.cron` | Scheduled skills | Daily digest at 8 AM |
-| `homepage` | External project pages | Project GitHub URL |
-| `metadata.clawdbot` | Alternative format | Contains `emoji`, `requires`, `install` |
-
-### Publishing Methods
-
-#### Method 1: Anthropic SDK (Recommended for API-based publishing)
-
-```typescript
-import Anthropic from '@anthropic-ai/sdk';
-
-const client = new Anthropic();
-
-const skill = await client.beta.skills.create({
-  display_title: 'Feedship',
-  files: ['skills/feedship/'],  // Directory containing SKILL.md
-});
-```
-
-#### Method 2: clawhub CLI
-
-No CLI tool found installed. The registry is `https://clawhub.ai`.
-
-#### Method 3: Manual via clawhub.ai
-
-1. Create skill directory with SKILL.md
-2. Publish via web interface at clawhub.ai
-
-### Versioning
-
-Skills use semantic versioning in frontmatter `version` field:
-
-```yaml
 ---
-name: feedship
-version: 1.0.0
+
+## Channel Configuration
+
+### Supported Channels
+
+| Channel | Setup Required | Command |
+|---------|-----------------|---------|
+| **whatsapp** | QR code login | `openclaw channels login --channel whatsapp` |
+| **telegram** | Bot token | `openclaw channels add --channel telegram --token <TOKEN>` |
+| **discord** | Bot token + guild | `openclaw channels add --channel discord --token <TOKEN>` |
+| **feishu** | OAuth app config | `openclaw configure --section channels` |
+| **slack** | Bot token + workspace | `openclaw channels add --channel slack --token <TOKEN>` |
+| **imessage** | Built-in (macOS) | Automatic |
+
+### List Channels
+
+```bash
+openclaw channels list
+```
+
+### Add Channel (non-interactive example)
+
+```bash
+openclaw channels add --channel telegram --token <BOT_TOKEN>
+```
+
 ---
-```
 
-Version is tracked in `.clawdhub/origin.json` after installation:
+## Cron Management Commands
 
-```json
-{
-  "version": 1,
-  "registry": "https://clawhub.ai",
-  "slug": "feedship",
-  "installedVersion": "1.0.0",
-  "installedAt": 1774976888127
-}
-```
+| Command | Purpose |
+|---------|---------|
+| `openclaw cron list` | List all cron jobs |
+| `openclaw cron status` | Show scheduler status |
+| `openclaw cron run <id>` | Run job immediately (debug) |
+| `openclaw cron runs <id>` | Show run history |
+| `openclaw cron edit <id>` | Modify job fields |
+| `openclaw cron enable/disable <id>` | Toggle job |
+| `openclaw cron rm <id>` | Remove job |
 
-### Dependencies Specification
+---
 
-#### Binary Requirements (`metadata.openclaw.requires.bins`)
-
-```yaml
-metadata:
-  openclaw:
-    requires:
-      bins:
-        - uv
-        - feedship
-```
-
-#### Install Instructions (`metadata.clawdbot` alternative format)
-
-```yaml
-metadata:
-  clawdbot:
-    emoji: "📰"
-    requires:
-      bins: ["blogwatcher"]
-    install:
-      - id: go
-        kind: go
-        module: github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest
-        bins: ["blogwatcher"]
-        label: "Install blogwatcher (go)"
-```
-
-## Existing Skill Structure in feedship
-
-Current skills in `/Users/y3/feedship/skills/`:
-
-- `feedship/SKILL.md` - Uses `metadata.openclaw.requires.bins: [uv]`
-- `ai-daily/SKILL.md` - Uses `metadata.openclaw.requires.bins: [uv]` with cron support
-
-Both skills are already in the correct format for clawhub publishing.
-
-## What NOT to Use
+## What NOT to Add
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| Non-YAML frontmatter | OpenClaw parser expects YAML | Proper YAML block |
-| Missing `name` field | Skill cannot be registered | Include `name` in frontmatter |
-| Missing `description` | Agent cannot route to skill | Include trigger phrases in description |
-| Hardcoded absolute paths | Not portable | Relative paths or environment variables |
-| Outdated SDK versions | Missing beta features | Use latest `@anthropic-ai/sdk` beta |
+| **Python OpenClaw SDK** | OpenClaw is CLI-first | Shell commands via `subprocess` or `click.run()` |
+| **Additional cron libraries** | OpenClaw handles scheduling | `openclaw cron add` |
+| **Message queue systems** | OpenClaw gateway handles delivery | `openclaw agent --deliver` |
+| **APScheduler, celery, etc.** | Overengineering | OpenClaw cron scheduler |
 
-## Version Compatibility
+---
 
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| `@anthropic-ai/sdk` | Node.js 18+ | Required for beta skills API |
-| YAML | Any | Standard parsing |
-| uv | Python 3.8+ | Recommended Python package installer |
+## Skill Metadata Update (ai-daily)
 
-## Skill Directory Structure
+The existing `skills/ai-daily/SKILL.md` defines cron in metadata:
+
+```yaml
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - uv
+    cron:
+      syntax: cron([minute,] [hour,] [day-of-month,] [month,] [day-of-week])
+      default: "0 8 * * *"  # Daily at 8:00 AM
+      description: "Generate daily AI news digest every day at 8 AM"
+```
+
+**v1.7 Update needed:** Add documentation for:
+- `--session isolated` flag for cron jobs
+- `--announce` for automatic delivery
+- `--channel` and `--to` for delivery target
+
+---
+
+## Integration Architecture
 
 ```
-skills/
-├── feedship/
-│   └── SKILL.md          # Required: skill definition
-├── ai-daily/
-│   └── SKILL.md          # Required: skill definition
+feedship (Python CLI)
+       │
+       │ (existing: article list, search, fetch)
+       ▼
+OpenClaw Gateway (WebSocket)
+       │
+       ├── cron scheduler ──► agent ──► feedship commands ──► ai-daily report
+       │
+       └── channels ──► delivery (WhatsApp/Telegram/etc)
 ```
 
-Optional additional files (not required for basic publishing):
-- `references/` - Additional documentation
-- `hooks/` - OpenClaw hook handlers
-- `src/` - Skill source code
+**No code changes to feedship needed.** OpenClaw integration is entirely CLI-based.
 
-## Publishing Checklist
+---
 
-- [ ] SKILL.md has valid YAML frontmatter with `name` and `description`
-- [ ] `description` includes trigger phrases for agent routing
-- [ ] `metadata.openclaw.requires.bins` lists all required binaries
-- [ ] Version is updated in frontmatter
-- [ ] Content is tested with OpenClaw-compatible agent
+## Example: Complete Setup Flow
+
+```bash
+# 1. Verify OpenClaw is installed
+openclaw --version
+
+# 2. Configure delivery channel (e.g., WhatsApp)
+openclaw channels login --channel whatsapp
+
+# 3. Add cron job for daily AI digest
+openclaw cron add \
+  --name "feedship-ai-daily" \
+  --agent feedship-ai-daily \
+  --cron "0 8 * * *" \
+  --tz Asia/Shanghai \
+  --session isolated \
+  --announce \
+  --channel whatsapp \
+  --to +15555550123
+
+# 4. List cron jobs to verify
+openclaw cron list
+
+# 5. Test on-demand delivery
+openclaw agent --agent feedship-ai-daily --message "Generate daily digest" --deliver
+```
+
+---
 
 ## Sources
 
-- `/Users/y3/feedship/skills/feedship/SKILL.md` - Existing skill format (HIGH confidence)
-- `/Users/y3/feedship/skills/ai-daily/SKILL.md` - Cron metadata example (HIGH confidence)
-- `/Users/y3/clawd/skills/feedship/.clawdhub/origin.json` - clawhub registry tracking (HIGH confidence)
-- `/Users/y3/.claude/skills/blogwatcher/SKILL.md` - Alternative clawdbot format (HIGH confidence)
-- Anthropic SDK `skills.d.ts` - API types for beta skills API (HIGH confidence)
-- `/Users/y3/.claude/skills/gstack/*/SKILL.md` - Extended skill format examples (HIGH confidence)
+- OpenClaw CLI v2026.4.2 (verified via `openclaw --help`, `openclaw cron add --help`, `openclaw agent --help`)
+- https://docs.openclaw.ai/cli
 
 ---
-*Stack research for: OpenClaw skill publishing*
-*Researched: 2026-04-03*
+*Stack research for: OpenClaw scheduled AI daily report delivery*
+*Researched: 2026-04-04*

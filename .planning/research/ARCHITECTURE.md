@@ -1,89 +1,182 @@
-# Architecture Research
+# Architecture Research: Feedship + OpenClaw Scheduled Reports
 
-**Domain:** OpenClaw Skill Publishing for Claude Code Agent
-**Researched:** 2026-04-03
-**Confidence:** HIGH
+**Domain:** CLI tool integration with AI agent scheduling framework
+**Researched:** 2026-04-04
+**Confidence:** MEDIUM (based on CLI help introspection and existing skill documentation; unable to fetch live docs)
 
 ## Executive Summary
 
-OpenClaw skills are skill modules that extend Claude Code agents' capabilities. Skills are folders containing a `SKILL.md` file with markdown documentation and YAML frontmatter declaring runtime requirements. Agents discover and invoke skills based on natural language matching against the skill's `description` field. Published skills are registered on ClawHub (clawhub.ai), OpenClaw's public skills registry.
+OpenClaw provides a Gateway-based architecture for scheduling AI agent tasks. The integration pattern for feedship + OpenClaw scheduled daily reports works as follows:
 
-## OpenClaw Skill Architecture
+1. **Cron trigger** - `openclaw cron add` creates a scheduled job tied to the Gateway
+2. **Agent activation** - Cron fires, activates an agent with the ai-daily skill loaded
+3. **CLI execution** - Agent uses feedship CLI commands via exec tool (e.g., `feedship fetch --all`, `feedship article list --since <date> --json`)
+4. **Synthesis** - Agent processes the JSON output and generates a digest
+5. **Delivery** - `--deliver` flag sends the result to a configured channel (WhatsApp, Telegram, etc.)
+
+The ai-daily skill (v1.1) already defines this pattern in its metadata with `cron.syntax` and `cron.default: "0 8 * * *"`.
+
+## OpenClaw Architecture
 
 ### System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Claude Code Agent                        │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │  User Chat  │  │  Skill      │  │  Tool       │          │
-│  │  Input      │  │  Matcher     │  │  Executor   │          │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘          │
-│         │                │                │                  │
-│         └────────────────┴────────────────┘                  │
-│                          │                                   │
-├──────────────────────────┼──────────────────────────────────┤
-│                 Skill Discovery Layer                        │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │  Local: ~/.openclaw/skills/ or <project>/skills/    │    │
-│  │  Remote: ClawHub Registry (clawhub.ai)              │    │
-│  └─────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        OpenClaw Gateway                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │
+│  │   Cron      │  │   Agent     │  │  Channels   │  │   Skills   │  │
+│  │  Scheduler │  │   Runtime   │  │  (WhatsApp, │  │   Registry  │  │
+│  │             │  │             │  │  Telegram,  │  │             │  │
+│  │  persist    │  │  executes   │  │  Discord)   │  │  YAML defs  │  │
+│  │  across     │  │  skills +   │  │             │  │             │  │
+│  │  restarts   │  │  tools      │  │  deliver()  │  │  load into  │  │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  │
+│         │                │                │                │          │
+│         └────────────────┴────────────────┴────────────────┘          │
+│                          │                                             │
+└──────────────────────────┼─────────────────────────────────────────────┘
                            │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     Skill Publisher                           │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │  clawhub    │  │  openclaw/  │  │  .clawhub/  │          │
-│  │  CLI        │  │  skills     │  │  lock.json  │          │
-│  │  publish    │  │  repo       │  │  origin.json│          │
-│  └─────────────┘  └─────────────┘  └─────────────┘          │
-└─────────────────────────────────────────────────────────────┘
+           ┌───────────────┼───────────────┐
+           │               │               │
+           ▼               ▼               ▼
+    ┌──────────┐   ┌──────────┐   ┌──────────┐
+    │  Exec    │   │  Browser │   │  Files   │
+    │  Tool    │   │  Tool    │   │  Tools   │
+    │          │   │          │   │          │
+    │ runs     │   │ web      │   │ memory,  │
+    │ shell    │   │ browsing │   │ notes    │
+    │ commands │   │          │   │          │
+    └────┬─────┘   └──────────┘   └──────────┘
+         │
+         ▼
+  ┌─────────────────┐
+  │   feedship      │
+  │   CLI           │
+  │                 │
+  │ fetch --all     │
+  │ article list    │
+  │ search --json   │
+  └─────────────────┘
 ```
 
-### Skill Folder Structure
+### Component Responsibilities
+
+| Component | Responsibility | How It Works |
+|-----------|----------------|---------------|
+| Gateway | Persistent scheduler + message routing | WebSocket server; persists cron jobs and session state to disk |
+| Cron Scheduler | Time-based trigger management | Jobs persist across restarts; stored in `~/.openclaw/` |
+| Agent Runtime | Executes agent turns with skills loaded | Loads SKILL.md files; uses exec tool to run CLI commands |
+| Channels | Delivery to end users | WhatsApp, Telegram, Discord, etc.; `--deliver` flag routes output |
+| Skills | YAML definitions of capabilities | Define `openclaw.metadata.cron` for scheduled activation hints |
+| Exec Tool | Shell command execution | Agent runs `feedship fetch --all` and parses stdout |
+
+## Integration Patterns
+
+### Pattern 1: Cron-Triggered Skill Execution (Recommended for Daily Digest)
+
+**What:** A cron job fires at a schedule, activates an agent with skill context, agent runs feedship CLI commands, result is delivered.
+
+**When to use:** Daily/periodic digest generation, proactive monitoring.
+
+**Data flow:**
+```
+Cron (0 8 * * *)
+  → Gateway
+  → Agent (with ai-daily skill loaded)
+  → Exec: feedship fetch --all
+  → Exec: feedship article list --since YYYY-MM-DD --json
+  → Exec: feedship search "AI LLM" --semantic --limit 50 --since YYYY-MM-DD --json
+  → Agent synthesizes digest
+  → deliver --channel whatsapp
+```
+
+**Example cron job:**
+```bash
+openclaw cron add \
+  --name "daily-ai-digest" \
+  --cron "0 8 * * *" \
+  --agent default \
+  --message "Generate daily AI digest from feedship subscriptions" \
+  --deliver \
+  --channel whatsapp \
+  --timeout-seconds 300
+```
+
+**Trade-offs:**
+- Pros: Full AI synthesis, flexible prompt, multi-source aggregation
+- Cons: Requires AI provider API key, slower than pure CLI scripting
+
+### Pattern 2: Direct CLI Cron with Output Delivery
+
+**What:** External scheduler (launchd, systemd) runs feedship directly; OpenClaw only handles delivery.
+
+**When to use:** When you want simpler logic that doesn't need AI synthesis.
+
+**Data flow:**
+```
+External cron (systemd timer)
+  → feedship fetch --all
+  → feedship article list --since YYYY-MM-DD --json > /tmp/digest.json
+  → openclaw message send --channel telegram --file /tmp/digest.json
+```
+
+**Trade-offs:**
+- Pros: No AI API needed, faster, simpler debugging
+- Cons: No intelligent synthesis; just raw output
+
+### Pattern 3: Standing Order (Agent-Based Automation)
+
+**What:** A persistent agent with a "standing order" instruction set that periodically runs skills.
+
+**When to use:** Continuous monitoring with conditional actions.
+
+**Note:** This is more advanced and documented in OpenClaw under `Tier 3: Proactive` - agents that "autonomously execute standing orders without per-action human approval."
+
+## Data Flow for Scheduled Daily Digest
+
+### Full Flow (Pattern 1)
 
 ```
-<skill-name>/
-├── SKILL.md              # Required: skill documentation + frontmatter
-├── references/           # Optional: supporting documentation
-│   └── *.md
-├── .clawhub/             # Optional: CLI metadata (gitignored)
-│   └── origin.json       # Published origin tracking
-└── .gitignore            # Optional: also honored by ClawHub
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 6:00 AM (user's timezone via --tz)                                          │
+│    │                                                                       │
+│    ▼                                                                       │
+│ openclaw cron scheduler (Gateway)                                           │
+│    │                                                                       │
+│    ▼                                                                       │
+│ Cron job fires: "daily-ai-digest"                                           │
+│    │                                                                       │
+│    ▼                                                                       │
+│ Agent activated with system prompt + ai-daily skill                        │
+│    │                                                                       │
+│    ├──► Exec: feedship fetch --all                                         │
+│    │         └─► Updates SQLite + ChromaDB                                 │
+│    │                                                                       │
+│    ├──► Exec: feedship article list --since 2026-04-04 --limit 100 --json   │
+│    │         └─► JSON array of today's articles                            │
+│    │                                                                       │
+│    ├──► Exec: feedship search "AI LLM GPT machine learning" --semantic \    │
+│    │         --limit 50 --since 2026-04-04 --json                         │
+│    │         └─► JSON array of semantically relevant articles              │
+│    │                                                                       │
+│    ▼                                                                       │
+│ Agent synthesizes 3-section digest                                          │
+│    │                                                                       │
+│    ▼                                                                       │
+│ Gateway delivers to --channel (whatsapp/telegram/discord)                  │
+│    │                                                                       │
+│    ▼                                                                       │
+│ User receives formatted digest in chat                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### SKILL.md Format
+## Key Integration Points
 
-**Required:**
-- `SKILL.md` (or `skill.md`)
-- YAML frontmatter with `name` and `description`
+### 1. Skill Metadata for Cron Hints
 
-**Frontmatter Fields:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Skill identifier (lowercase, URL-safe) |
-| `description` | string | Summary for UI/search; agent matching uses this |
-| `version` | string | Semantic version (optional, ClawHub manages) |
-| `metadata.openclaw.requires.env` | string[] | Required environment variables |
-| `metadata.openclaw.requires.bins` | string[] | Required CLI binaries |
-| `metadata.openclaw.requires.anyBins` | string[] | CLI where at least one must exist |
-| `metadata.openclaw.requires.config` | string[] | Config file paths |
-| `metadata.openclaw.primaryEnv` | string | Main credential env var |
-| `metadata.openclaw.always` | boolean | If true, skill always active |
-| `metadata.openclaw.cron` | object | Cron schedule for automatic triggering |
-| `metadata.openclaw.install` | array | Dependency install specs |
-
-**Example Frontmatter:**
+The ai-daily SKILL.md already defines cron hints:
 
 ```yaml
----
-name: feedship
-description: Manage RSS/Atom feeds, subscribe to websites, search and read articles. Use when working with feeds, RSS, Atom, subscribing to content sources, managing an information pipeline, or fetching articles from subscribed feeds.
-compatibility: Install with pipx (recommended): `pipx install 'feedship[cloudflare,ml]'`
 metadata:
   openclaw:
     requires:
@@ -91,146 +184,122 @@ metadata:
         - uv
     cron:
       syntax: cron([minute,] [hour,] [day-of-month,] [month,] [day-of-week])
-      default: "0 8 * * *"
+      default: "0 8 * * *"  # Daily at 8:00 AM
       description: "Generate daily AI news digest every day at 8 AM"
----
 ```
 
-### Skill Discovery and Invocation
+This allows OpenClaw to suggest the skill for cron-based activation.
 
-**Discovery Mechanism:**
-1. Agent analyzes user input
-2. Matches against skill `description` fields using natural language
-3. Skills with matching descriptions are considered for invocation
-4. Agent invokes matched skills to fulfill user request
+### 2. JSON Output for Agent Parsing
 
-**Invocation Flow:**
-```
-User: "Fetch my RSS feeds and show recent articles"
-    │
-Agent identifies intent -> "RSS feed management, article retrieval"
-    │
-Skill matcher finds feedship skill (description match)
-    │
-Agent reads SKILL.md, executes documented commands
-    │
-Commands executed via CLI (feedship fetch --all, feedship article list)
-```
+feedship commands with `--json` flag output machine-readable JSON:
 
-**Priority Order for Skill Loading:**
-1. Workspace: `<project>/skills/`
-2. Local: `~/.openclaw/skills/`
-3. Bundled: Built-in agent skills
-
-### ClawHub Publishing
-
-**Publish Flow:**
 ```bash
-# Via CLI
-clawhub publish <skill-folder> --slug <slug> --version 1.0.0
-
-# Via sync (auto-publish changed skills)
-clawhub sync
+feedship article list --since 2026-04-04 --limit 100 --json
+# => {"articles": [{"id": "...", "title": "...", "url": "...", ...}], "count": 42}
 ```
 
-**Install Flow:**
-```bash
-# Via CLI
-clawhub install <slug>
+The agent can parse this and extract relevant fields.
 
-# Manual
-cp -r <skill-folder> ~/.openclaw/skills/
+### 3. Channel Delivery Configuration
+
+OpenClaw supports multiple delivery channels:
+
+| Channel | Target Format | Example |
+|---------|--------------|---------|
+| whatsapp | E.164 phone | `--to +15551234567` |
+| telegram | Chat ID | `--to @username` or `-1001234567890` |
+| discord | Channel ID | `--to #general` |
+| last | Last-used | `--channel last` |
+
+## Recommended Project Structure
+
+```
+feedship/
+├── skills/
+│   ├── feedship/SKILL.md          # Already exists
+│   └── ai-daily/SKILL.md         # Already exists
+└── docs/
+    └── scheduled-reports.md       # NEW: User guide for OpenClaw integration
 ```
 
-**ClawHub Registry Endpoints:**
-- API Base: `https://clawhub.ai`
-- Search: `GET /api/v1/search?q=...`
-- Skill detail: `GET /api/v1/skills/{slug}`
-- Download: `GET /api/v1/download?slug=...&version=...`
+**No new source files needed** - the integration is achieved through:
+1. Configuration (cron jobs via `openclaw cron add`)
+2. Skill metadata (already defined in existing SKILL.md files)
+3. User documentation (new docs/scheduled-reports.md)
 
-## Feedship Skill Integration Points
+## Anti-Patterns to Avoid
 
-### Current State
+### Anti-Pattern 1: Running feedship Inside OpenClaw Sandbox
 
-**Existing Skills in `/skills/`:**
-- `feedship/` - RSS/feed management skill
-- `ai-daily/` - AI daily digest generation skill
+**What:** Trying to run feedship commands inside OpenClaw's sandboxed environment without proper path configuration.
 
-**feedship Skill:**
-- Single `SKILL.md` file (6.5KB)
-- Documents all CLI commands: feed add/list/remove, fetch, article list/view/open/related, search, discover
-- Declares `uv` as required binary
-- Provides Rich table/panel output formats
+**Why it's wrong:** OpenClaw sandbox isolates processes; feedship needs access to `~/.feedship/` for SQLite and ChromaDB.
 
-**ai-daily Skill:**
-- Single `SKILL.md` file
-- Depends on feedship skill
-- Provides cron trigger configuration
-- Documents 3-section daily digest format
+**Do this instead:** Use `--tools exec` to run feedship directly on the host, or configure the sandbox to allow access to feedship's data directory.
 
-### Integration Points for Enhancement
+### Anti-Pattern 2: Mixing Cron Triggers
 
-| Enhancement | Location | Required Change |
-|-------------|----------|------------------|
-| Add `--json` output documentation | feedship SKILL.md | Document JSON output flag |
-| Add `info` command documentation | feedship SKILL.md | Add INFO-01 through INFO-07 commands |
-| Skill invocation triggers | feedship SKILL.md | Update description with new command keywords |
-| Skill versioning | feedship SKILL.md | Add version field to frontmatter |
-| Dependency declarations | feedship SKILL.md | Update `requires.bins` if new dependencies |
+**What:** Creating both an external (launchd/systemd) cron AND an OpenClaw cron for the same task.
 
-### Build Order Considerations
+**Why it's wrong:** Double execution wastes resources, may cause rate limiting with feeds.
 
-1. **First:** Update feedship SKILL.md with `info` command documentation and `--json` output
-2. **Second:** Update ai-daily SKILL.md if new feedship commands affect digest flow
-3. **Third:** Publish to ClawHub via `clawhub publish` or `clawhub sync`
-4. **Fourth:** Verify skill discoverability on clawhub.ai
+**Do this instead:** Choose one scheduler: OpenClaw cron for AI-synthesized output, external cron for pure CLI automation.
 
-## Anti-Patterns
+### Anti-Pattern 3: No Timeout on Long-Running Skills
 
-### Anti-Pattern 1: Incomplete Metadata
+**What:** Setting `--timeout-seconds` too low for the daily digest.
 
-**What people do:** Not declaring required binaries/env vars in frontmatter
-**Why it's wrong:** ClawHub security analysis flags mismatches; users don't know prerequisites
-**Do this instead:** Always declare all `requires.env`, `requires.bins`, and `requires.config`
+**Why it's wrong:** `feedship fetch --all` with 50+ feeds can take 5+ minutes.
 
-### Anti-Pattern 2: Vague Description
-
-**What people do:** Generic descriptions like "A useful skill"
-**Why it's wrong:** Agent cannot match to user intent; skill won't be invoked
-**Do this instead:** Include trigger phrases: "Use when working with...", "Helpful for...", specific commands
-
-### Anti-Pattern 3: Missing Installation Instructions
-
-**What people do:** Not including install commands in SKILL.md
-**Why it's wrong:** Users cannot install skill dependencies
-**Do this instead:** Include `Installation` section with pipx/uv commands
-
-### Anti-Pattern 4: Version Mismatch
-
-**What people do:** Publishing without bumping version
-**Why it's wrong:** ClawHub requires new version for each publish
-**Do this instead:** Increment semver before each publish
+**Do this instead:** Set `--timeout-seconds 600` (10 minutes) or use `--every` with stagger for large feed counts.
 
 ## Scaling Considerations
 
-| Scale | Skill Architecture |
-|-------|-------------------|
-| 1-10 skills | Simple folder structure, manual publish |
-| 10-100 skills | Use `clawhub sync` for batch publishing |
-| 100+ skills | Consider skill organization by category |
+| Scale | Feed Count | Fetch Time | Recommendation |
+|-------|-----------|------------|----------------|
+| Personal (1-20 feeds) | 20 | ~30s | OpenClaw cron with default timeout |
+| Power user (20-100) | 100 | ~2-5min | Use `--every 30m` stagger, higher timeout |
+| Team (100+) | 500+ | 10+ min | Consider pre-fetching via external cron, OpenClaw only for synthesis |
 
-**Skill Bundle Limits:**
-- Total bundle size: 50MB
-- Embedding includes SKILL.md + up to ~40 non-.md files
-- Only text-based files accepted (JSON, YAML, TOML, Markdown, SVG)
+**First bottleneck:** Network I/O on fetch - mitigated by `--concurrency` flag in feedship.
+
+**Second bottleneck:** ChromaDB embedding generation on first fetch - mitigated by batch processing.
+
+## Implementation Recommendation
+
+For v1.7 (scheduled AI daily reports):
+
+1. **No new source files** - the integration is configuration-only
+2. **Create user documentation** at `docs/scheduled-reports.md` with:
+   - How to set up the OpenClaw cron job
+   - Channel configuration examples
+   - Troubleshooting tips
+3. **Update ai-daily SKILL.md** to clarify the cron job creation command
+4. **Test the full flow** before shipping
+
+**Example user workflow:**
+```bash
+# User sets up daily digest at 8 AM via WhatsApp
+openclaw cron add \
+  --name "daily-ai-digest" \
+  --cron "0 8 * * *" \
+  --message "Generate daily AI digest using feedship. Run feedship fetch --all first, then generate a 3-section digest: (A) Today's new articles with summaries, (B) Hot topics clustering, (C) Featured picks by feed weight. Output in Chinese." \
+  --deliver \
+  --channel whatsapp \
+  --timeout-seconds 600
+```
 
 ## Sources
 
-- [ClawHub Skill Format Documentation](https://github.com/openclaw/clawhub/blob/main/docs/skill-format.md) - HIGH confidence (official documentation)
-- [ClawHub Architecture Documentation](https://github.com/openclaw/clawhub/blob/main/docs/architecture.md) - HIGH confidence (official documentation)
-- [ClawHub API Documentation](https://github.com/openclaw/clawhub/blob/main/docs/api.md) - HIGH confidence (official documentation)
-- [VoltAgent/awesome-openclaw-skills](https://github.com/VoltAgent/awesome-openclaw-skills) - MEDIUM confidence (community collection)
+- OpenClaw CLI help (`openclaw --help`, `openclaw cron --help`, `openclaw agent --help`)
+- feedship SKILL.md (v1.5)
+- ai-daily SKILL.md (v1.1)
+- OpenClaw docs links (unverified due to network restrictions):
+  - https://docs.openclaw.ai/automation/cron-jobs
+  - https://docs.openclaw.ai/cli/cron
+  - https://docs.openclaw.ai/concepts/delegate-architecture#tier-3-proactive
 
 ---
-*Architecture research for: OpenClaw Skill Publishing for feedship*
-*Researched: 2026-04-03*
+*Architecture research for: Feedship + OpenClaw scheduled reporting*
+*Researched: 2026-04-04*

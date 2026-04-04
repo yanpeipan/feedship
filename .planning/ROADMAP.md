@@ -60,7 +60,10 @@
 3. Daily report supports ranking by views/relevance (configurable)
 4. Report template is documented and configurable via ai-daily skill documentation
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+**Plan list**:
+- [ ] 12-01-PLAN.md — Update SKILL.md with 4-section format (grouped, AI summary, ranking, config)
 
 ---
 
@@ -90,7 +93,7 @@
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 11. OpenClaw Cron Integration | v1.7 | 1/2 | In Progress|  |
-| 12. Daily Report Template | v1.7 | 0/1 | Not started | - |
+| 12. Daily Report Template | v1.7 | 1/1 | Planned | - |
 | 13. AI Mining and Multi-Channel Delivery | v1.7 | 0/1 | Not started | - |
 
 ---

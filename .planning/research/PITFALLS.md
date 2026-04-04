@@ -1,137 +1,197 @@
-# Pitfalls Research: OpenClaw Skill Publishing
+# Pitfalls Research: OpenClaw Scheduled Messaging
 
-**Domain:** Publishing Claude Code skills to ClawHub
-**Researched:** 2026-04-03
-**Confidence:** HIGH
+**Domain:** OpenClaw cron job configuration for external CLI tools
+**Researched:** 2026-04-04
+**Confidence:** MEDIUM
+
+Research based on auto-updater SKILL.md (clawdbot cron add patterns) and proactive-agent SKILL.md (autonomous vs prompted crons architecture). Web search was unavailable for direct verification, so findings are derived from existing skill documentation and architectural patterns.
 
 ## Critical Pitfalls
 
-### Pitfall 1: YAML Parsing Failure from Pipe Characters in Description
+### Pitfall 1: Using `systemEvent` with `main` Session for Background Tasks
 
 **What goes wrong:**
-SKILL.md fails to parse during validation. The `package_skill.py` script exits with error "Invalid YAML in frontmatter".
+Cron fires but the task never actually executes. The prompt appears in the main session but sits there ignored while the agent is busy with other work.
 
 **Why it happens:**
-The pipe character `|` in command references like `feed add|list|remove` is interpreted by YAML as a block scalar indicator. YAML then expects indented content following the `|`, but finds plain text instead, causing parse failure.
+Misunderstanding the architecture. `systemEvent` sends a prompt to the main session - but main session only processes when the agent is free and attention is available. Background cron jobs using `systemEvent` + `main` are just notifications, not autonomous execution.
 
-Example from current feedship SKILL.md:
-```yaml
-description: ...Commands: feed add|list|remove, fetch, article list|view|open|related, search, discover.
-```
+From proactive-agent SKILL.md:
+> You create a cron that says "Check if X needs updating" as a `systemEvent`. It fires every 10 minutes. But: Main session is busy with something else. Agent doesn't actually do the check. The prompt just sits there.
 
 **How to avoid:**
-Quote any description containing pipe characters that are part of command syntax:
-```yaml
-description: "...Commands: 'feed add|list|remove', 'fetch', 'article list|view|open|related'..."
+Use `isolated` session with `agentTurn` for any task that must execute without requiring main session attention:
+
+```bash
+clawdbot cron add \
+  --name "Daily AI Digest" \
+  --cron "0 8 * * *" \
+  --session isolated \
+  --deliver \
+  --message "AUTONOMOUS: Run feedship fetch --all, generate daily digest, deliver report"
 ```
 
 **Warning signs:**
-Validation fails with "mapping values are not allowed here" or "Invalid YAML in frontmatter"
+- Cron fires but nothing happens
+- Main session shows pending prompts that never get addressed
+- Task appears to run but output is never delivered
 
-**Phase to address:** Skill Enhancement Phase (before packaging)
+**Phase to address:** Implementation Phase - cron configuration
 
 ---
 
-### Pitfall 2: YAML Parsing Failure from Unquoted Colons in Description
+### Pitfall 2: Missing `--deliver` Flag Results in Lost Output
 
 **What goes wrong:**
-Description containing colons followed by text on the same line causes YAML parse errors.
+Cron job runs successfully (exit code 0) but no report appears. Output is generated but not delivered anywhere visible.
 
 **Why it happens:**
-A colon `:` in YAML starts a new mapping key. When the description contains text like `3-section digest: (A)` on the same logical line, YAML interprets the colon as syntax rather than literal text.
-
-Example from current ai-daily SKILL.md:
-```yaml
-description: ...generates a 3-section digest: (A) Today's new articles with summaries...
-```
+Without `--deliver`, the isolated agent executes but has no destination for results. The output exists somewhere in the system but never reaches the user.
 
 **How to avoid:**
-Quote any description containing colons that are not YAML syntax:
-```yaml
-description: "...generates a '3-section digest: (A)...'..."
+Always include `--deliver` when setting up informational cron jobs:
+
+```bash
+clawdbot cron add \
+  --name "Daily AI Digest" \
+  --cron "0 8 * * *" \
+  --session isolated \
+  --deliver \
+  --message "AUTONOMOUS: Run feedship fetch --all, generate daily digest"
 ```
 
 **Warning signs:**
-Same YAML parse errors as Pitfall 1.
+- Logs show cron fired and completed
+- No visible output or report received
+- Agent executed but results not visible
 
-**Phase to address:** Skill Enhancement Phase (before packaging)
+**Phase to address:** Implementation Phase - cron configuration
 
 ---
 
-### Pitfall 3: Non-Standard Frontmatter Fields Cause Validation Failure
+### Pitfall 3: Gateway Not Running Breaks All Cron Jobs
 
 **What goes wrong:**
-`package_skill.py` validation rejects the SKILL.md due to unexpected frontmatter fields.
+Cron jobs simply never fire. No error messages, no indication anything is wrong - just silence.
 
 **Why it happens:**
-The validation script enforces strict allowlist for frontmatter properties:
-
-```python
-ALLOWED_PROPERTIES = {'name', 'description', 'license', 'allowed-tools', 'metadata'}
-```
-
-The current feedship SKILL.md includes a `compatibility` field which is NOT in the allowlist:
-```yaml
-compatibility: Install with pipx (recommended): `pipx install 'feedship[cloudflare,ml]'` or uv: `uv pip install 'feedship[cloudflare,ml]'`
-```
+OpenClaw cron jobs depend on the gateway process running continuously. If the gateway is stopped, restarted, or crashes, cron jobs do not fire. There is no queue or retry mechanism - missed cron jobs are simply lost.
 
 **How to avoid:**
-1. Remove `compatibility` from frontmatter entirely
-2. Move installation instructions into the SKILL.md body markdown section
-3. Only use these frontmatter fields: `name`, `description`, `license`, `allowed-tools`, `metadata`
+1. Verify gateway is running before creating cron jobs: `clawdbot gateway status`
+2. Set up process monitoring (launchd, systemd) to keep gateway alive
+3. Use `--wake now` on cron creation to verify immediate execution works
+
+```bash
+# Verify gateway is running
+clawdbot gateway status
+
+# Create cron with immediate test
+clawdbot cron add \
+  --name "Test Cron" \
+  --cron "0 8 * * *" \
+  --session isolated \
+  --wake now \
+  --deliver \
+  --message "Test message"
+```
 
 **Warning signs:**
-Validation fails with "Unexpected key(s) in SKILL.md frontmatter: compatibility"
+- `clawdbot cron list` shows jobs but they never fire
+- Gateway status shows stopped or restarting
+- System reboot causes all cron jobs to stop
 
-**Phase to address:** Skill Enhancement Phase (before packaging)
+**Phase to address:** Infrastructure Phase - gateway reliability
 
 ---
 
-### Pitfall 4: Metadata Format Incompatibility with ClawHub
+### Pitfall 4: Session Isolation Loses Context Between Runs
 
 **What goes wrong:**
-The `metadata.openclaw.requires.bins` format used in current skills may not be the correct format for ClawHub publishing.
+Isolated session runs successfully but has no access to previous state. Each cron execution starts fresh with no memory of prior runs, previous reports, or accumulated context.
 
 **Why it happens:**
-Different OpenClaw skills use inconsistent metadata formats:
-- Summarize skill uses: `metadata: {"clawdbot":{"emoji":"...","requires":...}}}`
-- Current feedship uses: `metadata: {"openclaw": {"requires": {"bins": ["uv"]}}}`
-
-This suggests the metadata schema may have changed or varies by use case.
+`--session isolated` creates a fresh sub-agent for each execution. Unlike `main` session which persists context across interactions, isolated sessions have no memory of previous turns. This is by design for autonomous background tasks, but breaks workflows that need continuity.
 
 **How to avoid:**
-1. Review published skills in `~/clawd/skills/` for the correct metadata schema
-2. Use the format from similar published skills (e.g., summarize, skill-creator)
-3. Keep metadata minimal - only include what's strictly required for the skill to work
+1. For stateful workflows, write state to persistent storage (files, database)
+2. Read prior state at start of each isolated execution
+3. Use workspace files (`~/.openclaw/workspace/`) for cross-run persistence
+
+Example pattern for feedship daily digest:
+```bash
+# In the cron message, include state management
+clawdbot cron add \
+  --session isolated \
+  --message "AUTONOMOUS: Read ~/.feedship/.last-digest-date, fetch articles since that date, generate digest, write new date to ~/.feedship/.last-digest-date"
+```
 
 **Warning signs:**
-Skill installs but `openclaw skills check` shows requirements as unmet
+- Report duplicates content from previous runs
+- Isolated agent cannot find context it should have
+- Each run behaves as if it's the first run ever
 
-**Phase to address:** Skill Enhancement Phase (metadata verification sub-task)
+**Phase to address:** Design Phase - stateful cron architecture
 
 ---
 
-### Pitfall 5: Skill Name Violates Naming Conventions
+### Pitfall 5: External CLI Tool Missing in Isolated Session Environment
 
 **What goes wrong:**
-Validation rejects the skill name for not matching hyphen-case requirements.
+Cron fires, isolated agent starts, but immediately fails with "command not found". The CLI tool works in normal sessions but is unavailable in isolated agent environment.
 
 **Why it happens:**
-The validation script enforces:
-- Lowercase letters, digits, and hyphens only
-- Cannot start or end with hyphen
-- Cannot contain consecutive hyphens
-- Maximum 64 characters
+Isolated agents may have different PATH or environment than the main session. Tools installed in user's PATH (via pipx, uv tool, etc.) may not be available in the isolated agent's shell environment.
 
 **How to avoid:**
-Ensure skill name matches pattern: `^[a-z0-9-]+$`
+1. Use full paths for CLI tools in cron messages
+2. Verify tool availability in isolated environment with diagnostic cron first
+3. Document required PATH additions in SKILL.md
 
-Valid examples: `feedship`, `ai-daily`, `skill-vetter`
+```bash
+# Test if feedship is available in isolated session
+clawdbot cron add \
+  --name "Diagnostic Check" \
+  --cron "0 8 * * *" \
+  --session isolated \
+  --deliver \
+  --message "Check if feedship is available: which feedship || echo 'NOT FOUND'; feedship --version"
+```
 
 **Warning signs:**
-Validation fails with name-related error messages
+- "command not found" in cron output
+- Works in interactive session but fails in cron
+- Tool installed via pipx/uv tool but isolated session cannot find it
 
-**Phase to address:** Skill Enhancement Phase (should already be correct if following current naming)
+**Phase to address:** Testing Phase - isolated environment verification
+
+---
+
+### Pitfall 6: Dependency Missing (uv, Python, Extras)
+
+**What goes wrong:**
+Cron job starts but fails because feedship's dependencies are incomplete. Common: `feedship fetch --all` fails with import error because `cloudflare` or `ml` extras are missing.
+
+**Why it happens:**
+Basic `pip install feedship` does not include ML (sentence-transformers, chromadb) or cloudflare (scrapling, playwright) extras. The ai-daily skill requires full functionality.
+
+**How to avoid:**
+Ensure feedship is installed with all required extras:
+
+```bash
+# Install with all extras
+uv tool install 'feedship[ml,cloudflare]' --python 3.12 --force
+
+# Or verify installation
+feedship info --json | jq '.extras'
+```
+
+**Warning signs:**
+- `feedship info --json` shows missing extras
+- Semantic search commands fail with import errors
+- Fetch commands work but related articles fails
+
+**Phase to address:** Setup Phase - complete installation
 
 ---
 
@@ -139,33 +199,46 @@ Validation fails with name-related error messages
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Including `compatibility` field | Easier to see install info | Validation failure, non-standard | Never (remove it) |
-| Detailed "Output Formats" section | Shows rich tables/panels | Bloats SKILL.md, violates conciseness principle | Never - this is Claude context waste |
-| "Common Patterns" section | Nice examples | SKILL.md bloat, violates conciseness | Never - move to references/ or delete |
-| China/restricted network notes | Helps some users | Extraneous for global distribution | Only if skill targets China specifically |
+| Using `systemEvent` + `main` for cron | Simpler config | Tasks never execute | Never - use isolated |
+| Skipping `--deliver` flag | Faster setup | Output lost | Never |
+| No gateway monitoring | Simpler ops | Missed cron jobs | Only for non-critical jobs |
+| No state persistence in isolated | Simpler cron message | Duplicate reports | Never for recurring tasks |
+| Basic feedship install | Less disk space | Missing functionality | Never for production |
 
 ---
 
 ## Integration Gotchas
 
-| Issue | What Goes Wrong | Correct Approach |
-|-------|-----------------|------------------|
-| Skill path outside workspace root | "Skipping skill path that resolves outside its configured root" | Skills must be under the configured skills root directory |
-| uv dependency declared but not verified | Skill shows as "not ready" | Declare uv as required bin in metadata, verify with `openclaw skills check` |
-| feedship CLI not installed | Skill triggers but commands fail | Document installation clearly in Setup section |
-| Missing ML/cloudflare extras | Semantic search commands fail | Specify full extras in installation: `feedship[cloudflare,ml]` |
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| feedship + OpenClaw | Not installing ml/cloudflare extras | `uv tool install 'feedship[ml,cloudflare]'` |
+| Isolated session | Assuming PATH persistence | Use full paths or verify in diagnostic cron |
+| Cron delivery | Missing `--deliver` | Always include for informational jobs |
+| Timezone | Assuming UTC | Use `--tz` flag explicitly |
+| Gateway | Not monitoring | Set up launchd/systemd service |
+
+---
+
+## Performance Traps
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Large embedding model in cron | Long execution times, timeouts | Use smaller model or pre-compute embeddings | At 100+ articles per day |
+| Concurrent fetches overwhelming system | High CPU, slow response | Limit `--concurrency` in fetch | At 50+ feeds |
+| Daily digest too long | Token limits, incomplete reports | Implement pagination or summary truncation | At 200+ articles per day |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Frontmatter:** Only `name`, `description`, `license`, `allowed-tools`, `metadata` present - verify no `compatibility` field
-- [ ] **Description:** No bare `|` or `:` characters that break YAML parsing - all special characters quoted
-- [ ] **Validation:** `package_skill.py` runs without error (not just `quick_validate.py`)
-- [ ] **Length:** SKILL.md body under 500 lines (progressive disclosure principle)
-- [ ] **No extraneous files:** No README.md, INSTALLATION_GUIDE.md, or other aux files
-- [ ] **Metadata schema:** Confirmed correct format by comparing to published skills
-- [ ] **Skill name:** Verified hyphen-case, lowercase only, max 64 chars
+- [ ] **Cron fires:** Verify with `clawdbot cron list` and check last execution time
+- [ ] **Session type:** Verify `--session isolated` not `main` for background tasks
+- [ ] **Delivery:** Verify `--deliver` flag present (unless output is written to file)
+- [ ] **Dependencies:** Verify `feedship info --json` shows all required extras
+- [ ] **Environment:** Test isolated session can actually run feedship commands
+- [ ] **State:** Verify prior run state is accessible if continuity required
+- [ ] **Gateway:** Verify `clawdbot gateway status` shows running
+- [ ] **Timezone:** Verify cron fires at intended local time, not UTC
 
 ---
 
@@ -173,11 +246,11 @@ Validation fails with name-related error messages
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| YAML parse failure | LOW | Quote problematic characters in description |
-| `compatibility` field rejection | LOW | Remove field from frontmatter, move content to body |
-| Metadata format wrong | MEDIUM | Compare with published skills, rewrite metadata |
-| Skill path outside root | MEDIUM | Move skill directory under configured skills root |
-| SKILL.md too long | LOW | Move detailed content to `references/` subdirectory |
+| Cron never fires (gateway down) | LOW | Restart gateway, verify with `--wake now` |
+| Output lost (no --deliver) | LOW | Re-run cron manually with `--wake now`, add --deliver |
+| Command not found (PATH) | MEDIUM | Install tool in isolated env, use full paths |
+| Duplicate reports (no state) | MEDIUM | Implement state file, re-run with fresh state |
+| Partial execution (timeout) | MEDIUM | Reduce scope, implement checkpointing |
 
 ---
 
@@ -185,23 +258,24 @@ Validation fails with name-related error messages
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| YAML parsing (pipe chars) | Skill Enhancement: Fix descriptions | Run `uv run --with pyyaml python quick_validate.py` until passes |
-| YAML parsing (colon) | Skill Enhancement: Fix descriptions | Same validation test |
-| Non-standard frontmatter | Skill Enhancement: Clean frontmatter | Package command succeeds |
-| Metadata format | Skill Enhancement: Verify metadata | `openclaw skills check` shows skill ready |
-| Naming convention | Initial naming (already correct) | Validation passes |
+| systemEvent + main session | Design: Choose correct session type | Test with `--wake now` |
+| Missing --deliver | Implementation: Add flag | Send test cron, verify delivery |
+| Gateway downtime | Infrastructure: Set up monitoring | Check `clawdbot gateway status` |
+| Session isolation context loss | Design: Implement state persistence | Run twice, verify continuity |
+| CLI tool unavailable | Testing: Diagnostic cron first | Run diagnostic before production |
+| Missing dependencies | Setup: Complete installation | `feedship info --json` shows extras |
 
 ---
 
 ## Sources
 
-- OpenClaw skill-creator skill: `/Users/y3/clawd/skills/skill-creator/SKILL.md`
-- Quick validation script: `/Users/y3/clawd/skills/skill-creator/scripts/quick_validate.py`
-- Package script: `/Users/y3/clawd/skills/skill-creator/scripts/package_skill.py`
-- Reference published skills: `/Users/y3/clawd/skills/summarize/SKILL.md`, `/Users/y3/clawd/skills/skill-vetter/SKILL.md`
-- Current feedship skill (with issues): `/Users/y3/feedship/skills/feedship/SKILL.md`
-- Current ai-daily skill (with issues): `/Users/y3/feedship/skills/ai-daily/SKILL.md`
+- Auto-updater SKILL.md: `/Users/y3/clawd/skills/auto-updater/SKILL.md` — cron add command examples with `--session isolated`
+- Proactive-agent SKILL.md: `/Users/y3/clawd/skills/proactive-agent/SKILL.md` — "Autonomous vs Prompted Crons" section explaining session architecture
+- feedship SKILL.md: `/Users/y3/feedship/skills/feedship/SKILL.md` — installation with extras guidance
+- ai-daily SKILL.md: `/Users/y3/feedship/skills/ai-daily/SKILL.md` — cron trigger documentation
 
 ---
-*Pitfalls research for: OpenClaw skill publishing*
-*Researched: 2026-04-03*
+
+*Pitfalls research for: OpenClaw scheduled messaging*
+*Researched: 2026-04-04*
+*Confidence: MEDIUM (based on skill documentation, web search unavailable for direct verification)*

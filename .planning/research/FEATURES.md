@@ -1,182 +1,204 @@
-# Feature Research
+# Feature Research: OpenClaw Scheduled AI Daily Report Delivery
 
-**Domain:** OpenClaw Skill Publishing for feedship CLI
-**Researched:** 2026-04-03
-**Confidence:** MEDIUM
-
-*Note: Web search for clawhub.ai returned errors. Analysis based on existing skill patterns in `/Users/y3/feedship/skills/`, OpenClaw metadata YAML frontmatter observed in existing SKILL.md files, and project requirements from `.planning/STATE.md`.*
+**Domain:** Scheduled AI messaging via OpenClaw cron + agent delivery
+**Researched:** 2026-04-04
+**Confidence:** HIGH (verified via OpenClaw CLI v2026.4.2 `--help` output)
 
 ## Feature Landscape
 
-### Table Stakes (Required for clawhub Publishing)
+### Table Stakes (Users Expect These)
 
-These are non-negotiable for a publishable skill. Missing these = skill feels incomplete or unusable.
+Features users assume exist for scheduled report delivery. Missing these = feature feels broken or incomplete.
 
-| Feature | Why Expected | Complexity | Status in feedship | Notes |
-|---------|--------------|------------|-------------------|-------|
-| YAML frontmatter with `name`, `description` | Clawhub parses this for skill index and activation | LOW | Present | Must include trigger phrases in description |
-| Installation instructions | Users must know how to install | LOW | Present | Both `uv` and `pipx` recommended |
-| Command reference (all subcommands) | Users need complete API documentation | MEDIUM | PARTIAL | Missing `info` command |
-| Options for each command | Users need to customize behavior | MEDIUM | Present | feed, fetch, article, search, discover all have options |
-| Examples for common commands | Copy-paste usability | MEDIUM | Present | Good examples in feedship, minimal in ai-daily |
-| Compatibility/install requirements | Version constraints and dependencies | LOW | Present | `[cloudflare,ml]` extra documented |
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Cron schedule expression | Users need to specify WHEN reports fire | LOW | Standard 5-field cron (`0 8 * * *`), use `--cron` |
+| `--session isolated` for background jobs | Scheduled jobs must not pollute main chat | LOW | `main` = interactive, `isolated` = fresh sub-agent |
+| `--announce` (or deprecated `--deliver`) for delivery | Reports must reach user, not disappear | LOW | `--announce` is the modern flag |
+| `--channel` for delivery target | Users choose their chat platform | LOW | whatsapp, telegram, feishu, discord, etc. |
+| `--to` for recipient | Reports must go to a specific destination | LOW | E.164 number, Telegram chatId, Discord channel |
+| `--name` for cron job identification | Users need to manage multiple jobs | LOW | Names appear in `cron list` output |
+| Gateway running for cron to fire | Cron depends on gateway daemon | LOW | `openclaw gateway status` to verify |
+| Timezone support with `--tz` | Users want reports at local time | LOW | IANA timezone (e.g., `Asia/Shanghai`) |
 
-### Differentiators (What Makes Skill Stand Out)
+### Differentiators (Competitive Advantage)
 
-Features that elevate a skill from "functional" to "delightful." Not required, but valuable for clawhub discoverability.
+Features that set the delivery system apart. Not required, but valuable for a premium experience.
 
-| Feature | Value Proposition | Complexity | Status | Notes |
-|---------|-------------------|------------|--------|-------|
-| Output format documentation | Users know exactly what to expect | LOW | Present | Rich tables, panels, progress bars documented |
-| Common workflow patterns | "How do I do X?" answered inline | MEDIUM | Present | Initial setup, daily workflow, feed management |
-| Anti-patterns / gotchas | Prevents frustration | LOW | Partial | Network mirrors mentioned, but no general "avoid X" |
-| Tips and edge case handling | "What if no articles today?" | LOW | Partial | ai-daily has good tips |
-| --json output flag | Machine-readable output for scripting | LOW | MISSING | Not documented in SKILL.md |
-| `info` command documentation | Diagnostic and introspection | LOW | MISSING | Added in v1.5 but not in SKILL.md |
-| Cron trigger documentation | Scheduled automation | LOW | Present | ai-daily documents cron syntax |
-| Platform/network caveats | China/restricted network guidance | MEDIUM | Present | Valuable differentiator |
-| Rich output samples | Visual proof of quality | MEDIUM | Partial | ai-daily has complete example output |
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| `--best-effort-deliver` for resilient delivery | Don't fail cron if delivery channel is down | MEDIUM | Prevents cron going red on temporary delivery failures |
+| `--failure-alert` for monitoring | Admin gets notified when reports fail | MEDIUM | Configure alert channel + cooldown |
+| `--light-context` for faster execution | Smaller context bootstrap = faster reports | LOW | Skip full context initialization |
+| `--expect-final` to wait for complete response | Long reports complete before delivery | MEDIUM | Agent may stream; this waits for final |
+| `--thinking medium` for balanced quality | Control AI reasoning depth per job | LOW | off/minimal/low/medium/high/xhigh |
+| Multiple delivery channels (`--channel` + `--reply-channel`) | Send summary to different channel than agent runs | MEDIUM | Main agent on one platform, delivery elsewhere |
+| Session key persistence (`--session-key`) | Resume same session across runs | MEDIUM | Key format: `agent:my-agent:my-session` |
 
-### Anti-Features (Avoid These)
+### Anti-Features (Commonly Requested, Often Problematic)
 
-Features that seem valuable but create problems.
+Features that seem good but create problems.
 
 | Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Documenting every CLI flag exhaustively | Completeness | Makes SKILL.md unreadable | Link to `feedship --help` for full reference |
-| Including internal implementation details | Transparency | Users don't care, adds noise | Keep SKILL.md user-focused |
-| Multiple skill formats | Flexibility | Fragmentation, harder to maintain | One SKILL.md per skill, keep it lean |
-| Version-numbered filenames (SKILL.md) | Version tracking | Clutter on releases | Use git tags, document version in frontmatter |
+|---------|---------------|-----------------|------------|
+| `systemEvent` + `main` session for background tasks | "Simpler" - one session for everything | Main session only processes when agent is free; background tasks never execute unattended | Use `--message` + `--session isolated` |
+| Skipping `--announce` to "just run silently" | Unclear why output is needed | Output generated but lost - cron completes with no visible result | Always include `--announce` for informational jobs |
+| Using `main` session for recurring cron | Reuse conversation history | History accumulates, context bloats, reports get confused | Use `isolated` + write state to files if continuity needed |
+| No timezone (`--tz`) - relying on UTC | Cleaner cron expression | Reports fire at wrong local time | Always specify `--tz` explicitly |
+| Short timeout for complex reports | Fast cron completion | Report truncated or fails mid-generation | Use `--timeout-seconds 600` for digest-scale tasks |
 
 ## Feature Dependencies
 
 ```
-feedship SKILL.md Enhancement
-    ├──requires──> info command documented
-    │                    └──in SKILL.md──> Version field updated to v1.5
-    │
-    ├──requires──> --json flag documented
-    │                    └──in article list, article view, search, feed list
-    │
-    └──enhances──> clawhub publish readiness
+[Cron Schedule: --cron "0 8 * * *"]
+         │
+         └──requires──> [Gateway Running]
+                              │
+                              └──requires──> [Delivery Channel Configured]
+                                                   │
+                                                   └──requires──> [Recipient: --to +1234567890]
+         │
+         └──requires──> [Session: --session isolated]
+                              │
+                              └──requires──> [--announce for delivery]
 
-ai-daily SKILL.md Enhancement
-    ├──requires──> feedship skill (listed as dependency)
-    │
-    └──enhances──> Scheduled digest (cron trigger)
+[Feedship CLI: feedship fetch --all, feedship article list]
+         │
+         └──requires──> [Feedship Installed with ml/cloudflare extras]
+
+[AI Daily Report Generation]
+         │
+         └──requires──> [feedship articles fetched]
+         └──requires──> [OpenClaw agent with feedship-ai-daily skill]
 ```
 
-## Feature Gaps Analysis
+### Dependency Notes
 
-### feedship SKILL.md
+- **Cron requires gateway:** Without `openclaw gateway` running, cron jobs never fire. No queue, no retry.
+- **`--session isolated` is mandatory for background jobs:** Using `main` session means the job waits for interactive attention.
+- **`--announce` is required for visible output:** Without it, agent runs but output disappears.
+- **Feedship extras are required:** Basic `pip install feedship` lacks ML search and advanced fetching.
 
-**Current state (v1.0):**
-- Commands documented: feed (add/list/remove), fetch, article (list/view/open/related), search, discover
-- Missing since v1.5 release:
-  - `info` command with --version, --config, --storage, --json flags
-  - `--json` output option for machine-readable results
-- Version field still says "1.0" despite v1.5 info command release
+## MVP Definition
 
-**What to add:**
-```markdown
-### info
+### Launch With (v1.7)
 
-```bash
-feedship info [options]
-```
+Minimum viable scheduled delivery:
 
-Display diagnostics: version, config, and storage information.
+- [ ] `openclaw cron add` with daily schedule (`--cron "0 8 * *"`)
+- [ ] `--session isolated` for autonomous background execution
+- [ ] `--announce` for delivery to chat
+- [ ] `--channel whatsapp` (or configured default channel)
+- [ ] `--to +1234567890` for specific recipient
+- [ ] `--agent feedship-ai-daily` invoking the skill
+- [ ] `--name "feedship-ai-daily"` for job management
+- [ ] `--timeout-seconds 600` (10 minutes for full digest)
+- [ ] Gateway running verification step
 
-**Options:**
-- `--version` — Show version only
-- `--config` — Show config path and values
-- `--storage` — Show storage path and stats
-- `--json` — Output as JSON (machine-readable)
+### Add After Validation (v1.8)
 
-**Examples:**
-```bash
-feedship info                    # Show all info
-feedship info --version         # Show version only
-feedship info --config          # Show config path and values
-feedship info --storage         # Show storage stats
-feedship info --json            # JSON output for scripting
-feedship info --config --json   # Config in JSON format
-```
-```
+Features to add once core is working:
 
-### ai-daily SKILL.md
+- [ ] `--failure-alert` with separate alert channel
+- [ ] `--best-effort-deliver` to survive delivery outages
+- [ ] `--session-key` for session continuity across runs
+- [ ] Multiple cron schedules (morning + evening digest)
 
-**Current state:**
-- Good report format with 3 sections (今日新文, 热点话题, 精选推荐)
-- Workflow steps are clear but could be more prescriptive
-- Missing: explicit handling of `--json` output from feedship commands
+### Future Consideration (v2+)
 
-**What to enhance:**
-- Add note about using `feedship info --json` for diagnostics
-- Clarify that `feedship article list` can use `--json` for machine parsing
+Features to defer until product-market fit is established:
+
+- [ ] Multi-channel fan-out (same report to multiple platforms)
+- [ ] Adaptive scheduling (based on article volume)
+- [ ] Interactive follow-up sessions for report clarification
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Document `info` command in feedship SKILL.md | HIGH | LOW | P1 |
-| Document `--json` flag in feedship SKILL.md | HIGH | LOW | P1 |
-| Update version in feedship SKILL.md to v1.5 | LOW | LOW | P2 |
-| Add `--json` examples to ai-daily skill | MEDIUM | LOW | P2 |
-| Add complete example output to ai-daily SKILL.md | MEDIUM | LOW | P2 |
-| Document info command options in ai-daily tips | LOW | LOW | P3 |
+| `--cron` daily schedule | HIGH | LOW | P1 |
+| `--session isolated` | HIGH | LOW | P1 |
+| `--announce` delivery | HIGH | LOW | P1 |
+| `--channel` + `--to` targeting | HIGH | LOW | P1 |
+| `--name` job identification | MEDIUM | LOW | P1 |
+| `--tz` timezone | MEDIUM | LOW | P2 |
+| `--timeout-seconds 600` | MEDIUM | LOW | P2 |
+| `--failure-alert` | MEDIUM | MEDIUM | P2 |
+| `--best-effort-deliver` | MEDIUM | MEDIUM | P2 |
+| `--light-context` | LOW | LOW | P3 |
+| `--expect-final` | LOW | MEDIUM | P3 |
+| `--session-key` persistence | LOW | MEDIUM | P3 |
+
+**Priority key:**
+- P1: Must have for launch
+- P2: Should have, add when possible
+- P3: Nice to have, future consideration
 
 ## Competitor Feature Analysis
 
-*Note: Unable to search clawhub.ai directly. Analysis based on existing skill patterns.*
+| Feature | OpenClaw Cron | Traditional Cron (systemd timer) | Our Approach |
+|---------|--------------|----------------------------------|--------------|
+| Natural language scheduling | Via `--cron` expression | No (must write cron expr) | Standard cron expr with `--tz` |
+| Delivery to chat | Native via `--announce` | No (logs only) | `--announce --channel whatsapp --to +123` |
+| Session isolation | `--session isolated` | N/A (stateless) | Required for background autonomy |
+| AI agent execution | `--agent <id>` | No (shell only) | `--agent feedship-ai-daily` |
+| Failure alerting | `--failure-alert` | Manual log monitoring | Built-in alert system |
+| Multi-channel delivery | `--reply-channel` override | No | Fan-out to multiple platforms |
 
-| Feature | Typical CLI Tool SKILL.md | feedship SKILL.md | Our Approach |
-|---------|--------------------------|-------------------|--------------|
-| YAML frontmatter | Yes, basic | Yes, with openclaw metadata | Keep existing |
-| Installation section | Yes | Yes, with uv/pipx and mirrors | Keep, add upgrade sub-section |
-| Command reference | Per-command | Per-command with subcommands | Extend with `info` |
-| Options table | Sometimes | Inline with command | Keep inline |
-| Examples | Minimal | Multiple per command | Keep |
-| Output format docs | Rare | Present (Rich tables/panels) | Keep |
-| Common patterns | Rare | Present (Initial, Daily, Management) | Keep |
-| Tips/gotchas | Rare | Partial | Extend |
-| JSON output | Rare | Missing | Add |
-| Platform caveats | Rare | China network section | Keep |
+## Complete Cron Command Examples
 
-## MVP Definition
+### Minimal (P1 launch):
+```bash
+openclaw cron add \
+  --name "feedship-ai-daily" \
+  --agent feedship-ai-daily \
+  --cron "0 8 * * *" \
+  --session isolated \
+  --announce \
+  --timeout-seconds 600
+```
 
-### Launch With (v1.5.1 - Minimal Skill Update)
+### Full-featured (P2 add-ons):
+```bash
+openclaw cron add \
+  --name "feedship-ai-daily" \
+  --description "Daily AI news digest from feedship subscriptions" \
+  --agent feedship-ai-daily \
+  --cron "0 8 * * *" \
+  --tz Asia/Shanghai \
+  --session isolated \
+  --announce \
+  --channel whatsapp \
+  --to +15555550123 \
+  --timeout-seconds 600 \
+  --thinking medium \
+  --best-effort-deliver \
+  --failure-alert \
+  --failure-alert-channel telegram \
+  --failure-alert-to @admin \
+  --failure-alert-after 3 \
+  --failure-alert-cooldown 4h \
+  --name "feedship-ai-daily"
+```
 
-Minimum changes needed for clawhub publish readiness.
-
-- [ ] Document `info` command in feedship SKILL.md — core diagnostic functionality users need
-- [ ] Document `--json` flag across relevant commands — scripting and automation use cases
-- [ ] Update feedship SKILL.md version from 1.0 to 1.5 — accurate representation
-
-### Add After Validation (v1.5.x)
-
-Enhancements after initial publish feedback.
-
-- [ ] Add complete JSON output example in feedship SKILL.md
-- [ ] Add diagnostic tip to ai-daily about `feedship info --json`
-- [ ] Consider adding troubleshooting section for common errors
-
-### Future Consideration (v2.0)
-
-Defer until PMF established.
-
-- [ ] Video walkthrough linked in SKILL.md
-- [ ] Interactive examples (copy-paste that auto-detects user's feeds)
-- [ ] Multi-language SKILL variants (SKILL.zh-CN.md)
+### On-demand (non-cron):
+```bash
+openclaw agent \
+  --agent feedship-ai-daily \
+  --message "Generate daily digest" \
+  --deliver \
+  --channel whatsapp \
+  --to +15555550123
+```
 
 ## Sources
 
-- Existing skills in `/Users/y3/feedship/skills/feedship/SKILL.md`
-- Existing skills in `/Users/y3/feedship/skills/ai-daily/SKILL.md`
-- Project requirements from `.planning/STATE.md` (v1.6 milestone)
-- CLI implementation in `src/cli/` (info.py, article.py, feed.py, etc.)
-- Template from `/Users/y3/.claude/get-shit-done/templates/research-project/FEATURES.md`
+- OpenClaw CLI v2026.4.2 — verified via `openclaw cron add --help`, `openclaw agent --help`, `openclaw channels --help`
+- Existing ai-daily SKILL.md: `/Users/y3/feedship/skills/ai-daily/SKILL.md` (v1.1)
+- Existing feedship SKILL.md: `/Users/y3/feedship/skills/feedship/SKILL.md` (v1.5)
+- PITFALLS.md from prior research: `/Users/y3/feedship/.planning/research/PITFALLS.md`
+- STACK.md from prior research: `/Users/y3/feedship/.planning/research/STACK.md`
 
 ---
-*Feature research for: OpenClaw Skill Publishing - feedship*
-*Researched: 2026-04-03*
+*Feature research for: OpenClaw scheduled AI daily report delivery*
+*Researched: 2026-04-04*
