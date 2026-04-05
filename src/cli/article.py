@@ -11,9 +11,9 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from src.application.article_view import fetch_and_fill_article, fetch_url_content
 from src.application.articles import ArticleListItem, get_article_detail, list_articles
 from src.cli.ui import (
-    format_article_item,
     format_article_list,
     print_json,
     print_json_error,
@@ -155,48 +155,107 @@ def article_list(
 
 
 @article.command("view")
-@click.argument("article_id")
+@click.option("--url", "url_arg", default=None, help="URL to fetch and extract content")
+@click.option(
+    "--id", "id_arg", default=None, help="Article ID to fetch and fill content"
+)
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.argument("article_id", required=False)
 @click.pass_context
-def article_view(ctx: click.Context, article_id: str, json_output: bool) -> None:
-    try:
-        article = get_article_detail(article_id)
-        if not article:
-            if json_output:
-                print_json_error(
-                    f"Article not found: {article_id}", "not_found", exit_code=1
-                )
-            click.secho(f"Article not found: {article_id}", fg="red")
-            sys.exit(1)
+def article_view(
+    ctx: click.Context,
+    url_arg: str | None,
+    id_arg: str | None,
+    json_output: bool,
+    article_id: str | None,
+) -> None:
+    """View article content. Use --url to fetch a URL, --id to fetch from DB, or provide ARTICLE_ID for existing content."""
+    # Mutual exclusivity check
+    if url_arg and id_arg:
         if json_output:
-            print_json(format_article_item(article))
-            return
-        console = Console()
-        meta_table = Table(show_header=False, box=None)
-        meta_table.add_row("Source:", article["feed_name"] or "Unknown")
-        meta_table.add_row("Type:", article.get("source_type", "feed").capitalize())
-        meta_table.add_row("Date:", _format_date(article["published_at"]))
-
-        # Link
-        link = article["link"] or "No link"
-        meta_table.add_row("Link:", link)
-
-        # Display panel with title
-        title = article["title"] or "No title"
-        console.print(
-            Panel(
-                meta_table,
-                title=title,
-                subtitle=f"{article['feed_name']} | {_format_date(article['published_at'])}",
+            print_json_error(
+                "Cannot use both --url and --id", "mutual_exclusion", exit_code=1
             )
-        )
-        if article["content"]:
-            console.print()
-            console.print(article["content"])
+        click.secho("Error: Cannot use both --url and --id", err=True, fg="red")
+        sys.exit(1)
+
+    try:
+        if url_arg:
+            # --url mode: fetch directly
+            result = fetch_url_content(url_arg)
+            if "error" in result:
+                if json_output:
+                    print_json_error(result["error"], "fetch_error", exit_code=1)
+                click.secho(f"Error: {result['error']}", err=True, fg="red")
+                sys.exit(1)
+            if json_output:
+                print_json(result)
+                return
+            _print_content_view(result)
+
+        elif id_arg:
+            # --id mode: fetch from DB and fill
+            result = fetch_and_fill_article(id_arg)
+            if "error" in result:
+                if json_output:
+                    print_json_error(result["error"], "fetch_error", exit_code=1)
+                click.secho(f"Error: {result['error']}", err=True, fg="red")
+                sys.exit(1)
+            if json_output:
+                print_json(result)
+                return
+            _print_content_view(result)
+
         else:
+            # Legacy mode: view existing article from DB
+            if not article_id:
+                if json_output:
+                    print_json_error(
+                        "ARTICLE_ID required when not using --url or --id",
+                        "missing_arg",
+                        exit_code=1,
+                    )
+                click.secho(
+                    "Error: ARTICLE_ID required when not using --url or --id",
+                    err=True,
+                    fg="red",
+                )
+                sys.exit(1)
+            # Call original logic - reuse get_article_detail
+            article = get_article_detail(article_id)
+            if not article:
+                if json_output:
+                    print_json_error(
+                        f"Article not found: {article_id}", "not_found", exit_code=1
+                    )
+                click.secho(f"Article not found: {article_id}", fg="red")
+                sys.exit(1)
+            if json_output:
+                print_json(article)
+                return
+            # Existing rich output for legacy mode
+            console = Console()
+            meta_table = Table(show_header=False, box=None)
+            meta_table.add_row("Source:", article["feed_name"] or "Unknown")
+            meta_table.add_row("Type:", article.get("source_type", "feed").capitalize())
+            meta_table.add_row("Date:", _format_date(article["published_at"]))
+            link = article["link"] or "No link"
+            meta_table.add_row("Link:", link)
+            title = article["title"] or "No title"
             console.print(
-                Panel("[dim]No content available[/dim]", border_style="yellow")
+                Panel(
+                    meta_table,
+                    title=title,
+                    subtitle=f"{article['feed_name']} | {_format_date(article['published_at'])}",
+                )
             )
+            if article["content"]:
+                console.print()
+                console.print(article["content"])
+            else:
+                console.print(
+                    Panel("[dim]No content available[/dim]", border_style="yellow")
+                )
     except Exception as e:
         if json_output:
             print_json_error(f"Failed to view article: {e}", "view_error")
@@ -204,6 +263,17 @@ def article_view(ctx: click.Context, article_id: str, json_output: bool) -> None
         click.secho(f"Error: Failed to view article: {e}", err=True, fg="red")
         logger.exception("Failed to view article")
         sys.exit(1)
+
+
+def _print_content_view(result: dict) -> None:
+    """Print content view result in rich format."""
+    console = Console()
+    title = result.get("title") or "No title"
+    url = result.get("url") or ""
+    extracted_at = result.get("extracted_at", "")
+    console.print(
+        Panel(result["content"], title=title, subtitle=f"{url} | {extracted_at}")
+    )
 
 
 @article.command("open")
