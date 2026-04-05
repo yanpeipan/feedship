@@ -82,6 +82,8 @@ class DatabaseInitializer:
                 logger.info(
                     "Migrating articles table: changing UNIQUE(feed_id, id) to UNIQUE(feed_id, guid)"
                 )
+                # Clean up any stale articles_new from a failed prior migration
+                cursor.execute("DROP TABLE IF EXISTS articles_new")
                 cursor.execute("""
                     CREATE TABLE articles_new (
                         id TEXT NOT NULL,
