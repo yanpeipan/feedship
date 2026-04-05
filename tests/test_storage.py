@@ -1054,3 +1054,145 @@ class TestArticleGroupOperations:
         )
         for article in articles:
             assert article.feed_id == "article-group-feed-1"
+
+
+class TestUpdateArticleContent:
+    """Tests for update_article_content function."""
+
+    def test_update_article_content_success(self, initialized_db):
+        """update_article_content() updates article content and modified_at."""
+        from src.models import Feed
+        from src.storage.sqlite import (
+            add_feed,
+            get_article_detail,
+            store_article,
+            update_article_content,
+        )
+
+        feed = Feed(
+            id="update-content-feed",
+            name="Update Content Feed",
+            url="https://example.com/update-content.xml",
+            etag=None,
+            modified_at=None,
+            fetched_at=None,
+            created_at="2024-01-01T00:00:00+00:00",
+        )
+        add_feed(feed)
+
+        article_id = store_article(
+            guid="update-content-guid",
+            title="Original Title",
+            content="<p>Original content</p>",
+            link="https://example.com/update-content",
+            feed_id="update-content-feed",
+            published_at="2024-01-15T10:00:00+00:00",
+        )
+
+        # Verify original content
+        detail = get_article_detail(article_id)
+        assert detail["content"] == "<p>Original content</p>"
+
+        # Update content
+        new_content = "# New Markdown Content\n\nThis is the updated content."
+        result = update_article_content(article_id, new_content)
+
+        assert result["success"] is True
+        assert result["error"] is None
+
+        # Verify updated content
+        updated_detail = get_article_detail(article_id)
+        assert updated_detail["content"] == new_content
+
+    def test_update_article_content_with_truncated_id(self, initialized_db):
+        """update_article_content() works with truncated 8-char ID."""
+        from src.models import Feed
+        from src.storage.sqlite import (
+            add_feed,
+            get_article_detail,
+            store_article,
+            update_article_content,
+        )
+
+        feed = Feed(
+            id="trunc-update-feed",
+            name="Trunc Update Feed",
+            url="https://example.com/trunc-update.xml",
+            etag=None,
+            modified_at=None,
+            fetched_at=None,
+            created_at="2024-01-01T00:00:00+00:00",
+        )
+        add_feed(feed)
+
+        article_id = store_article(
+            guid="trunc-update-guid",
+            title="Trunc Update Article",
+            content="<p>Original</p>",
+            link="https://example.com/trunc-update",
+            feed_id="trunc-update-feed",
+            published_at="2024-01-15T10:00:00+00:00",
+        )
+
+        # Use truncated ID
+        truncated_id = article_id[:8]
+        new_content = "Updated via truncated ID"
+        result = update_article_content(truncated_id, new_content)
+
+        assert result["success"] is True
+
+        # Verify full article was updated
+        detail = get_article_detail(article_id)
+        assert detail["content"] == new_content
+
+    def test_update_article_content_not_found(self, initialized_db):
+        """update_article_content() returns error when article not found."""
+        from src.storage.sqlite import update_article_content
+
+        result = update_article_content("non-existent-id", "some content")
+
+        assert result["success"] is False
+        assert result["error"] is not None
+        assert "not found" in result["error"].lower()
+
+    def test_update_article_content_always_overwrites(self, initialized_db):
+        """update_article_content() always overwrites content regardless of previous value."""
+        from src.models import Feed
+        from src.storage.sqlite import (
+            add_feed,
+            get_article_detail,
+            store_article,
+            update_article_content,
+        )
+
+        feed = Feed(
+            id="overwrite-feed",
+            name="Overwrite Feed",
+            url="https://example.com/overwrite.xml",
+            etag=None,
+            modified_at=None,
+            fetched_at=None,
+            created_at="2024-01-01T00:00:00+00:00",
+        )
+        add_feed(feed)
+
+        article_id = store_article(
+            guid="overwrite-guid",
+            title="Overwrite Article",
+            content=None,  # Start with no content
+            link="https://example.com/overwrite",
+            feed_id="overwrite-feed",
+            published_at="2024-01-15T10:00:00+00:00",
+        )
+
+        # Update with content
+        result1 = update_article_content(article_id, "First update")
+        assert result1["success"] is True
+
+        # Update again with different content
+        result2 = update_article_content(article_id, "Second update")
+        assert result2["success"] is True
+
+        # Verify second update overwrote first
+        detail = get_article_detail(article_id)
+        assert detail["content"] == "Second update"
