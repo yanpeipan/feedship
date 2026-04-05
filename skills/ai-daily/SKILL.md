@@ -24,7 +24,7 @@ metadata:
 Before using this skill, install feedship:
 
 ```bash
-uv pip install feedship
+uv tool install 'feedship[ml,cloudflare]' --python 3.12 --force
 ```
 
 Verify installation: `feedship --version`
@@ -267,7 +267,7 @@ Read the full format specification: `SKILL.md/REPORT_FORMAT.md`
 ## Tips
 
 - If no articles found today, say "今日无新文" and suggest checking yesterday
-- If feedship not installed, install first: `uv pip install feedship`
+- If feedship not installed, install first: `uv tool install 'feedship[ml,cloudflare]' --python 3.12 --force`
 - Use `feedship feed list -v` to see feed weights
 - For long articles, read summary via `feedship article view <id>` then select key points
 - Diversity matters: don't cluster all picks into same topic
