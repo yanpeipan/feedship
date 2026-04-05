@@ -341,6 +341,9 @@ def _batch_upsert_articles(articles: list) -> list[tuple[str, str]]:
                 )
             )
 
+        _logger = logging.getLogger(__name__)
+        _logger.debug(f"Batch upsert: preparing {len(articles)} articles for DB insert")
+
         # Batch UPSERT with executemany - single transaction
         cursor.executemany(
             """INSERT INTO articles (id, feed_id, title, link, guid, published_at, content, description, created_at, modified_at, author, tags, category, meta)
@@ -358,6 +361,7 @@ def _batch_upsert_articles(articles: list) -> list[tuple[str, str]]:
                    meta = excluded.meta""",
             batch_values,
         )
+        _logger.debug(f"Batch upsert: inserted/updated {len(batch_values)} articles")
 
         # Batch FTS sync - single query for all articles
         if article_ids:
@@ -367,8 +371,14 @@ def _batch_upsert_articles(articles: list) -> list[tuple[str, str]]:
                    SELECT rowid, title, description, content, author, tags, category FROM articles WHERE id IN ({placeholders})""",
                 tuple(article_ids),
             )
+            _logger.debug(
+                f"Batch upsert: FTS index updated for {len(article_ids)} articles"
+            )
 
         conn.commit()
+        _logger.debug(
+            f"Batch upsert: transaction committed, {len(results)} articles processed"
+        )
 
         # Build results
         for i, article in enumerate(articles):
