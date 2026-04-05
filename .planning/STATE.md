@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: article view 增强
-status: executing
-last_updated: "2026-04-06T00:00:00.000Z"
-last_activity: "2026-04-06 -- Phase 19 complete"
+status: complete
+last_updated: "2026-04-06T08:00:00.000Z"
+last_activity: "2026-04-06 -- Phase 19 shipped, PR #1 merged"
 progress:
   total_phases: 1
   completed_phases: 1
