@@ -189,7 +189,7 @@ Run the following searches to ensure comprehensive coverage:
 
 ```bash
 # Models & foundation
-feedship search "LLM GPT Claude Gemini Llama MoE 多模态 开源模型" --semantic --limit 333 --since $SINCE
+feedship search "AI LLM GPT Claude Gemini Llama MoE 多模态 开源模型 PMF MRR ARR AI SaaS OPC startup funding" --semantic --limit 333 --since $SINCE
 
 # Applications & products
 feedship search "AI应用 AI PMF MRR ARR AI SaaS OPC 创业 投资 startup funding" --semantic --limit 333 --since $SINCE

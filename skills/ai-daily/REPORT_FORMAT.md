@@ -39,6 +39,7 @@ Categorize articles into the five-layer framework: AI应用 → AI模型 → AI�
 - Within each layer, further group semantically similar articles together
 - Each sub-group: header with layer name, then numbered topic themes with count + linked sources
 - **MANDATORY: Every numbered item MUST have "[n]篇来源" prefix, even when n=1**
+- **IMPORTANT: 链接必须使用 article.link（实际文章URL），不是 feed 官网 URL**
 - When an article involves funding, acquisitions, or notable trends, append a tag: `#融资` `#并购` `#趋势`
 - Order sub-groups by feed weight (评分), highest first
 
