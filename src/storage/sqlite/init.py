@@ -102,15 +102,19 @@ class DatabaseInitializer:
                     )
                 """)
                 # Deduplicate: keep the row with latest modified_at for each (feed_id, guid) pair
-                # Using a JOIN approach for better performance with large datasets
+                # If still tied (same feed_id, guid, modified_at), keep the one with highest id
                 cursor.execute("""
                     INSERT INTO articles_new
                     SELECT a.* FROM articles a
                     INNER JOIN (
-                        SELECT feed_id, guid, MAX(modified_at) as max_modified
+                        SELECT feed_id, guid, modified_at,
+                               ROW_NUMBER() OVER (
+                                   PARTITION BY feed_id, guid
+                                   ORDER BY modified_at DESC, id DESC
+                               ) as rn
                         FROM articles
-                        GROUP BY feed_id, guid
-                    ) b ON a.feed_id = b.feed_id AND a.guid = b.guid AND a.modified_at = b.max_modified
+                    ) b ON a.feed_id = b.feed_id AND a.guid = b.guid
+                        AND a.modified_at = b.modified_at AND b.rn = 1
                 """)
                 cursor.execute("DROP TABLE articles")
                 cursor.execute("ALTER TABLE articles_new RENAME TO articles")
