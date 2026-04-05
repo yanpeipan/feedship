@@ -1,5 +1,5 @@
 ---
-version: 1.11.0
+version: 1.12.0
 name: feedship-ai-daily
 description: "Generate daily AI news digest from feedship subscriptions. Use when user wants today's news summary, daily briefing, periodic news recap, AI daily digest, ai daily, AI 日报, ai 日报, 生成简报, or 大模型日报. Reads existing feedship subscriptions, fetches latest articles, and generates a 6-section digest: (A) AI五层蛋糕, (B) 精选推荐, (C) 创业信号, (D) 创作点, (E) 政策解读, (F) 媒体热点. Requires feedship skill."
 metadata:
@@ -15,7 +15,7 @@ metadata:
 
 # AI 日报 (Feedship AI Daily)
 
-**Version:** 1.11.0
+**Version:** 1.12.0
 **For:** OpenClaw compatible agents
 **Description:** Generate daily AI news digest from feedship subscriptions
 
@@ -208,6 +208,8 @@ Find `<job-id>` from the `openclaw cron list` output.
 
 ## Generate Daily Report
 
+**Core Principle:** Process ALL available articles systematically. Do not manually select 5-8 articles. Use clustering and batch processing to cover the full corpus.
+
 Execute these steps in order:
 
 ### Step 1: Fetch Latest Articles
@@ -219,29 +221,53 @@ feedship fetch --all
 
 Wait for fetch to complete before proceeding.
 
-### Step 2: Get Today's Articles
+### Step 2: Get ALL Recent Articles (Not Just Today)
 
-Get today's date in YYYY-MM-DD format.
-
-```bash
-feedship article list --limit 333 --since YYYY-MM-DD
-```
-
-Filter to articles actually published today (check the date column in output).
-
-Then use semantic search to focus on current themes:
+Due to RSS timezone inconsistencies, expand search window to capture maximum articles:
 
 ```bash
-feedship search "AI LLM GPT machine learning" --semantic --limit 333 --since YYYY-MM-DD
+# Get articles from last 3 days (covers timezone edge cases)
+feedship article list --limit 333 --since YYYY-MM-DD --until YYYY-MM-DD
 ```
 
-### Step 3: Generate 6-Section Report
-
-Read full content for articles you want to summarize:
+Then use semantic search with multiple topic queries to ensure comprehensive coverage:
 
 ```bash
-feedship article view <article-id>
+# Search 1: Models & Foundation
+feedship search "LLM GPT Claude Gemini Gemini architecture training" --semantic --limit 100 --since YYYY-MM-DD
+
+# Search 2: Applications & Products
+feedship search "AI应用 产品 创业 投资 startup funding" --semantic --limit 100 --since YYYY-MM-DD
+
+# Search 3: Infrastructure & Tools
+feedship search "Agent框架 代码 开发者工具 devtools" --semantic --limit 100 --since YYYY-MM-DD
+
+# Search 4: Policy & Regulation
+feedship search "AI政策 监管 合规 法律 regulation compliance" --semantic --limit 100 --since YYYY-MM-DD
+
+# Search 5: Security & Ethics
+feedship search "AI安全 伦理 隐私 争议 safety ethics" --semantic --limit 100 --since YYYY-MM-DD
 ```
+
+**Aggregate ALL search results** — each search should return different relevant articles.
+
+### Step 3: Cluster & Generate Report
+
+Use the combined results from Step 2 to:
+1. **Cluster articles by semantic similarity** into topics
+2. **Count articles per topic** to determine significance
+3. **Generate each section** by mapping clusters to section categories
+
+**Section A (AI五层蛋糕)**: Map clusters to the 5 layers
+- AI应用: products, consumer apps
+- AI模型: LLMs, foundation models
+- AI基础设施: infra, tools, dev frameworks
+- 芯片: hardware, chips, GPUs
+- 能源: energy, manufacturing
+
+**Section B (精选推荐)**: Top 10-15 articles across ALL clusters, grouped by topic
+
+**Sections C-F**: Extract from relevant search results
 
 ---
 
