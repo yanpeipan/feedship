@@ -902,6 +902,41 @@ def get_article_detail(article_id: str) -> dict | None:
         }
 
 
+def update_article_content(article_id: str, content: str) -> dict:
+    """Update article content field and modified_at timestamp.
+
+    Args:
+        article_id: The article ID (supports 8-char truncated or full 32-char).
+        content: The new content (Markdown from Trafilatura).
+
+    Returns:
+        Dict with 'success' (bool) and optional 'error' (str).
+    """
+    import time
+
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Try exact match first
+        cursor.execute("SELECT id FROM articles WHERE id = ?", (article_id,))
+        row = cursor.fetchone()
+        # If not found and length == 8, try truncated ID match
+        if not row and len(article_id) == 8:
+            cursor.execute(
+                "SELECT id FROM articles WHERE id LIKE ? || '%' LIMIT 1", (article_id,)
+            )
+            row = cursor.fetchone()
+        if not row:
+            return {"success": False, "error": f"Article not found: {article_id}"}
+        actual_id = row["id"]
+        cursor.execute(
+            "UPDATE articles SET content = ?, modified_at = ? WHERE id = ?",
+            (content, now, actual_id),
+        )
+        conn.commit()
+        return {"success": True, "error": None}
+
+
 def search_articles_fts(
     query: str,
     limit: int = 20,

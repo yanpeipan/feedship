@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🟡 **v1.10 article view 增强** — Phase 19 (in progress)
 - 🟡 **v1.9 fetch --url** — Phase 18 (in progress)
 - ✅ **v1.8 OpenClaw 本地测试与 Skill 迭代** — Phases 14-17 (shipped 2026-04-05)
 - ✅ **v1.7 OpenClaw AI Daily Report** — Phases 11-13 (shipped 2026-04-04)
@@ -15,9 +16,43 @@
 
 ## Phases
 
-### v1.9 (Current)
+### v1.10 (Current)
 
-**Goal:** 对 `feedship fetch` 增加 `--url` 支持，允许不保存到数据库直接抓取 URL
+**Goal:** 增强 `feedship article view` 命令，支持 --url/--id/--json 参数，Trafilatura 最佳实践提取内容
+
+---
+
+### Phase 19: article view 命令增强
+
+**Goal:** 实现 `article view` 命令的 --url/--id/--json 参数，Trafilatura 最佳实践提取内容
+
+**Depends on:** None
+
+**Requirements:** VIEW-01, VIEW-02, VIEW-03, VIEW-04
+
+**Success Criteria** (what must be TRUE):
+1. `feedship article view --url <URL>` 直接抓取 URL，Trafilatura 提取 Markdown 内容，返回内容，不入库
+2. `feedship article view --id <article_id>` 从数据库查询 article，抓取 link URL，Trafilatura 回填 content 字段，更新数据库，返回 Markdown
+3. `feedship article view --json` 以 JSON 格式输出（--url 和 --id 模式共用）
+4. `--url` 和 `--id` 互斥，同时使用时报错
+5. Trafilatura 使用 output_format=markdown，include_images=False，include_tables=True
+
+**Implementation Notes:**
+- **分层架构**: CLI (`src/cli/article.py`) 只调用 application 层，不写业务逻辑；storage 层只做数据访问；业务逻辑放在 application 层 (`src/application/`)
+- **复用现有代码**: 使用 `src/utils/scraping_utils.py`（`fetch_with_fallback`, `StealthFetcher`）
+- **TDD**: 先在 `tests/` 写单元测试，再实现代码
+- **简洁高效**: trafilatura 提取逻辑直接写在 `src/application/article_view.py`，不复用 WebpageProvider
+
+**Implementation Plan:**
+- 新增 `src/application/article_view.py` — 业务逻辑层
+  - `fetch_url_content(url: str) -> dict` — 用 `scraping_utils.fetch_with_fallback` 抓取，trafilatura 提取，返回 dict
+  - `fetch_and_fill_article(article_id: str) -> dict` — 查库->抓取->回填->返回
+- 新增 `storage.update_article_content(article_id, content)` — 数据库更新
+- 修改 `src/cli/article.py` 的 `article view` 命令 — 调用 application 层
+- TDD: 先在 `tests/` 写单元测试
+
+**Plans**:
+- [x] 19-01-PLAN.md — article view --url/--id/--json 实现 (VIEW-01~04)
 
 ---
 
@@ -119,6 +154,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
+| 19. article view 增强 | v1.10 | 1/1 | In Progress | — |
 | 18. fetch --url 实现 | v1.9 | 1/1 | In Progress | — |
 | 14. 基础流程测试 | v1.8 | 1/1 | Complete | 2026-04-04 |
 | 15. Cron 与 Isolated Session | v1.8 | 1/1 | Complete | 2026-04-04 |

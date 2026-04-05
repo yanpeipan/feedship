@@ -21,6 +21,7 @@ from src.storage.sqlite.impl import (
     search_articles_fts,
     store_article,
     store_article_async,
+    update_article_content,
     update_feed,
     upsert_articles,
     upsert_articles_async,
