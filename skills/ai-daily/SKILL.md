@@ -204,20 +204,68 @@ feedship search "AI政策 监管 合规 法律 regulation compliance" --semantic
 feedship search "AI安全 伦理 隐私 争议 safety ethics" --semantic --limit 333 --since $SINCE
 ```
 
-### Step 4: Cluster and generate report
+### Step 4: Generate report sections (sequential file write)
 
-1. **Cluster** articles by semantic similarity into topics.
-2. **Count** articles per topic to identify significance.
-3. **Map** clusters to the six sections:
+Each section is generated and written to a separate file to avoid output truncation. Use bash to write files sequentially.
 
-| Section | Name | Mapping |
-|---------|------|---------|
-| A | AI五层蛋糕 | AI应用, AI模型, AI基础设施, 芯片, 能源 (with #融资/#并购/#趋势 tags) |
-| B | 精选推荐 | Top 10‑15 articles across all clusters, grouped by topic |
-| C | 创业信号 | High-leverage tools + conditional business teardown |
-| D | 创作点 | Content angles and story ideas |
-| E | 政策解读 | Policy & regulation |
-| F | 媒体热点 | Viral discussions and media trends |
+**Step 4a: Generate Section A**
+```bash
+DATE=$(date +%Y-%m-%d)
+mkdir -p /tmp/ai-daily-$DATE
+cat > /tmp/ai-daily-$DATE/section_a.md << 'EOF'
+# AI 日报 DATE_PLACEHOLDER
+
+## A. AI五层蛋糕
+[按 REPORT_FORMAT.md 格式生成 AI五层蛋糕 内容]
+EOF
+```
+
+**Step 4b: Generate Section B**
+```bash
+cat > /tmp/ai-daily-$DATE/section_b.md << 'EOF'
+## B. 精选推荐
+[按格式生成 精选推荐 内容]
+EOF
+```
+
+**Step 4c: Generate Section C**
+```bash
+cat > /tmp/ai-daily-$DATE/section_c.md << 'EOF'
+## C. 创业信号
+[按格式生成 创业信号 内容]
+EOF
+```
+
+**Step 4d: Generate Section D**
+```bash
+cat > /tmp/ai-daily-$DATE/section_d.md << 'EOF'
+## D. 创作点
+[按格式生成 创作点 内容]
+EOF
+```
+
+**Step 4e: Generate Section E**
+```bash
+cat > /tmp/ai-daily-$DATE/section_e.md << 'EOF'
+## E. 政策解读
+[按格式生成 政策解读 内容]
+EOF
+```
+
+**Step 4f: Generate Section F**
+```bash
+cat > /tmp/ai-daily-$DATE/section_f.md << 'EOF'
+## F. 媒体热点
+[按格式生成 媒体热点 内容]
+EOF
+```
+
+**Step 4g: Concatenate final report**
+```bash
+DATE=$(date +%Y-%m-%d)
+cat /tmp/ai-daily-$DATE/section_*.md | sed "s/DATE_PLACEHOLDER/$DATE/" > /tmp/ai-daily-$DATE/daily-report.md
+cat /tmp/ai-daily-$DATE/daily-report.md
+```
 
 ---
 

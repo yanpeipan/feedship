@@ -80,8 +80,6 @@ Combine top articles with topic clustering: select 5-8 top ranked articles and g
 
 **MANDATORY:** 你的唯一目标是从海量资讯中提取”信息差”、”技术红利”和”搞钱路径”。禁止废话，拒绝宏大叙事。
 
-**注意：** 趋势洞察已整合到 Section A（使用 `#融资` `#并购` `#趋势` 标签）。Section C 只输出以下两个模块。
-
 ---
 
 ### 核心杠杆 (High-Leverage Tools & Models)
