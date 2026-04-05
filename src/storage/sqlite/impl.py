@@ -641,6 +641,31 @@ def _date_to_timestamp_end(date_str: str, tz) -> int:
     return int(dt.timestamp())
 
 
+def _date_to_str(date_str: str, tz) -> str:
+    """Convert YYYY-MM-DD to YYYY-MM-DD HH:MM:SS string at start of day in timezone.
+
+    Note: tz is ignored but kept for API compatibility with _date_to_timestamp.
+    The conversion uses the timezone to determine the actual start moment.
+    """
+    from datetime import datetime
+
+    dt = datetime.strptime(date_str, "%Y-%m-%d")
+    dt = dt.replace(tzinfo=tz)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _date_to_str_end(date_str: str, tz) -> str:
+    """Convert YYYY-MM-DD to YYYY-MM-DD HH:MM:SS string at end of day (23:59:59) in timezone.
+
+    Note: tz is ignored but kept for API compatibility with _date_to_timestamp_end.
+    """
+    from datetime import datetime
+
+    dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=tz)
+    dt = dt.replace(hour=23, minute=59, second=59)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
 def list_articles(
     limit: int = 20,
     feed_id: str | None = None,
@@ -676,15 +701,15 @@ def list_articles(
         params.append(feed_id)
     if since:
         conditions.append("a.published_at >= ?")
-        params.append(_date_to_timestamp(since, tz))
+        params.append(_date_to_str(since, tz))
     if until:
         conditions.append("a.published_at <= ?")
-        params.append(_date_to_timestamp_end(until, tz))
+        params.append(_date_to_str_end(until, tz))
     if on:
         # Match articles within each specified date (start-of-day to end-of-day)
         for d in on:
-            start = _date_to_timestamp(d, tz)
-            end = _date_to_timestamp_end(d, tz)
+            start = _date_to_str(d, tz)
+            end = _date_to_str_end(d, tz)
             conditions.append("a.published_at BETWEEN ? AND ?")
             params.extend([start, end])
     if groups:

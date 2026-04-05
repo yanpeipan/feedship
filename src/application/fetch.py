@@ -150,6 +150,7 @@ async def fetch_one_async(feed: Feed) -> dict:
                     }
                 )
             await asyncio.to_thread(add_article_embeddings, embedding_articles)
+            await asyncio.sleep(0)  # Ensure progress bar updates after blocking I/O
         except Exception as e:
             logger.warning("Failed to add embeddings for feed %s: %s", feed.id, e)
             # Don't fail the fetch - embeddings are non-critical
