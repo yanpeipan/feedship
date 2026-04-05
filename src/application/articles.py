@@ -6,6 +6,7 @@ Scoring and ranking logic is encapsulated in this layer.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 
 from src.application.combine import combine_scores
@@ -118,6 +119,7 @@ def search_articles_fts(
     on: list[str] | None = None,
     groups: list[str] | None = None,
     score: bool = True,
+    rerank: bool = False,
 ) -> list[ArticleListItem]:
     """Search articles using FTS5 full-text search with BM25 scoring.
 
@@ -131,6 +133,7 @@ def search_articles_fts(
         groups: Optional list of feed groups to filter by (OR semantics).
         score: If True, compute and sort by final_score (default). Set False when
             reranking will override the sort anyway.
+        rerank: If True, apply Cross-Encoder reranking after initial search.
 
     Returns:
         List of ArticleListItem sorted by final_score descending (if score=True).
@@ -144,10 +147,22 @@ def search_articles_fts(
         on=on,
         groups=groups,
     )
-    if not score:
-        return articles
-    # FTS5: gamma=0.0 (no vec_sim), delta=0.2 (BM25)
-    return combine_scores(articles, alpha=0.3, beta=0.3, gamma=0.0, delta=0.2)
+    if rerank:
+        # Skip initial combine_scores when reranking; rerank will set ce_score
+        import concurrent.futures
+
+        from src.application.rerank import rerank
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(asyncio.run, rerank(query, articles, limit))
+            articles = future.result()
+        # After rerank sets ce_score, recompute final_score with FTS5 weights
+        # FTS5: gamma=0.0 (no vec_sim), delta=0.2 (BM25)
+        articles = combine_scores(articles, alpha=0.3, beta=0.3, gamma=0.0, delta=0.2)
+    elif score:
+        # FTS5: gamma=0.0 (no vec_sim), delta=0.2 (BM25)
+        articles = combine_scores(articles, alpha=0.3, beta=0.3, gamma=0.0, delta=0.2)
+    return articles
 
 
 def search_articles_semantic(
@@ -158,6 +173,7 @@ def search_articles_semantic(
     on: list[str] | None = None,
     groups: list[str] | None = None,
     score: bool = True,
+    rerank: bool = False,
 ) -> list[ArticleListItem]:
     """Search articles by semantic similarity with vector scoring.
 
@@ -170,6 +186,7 @@ def search_articles_semantic(
         groups: Optional list of feed groups to filter by (OR semantics).
         score: If True, compute and sort by final_score (default). Set False when
             reranking will override the sort anyway.
+        rerank: If True, apply Cross-Encoder reranking after initial search.
 
     Returns:
         List of ArticleListItem sorted by final_score descending (if score=True).
@@ -182,7 +199,19 @@ def search_articles_semantic(
         on=on,
         groups=groups,
     )
-    if not score:
-        return articles
-    # Semantic: gamma=0.2 (vec_sim), delta=0.0 (no BM25)
-    return combine_scores(articles, alpha=0.3, beta=0.3, gamma=0.2, delta=0.0)
+    if rerank:
+        # Skip initial combine_scores when reranking; rerank will set ce_score
+        import concurrent.futures
+
+        from src.application.rerank import rerank
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(asyncio.run, rerank(query_text, articles, limit))
+            articles = future.result()
+        # After rerank sets ce_score, recompute final_score with semantic weights
+        # Semantic: gamma=0.2 (vec_sim), delta=0.0 (no BM25)
+        articles = combine_scores(articles, alpha=0.3, beta=0.3, gamma=0.2, delta=0.0)
+    elif score:
+        # Semantic: gamma=0.2 (vec_sim), delta=0.0 (no BM25)
+        articles = combine_scores(articles, alpha=0.3, beta=0.3, gamma=0.2, delta=0.0)
+    return articles
