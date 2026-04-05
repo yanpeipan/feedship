@@ -10,6 +10,7 @@ import concurrent.futures
 from dataclasses import dataclass
 
 from src.application.combine import combine_scores
+from src.application.cross_encoder import cross_encoder as _cross_encoder_func
 from src.storage import (
     get_article as storage_get_article,
 )
@@ -145,7 +146,9 @@ def search_articles_fts(
     )
     if cross_encoder:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            articles = executor.submit(cross_encoder, query, articles, limit).result()
+            articles = executor.submit(
+                _cross_encoder_func, query, articles, limit
+            ).result()
     # FTS5: gamma=0.0 (no vec_sim), delta=0.2 (BM25)
     return combine_scores(articles, alpha=0.3, beta=0.3, gamma=0.0, delta=0.2)
 
