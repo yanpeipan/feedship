@@ -189,19 +189,19 @@ Run the following searches to ensure comprehensive coverage:
 
 ```bash
 # Models & foundation
-feedship search "LLM GPT Claude Gemini architecture training" --semantic --limit 100 --since $SINCE
+feedship search "LLM GPT Claude Gemini Llama MoE 多模态 开源模型" --semantic --limit 333 --since $SINCE
 
 # Applications & products
-feedship search "AI应用 产品 创业 投资 startup funding" --semantic --limit 100 --since $SINCE
+feedship search "AI应用 AI PMF MRR ARR AI SaaS OPC 创业 投资 startup funding" --semantic --limit 333 --since $SINCE
 
 # Infrastructure & tools
-feedship search "Agent框架 代码 开发者工具 devtools" --semantic --limit 100 --since $SINCE
+feedship search "Agent框架 Autonomous Agent workflows RAG orchestration devtools" --semantic --limit 333 --since $SINCE
 
 # Policy & regulation
-feedship search "AI政策 监管 合规 法律 regulation compliance" --semantic --limit 100 --since $SINCE
+feedship search "AI政策 监管 合规 法律 regulation compliance" --semantic --limit 333 --since $SINCE
 
 # Security & ethics
-feedship search "AI安全 伦理 隐私 争议 safety ethics" --semantic --limit 100 --since $SINCE
+feedship search "AI安全 伦理 隐私 争议 safety ethics" --semantic --limit 333 --since $SINCE
 ```
 
 ### Step 4: Cluster and generate report

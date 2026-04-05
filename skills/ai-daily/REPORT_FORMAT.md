@@ -78,23 +78,46 @@ Combine top articles with topic clustering: select 5-8 top ranked articles and g
 ## Section C: 创业信号 (Startup Signals)
 
 Detect funding news, acquisitions, and trend opportunities from existing articles using pattern-based detection.
+**MANDATORY:** 你必须严格按照以下 3 个模块输出。禁止任何废话，拒绝宏大叙事。你的唯一目标是从海量资讯中提取“信息差”、“技术红利”和“搞钱路径”。
 
 **Format:**
 
 ```
 ## C. 创业信号
 
-### 融资动态
+### 趋势洞察
 1. 多模态AI应用加速落地，Copilot等产品持续迭代
    [2]篇来源：[**AI Weekly**](https://aiweekly.com), [**TechCrunch**](https://techcrunch.com)
 
-### 收购并购
-1. 企业并购动态，A公司拓展B市场
+2. 企业并购动态，A公司拓展B市场
    [1]篇来源：[**Reuters**](https://reuters.com)
 
-### 趋势机会
-1. 新兴趋势：X技术进入Y行业
+3. 新兴趋势：X技术进入Y行业
    [2]篇来源：[**TechCrunch**](https://techcrunch.com), [**AI Weekly**](https://aiweekly.com)
+
+### 核心杠杆 (High-Leverage Tools & Models)
+抛弃所有关于“芯片”、“能源”、“大厂财报”的无意义资讯。只保留对独立开发者、超级个体有直接生产力提升的信息。按重要度降序排列。
+
+**格式约束：**
+1. [工具/项目名称]：一句话说明它解决了什么具体痛点。
+   **降维打击点**：为什么它比现有方案好？（节省的时间/金钱成本）。
+   来源：[链接]
+
+2. [模型/API 名称]：一句话说明核心更新。
+   **实操价值**：普通人/小团队能用它做什么原本做不到的事？（例如：更低成本的本地 RAG，更好的长文本处理）。
+   来源：[链接]
+
+### 商业逆向工程 (Business Teardown & MVP)
+扫描资讯中的“融资消息”、“爆款新应用”或“细分趋势”，挑选**最具复刻价值或套利空间**的 1 个案例，用第一性原理进行系统拆解。
+
+**格式约束：**
+1. 🎯 靶向案例：[产品或趋势名称]
+   **需求本质**：它切中了什么人性弱点或业务痛点？
+   **技术底座推测**：它大概率使用了什么模型/技术栈？（如：前端 Next.js + 后端 Supabase + 核心逻辑 Claude 3.5 Sonnet API）。
+   **一人公司复刻路径 (MVP SOP)**：
+   1. [第一步：获取什么开源数据/模型]
+   2. [第二步：用什么低代码/框架快速搭建界面]
+   3. [第三步：如何找到第一批种子用户或进行商业变现]
 ```
 
 **Key patterns to detect:**
