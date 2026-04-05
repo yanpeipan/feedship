@@ -4,7 +4,7 @@ milestone: v1.9
 milestone_name: fetch --url
 status: executing
 last_updated: "2026-04-05T00:00:00.000Z"
-last_activity: 2026-04-05 -- Completed quick task 260405-sm0: 触发日报 & 自行检测、评分、优化 (Overall 8.0/10)
+last_activity: 2026-04-05 -- Completed quick task 260405-tu4: feedship-ai-daily cron loop test (ok)
 progress:
   total_phases: 1
   completed_phases: 0
@@ -47,3 +47,5 @@ None
 | 260405-0320 | Article dataclass with meta dict, meta stored in DB | 2026-04-05 | a1225c4 | [260405-0320-...](./quick/260405-0320-article-dataclass/) |
 | 260405-o2m | 为 stealth fetcher 添加 asyncio.wait_for() 超时控制 | 2026-04-05 | aff5b35 | [260405-o2m-...](./quick/260405-o2m-stealth-fetcher-asyncio-wait-for/) |
 | 260405-sm0 | 触发日报 & 自行检测、评分、优化 | 2026-04-05 | ba599a9 | [260405-sm0-...](./quick/260405-sm0-trigger-ai-daily-eval/) |
+| 260405-ti2 | openclaw feedship-ai-daily uvx fix | 2026-04-05 | e40d9c8 | [260405-ti2-...](./quick/260405-ti2-openclaw-feedship-ai-daily-skills/) |
+| 260405-tu4 | feedship-ai-daily cron loop test | 2026-04-05 | e40d9c8 | [260405-tu4-...](./quick/260405-tu4-feedship-ai-daily-skill/) |

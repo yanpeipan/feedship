@@ -262,7 +262,10 @@ def article_search(
     try:
         import asyncio
 
-        from src.application.combine import combine_scores
+        from src.application.articles import (
+            search_articles_fts,
+            search_articles_semantic,
+        )
 
         on_list = list(on) if on else None
         groups_list = groups.split(",") if groups else None
@@ -274,9 +277,7 @@ def article_search(
         search_limit = limit * RERANK_FACTOR if rerank else limit
 
         if semantic:
-            # Semantic search path
-            from src.storage.vector import search_articles_semantic
-
+            # Semantic search path (combine_scores in application layer)
             articles = search_articles_semantic(
                 query_text=query,
                 limit=search_limit,
@@ -284,16 +285,6 @@ def article_search(
                 until=until,
                 on=on_list,
                 groups=groups_list,
-            )
-
-            if rerank:
-                from src.application.rerank import rerank
-
-                articles = asyncio.to_thread(rerank, query, articles, limit)
-
-            # combine_scores for semantic: gamma=0.2 (vec_sim), delta=0.0 (no BM25)
-            articles = combine_scores(
-                articles, alpha=0.3, beta=0.3, gamma=0.2, delta=0.0
             )
         else:
             # FTS5 search path
@@ -309,15 +300,11 @@ def article_search(
                 groups=groups_list,
             )
 
-            if rerank:
-                from src.application.rerank import rerank
+        # Rerank after search (both paths return scored+ranked results)
+        if rerank:
+            from src.application.rerank import rerank
 
-                articles = asyncio.to_thread(rerank, query, articles, limit)
-
-            # combine_scores for FTS5: gamma=0.0 (no vec_sim), delta=0.2 (BM25)
-            articles = combine_scores(
-                articles, alpha=0.3, beta=0.3, gamma=0.0, delta=0.2
-            )
+            articles = asyncio.to_thread(rerank, query, articles, limit)
 
         if json_output:
             print_json(format_article_list(articles, limit))

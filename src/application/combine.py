@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import math
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
-from src.application.articles import ArticleListItem
+if TYPE_CHECKING:
+    from src.application.articles import ArticleListItem
+
 from src.storage.vector import _published_at_to_timestamp
 
 

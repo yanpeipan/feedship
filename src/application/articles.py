@@ -1,12 +1,14 @@
 """Article operations for RSS reader.
 
 Provides functions for listing and retrieving articles from the database.
+Scoring and ranking logic is encapsulated in this layer.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from src.application.combine import combine_scores
 from src.storage import (
     get_article as storage_get_article,
 )
@@ -18,6 +20,9 @@ from src.storage import (
 )
 from src.storage import (
     search_articles_fts as storage_search_articles_fts,
+)
+from src.storage.vector import (
+    search_articles_semantic as storage_search_articles_semantic,
 )
 
 
@@ -113,7 +118,10 @@ def search_articles_fts(
     on: list[str] | None = None,
     groups: list[str] | None = None,
 ) -> list[ArticleListItem]:
-    """Search articles using FTS5 full-text search.
+    """Search articles using FTS5 full-text search with BM25 scoring.
+
+    Encapsulates combine_scores with FTS5 weights: alpha=0.3 (source_weight),
+    beta=0.3 (freshness), gamma=0.0 (no vec_sim), delta=0.2 (BM25).
 
     Args:
         query: FTS5 query string (space-separated = AND, use quotes for phrases)
@@ -125,9 +133,9 @@ def search_articles_fts(
         groups: Optional list of feed groups to filter by (OR semantics).
 
     Returns:
-        List of ArticleListItem objects.
+        List of ArticleListItem sorted by final_score descending.
     """
-    return storage_search_articles_fts(
+    articles = storage_search_articles_fts(
         query=query,
         limit=limit,
         feed_id=feed_id,
@@ -136,3 +144,41 @@ def search_articles_fts(
         on=on,
         groups=groups,
     )
+    # FTS5: gamma=0.0 (no vec_sim), delta=0.2 (BM25)
+    return combine_scores(articles, alpha=0.3, beta=0.3, gamma=0.0, delta=0.2)
+
+
+def search_articles_semantic(
+    query_text: str,
+    limit: int = 20,
+    since: str | None = None,
+    until: str | None = None,
+    on: list[str] | None = None,
+    groups: list[str] | None = None,
+) -> list[ArticleListItem]:
+    """Search articles by semantic similarity with vector scoring.
+
+    Encapsulates combine_scores with semantic weights: alpha=0.3 (source_weight),
+    beta=0.3 (freshness), gamma=0.2 (vec_sim), delta=0.0 (no BM25).
+
+    Args:
+        query_text: Natural language query to search for
+        limit: Maximum number of results to return
+        since: Optional start date (inclusive), format YYYY-MM-DD.
+        until: Optional end date (inclusive), format YYYY-MM-DD.
+        on: Optional list of specific dates to match.
+        groups: Optional list of feed groups to filter by (OR semantics).
+
+    Returns:
+        List of ArticleListItem sorted by final_score descending.
+    """
+    articles = storage_search_articles_semantic(
+        query_text=query_text,
+        limit=limit,
+        since=since,
+        until=until,
+        on=on,
+        groups=groups,
+    )
+    # Semantic: gamma=0.2 (vec_sim), delta=0.0 (no BM25)
+    return combine_scores(articles, alpha=0.3, beta=0.3, gamma=0.2, delta=0.0)
