@@ -45,3 +45,4 @@ None
 |---|-------------|------|--------|-----------|
 | 260405-3sr | 重构 GitHubTrendingProvider URL period + star fix | 2026-04-04 | 61e5214 | [260405-3sr-...](./quick/260405-3sr-githubtrendingprovider-url-period-star-0/) |
 | 260405-0320 | Article dataclass with meta dict, meta stored in DB | 2026-04-05 | a1225c4 | [260405-0320-...](./quick/260405-0320-article-dataclass/) |
+| 260405-o2m | 为 stealth fetcher 添加 asyncio.wait_for() 超时控制 | 2026-04-05 | aff5b35 | [260405-o2m-...](./quick/260405-o2m-stealth-fetcher-asyncio-wait-for/) |
