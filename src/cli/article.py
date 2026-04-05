@@ -260,8 +260,6 @@ def article_search(
     json_output: bool,
 ) -> None:
     try:
-        import asyncio
-
         from src.application.articles import (
             search_articles_fts,
             search_articles_semantic,
@@ -270,41 +268,27 @@ def article_search(
         on_list = list(on) if on else None
         groups_list = groups.split(",") if groups else None
 
-        # RERANK_FACTOR: when reranking, fetch 3x candidates so reranker has
-        # enough context to pick the globally-best results (BM25/semantic are
-        # local rankings, rerank provides global reordering).
-        RERANK_FACTOR = 3
-        search_limit = limit * RERANK_FACTOR if rerank else limit
-
-        # Skip combine_scores when reranking — rerank sorts by ce_score only
-        do_score = not rerank
-
         if semantic:
             articles = search_articles_semantic(
                 query_text=query,
-                limit=search_limit,
+                limit=limit,
                 since=since,
                 until=until,
                 on=on_list,
                 groups=groups_list,
-                score=do_score,
+                rerank=rerank,
             )
         else:
             articles = search_articles_fts(
                 query=query,
-                limit=search_limit,
+                limit=limit,
                 feed_id=feed_id,
                 since=since,
                 until=until,
                 on=on_list,
                 groups=groups_list,
-                score=do_score,
+                rerank=rerank,
             )
-
-        if rerank:
-            from src.application.rerank import rerank
-
-            articles = asyncio.to_thread(rerank, query, articles, limit)
 
         if json_output:
             print_json(format_article_list(articles, limit))
