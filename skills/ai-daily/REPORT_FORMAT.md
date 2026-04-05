@@ -85,16 +85,16 @@ Detect funding news, acquisitions, and trend opportunities from existing article
 ## C. 创业信号
 
 ### 融资动态
-- [n] 篇相关
-- [Source] Article Title — X公司完成Y轮融资，金额Z百万美元
+1. 多模态AI应用加速落地，Copilot等产品持续迭代
+   [2]篇来源：[**AI Weekly**](https://aiweekly.com), [**TechCrunch**](https://techcrunch.com)
 
 ### 收购并购
-- [n] 篇相关
-- [Source] Article Title — A公司收购B公司，拓展C市场
+1. 企业并购动态，A公司拓展B市场
+   [1]篇来源：[**Reuters**](https://reuters.com)
 
 ### 趋势机会
-- [n] 篇相关
-- [Source] Article Title — 新兴趋势：X技术进入Y行业
+1. 新兴趋势：X技术进入Y行业
+   [2]篇来源：[**TechCrunch**](https://techcrunch.com), [**AI Weekly**](https://aiweekly.com)
 ```
 
 **Key patterns to detect:**
@@ -116,19 +116,16 @@ Extract story angles and trending topics for content creation from existing arti
 ## D. 创作点
 
 ### 可写主题
-- [n] 篇相关
-- 主题：Why X is reshaping Y industry
-- 来源：[**Article1**](https://example.com/1), [**Article2**](https://example.com/2)
+1. 主题：Why X is reshaping Y industry
+   [2]篇来源：[**Article1**](https://example.com/1), [**Article2**](https://example.com/2)
 
 ### 热门角度
-- [n] 篇相关
-- 角度：How to build in X space (step-by-step)
-- 来源：[**Article3**](https://example.com/3)
+1. 角度：How to build in X space (step-by-step)
+   [1]篇来源：[**Article3**](https://example.com/3)
 
 ### 争议性话题
-- [n] 篇相关
-- 话题：X的局限性 — 争议焦点
-- 来源：[**Article4**](https://example.com/4), [**Article5**](https://example.com/5)
+1. 话题：X的局限性 — 争议焦点
+   [2]篇来源：[**Article4**](https://example.com/4), [**Article5**](https://example.com/5)
 ```
 
 **Key patterns to detect:**
@@ -149,16 +146,16 @@ Track AI regulations, government policies, and regulatory developments globally.
 ## E. 政策解读
 
 ### 全球监管
-- [n] 篇相关
-- [Source] Article Title — 描述监管动向
+1. 监管动向描述
+   [1]篇来源：[**Source**](https://example.com)
 
 ### 法规动态
-- [n] 篇相关
-- [Source] Article Title — 描述具体法规或立法进展
+1. 具体法规或立法进展描述
+   [1]篇来源：[**Source**](https://example.com)
 
 ### 合规提示
-- [n] 篇相关
-- [Source] Article Title — 对从业者的合规建议
+1. 对从业者的合规建议
+   [1]篇来源：[**Source**](https://example.com)
 ```
 
 **Key patterns to detect:**
@@ -178,16 +175,16 @@ Capture viral discussions, social media trends, and public sentiment around AI t
 ## F. 媒体热点
 
 ### 社交热议
-- [n] 篇相关
-- [Source] Article Title — 描述热点讨论
+1. 热点讨论描述
+   [1]篇来源：[**Source**](https://example.com)
 
 ### Viral内容
-- [n] 篇相关
-- [Source] Article Title — 描述viral或刷屏内容
+1. Viral或刷屏内容描述
+   [1]篇来源：[**Source**](https://example.com)
 
 ### 舆论焦点
-- [n] 篇相关
-- [Source] Article Title — 描述舆论关注点
+1. 舆论关注点描述
+   [1]篇来源：[**Source**](https://example.com)
 ```
 
 **Key patterns to detect:**
@@ -241,31 +238,28 @@ Capture viral discussions, social media trends, and public sentiment around AI t
 ## C. 创业信号
 
 ### 融资动态
-- [1] 篇相关
-- [AI Weekly] LLM Efficiency — X公司完成A轮融资，金额50百万美元
+1. 多模态AI应用加速落地，Copilot等产品持续迭代
+   [2]篇来源：[**AI Weekly**](https://aiweekly.com), [**TechCrunch**](https://techcrunch.com)
 
 ### 收购并购
-- [1] 篇相关
-- [AI Weekly] Multimodal Advances — Y公司收购Z公司，拓展视觉市场
+1. Y公司收购Z公司，拓展视觉市场
+   [1]篇来源：[**AI Weekly**](https://aiweekly.com)
 
 ### 趋势机会
-- [2] 篇相关
-- [Google AI Blog] New Model Achieves SOTA — 新兴趋势：小型化模型进入移动端
+1. 新兴趋势：小型化模型进入移动端
+   [2]篇来源：[**Google AI Blog**](https://blog.google/ai), [**OpenAI News**](https://openai.com)
 
 ## D. 创作点
 
 ### 可写主题
-- [2] 篇相关
-- 主题：Why small models are the future of edge AI
-- 来源：[**Google AI Blog**](https://blog.google/ai), [**AI Weekly**](https://aiweekly.com)
+1. 主题：Why small models are the future of edge AI
+   [2]篇来源：[**Google AI Blog**](https://blog.google/ai), [**AI Weekly**](https://aiweekly.com)
 
 ### 热门角度
-- [1] 篇相关
-- 角度：How to fine-tune models on limited hardware
-- 来源：[**AI Weekly**](https://aiweekly.com)
+1. 角度：How to fine-tune models on limited hardware
+   [1]篇来源：[**AI Weekly**](https://aiweekly.com)
 
 ### 争议性话题
-- [1] 篇相关
-- 话题：GPT-5的长上下文是否值得额外成本 — 争议焦点
-- 来源：[**OpenAI News**](https://openai.com)
+1. 话题：GPT-5的长上下文是否值得额外成本 — 争议焦点
+   [1]篇来源：[**OpenAI News**](https://openai.com)
 ```
