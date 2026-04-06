@@ -338,6 +338,18 @@ For automated periodic fetching, use platform-specific schedulers:
 0 * * * * feedship fetch --all >> ~/.feedship/fetch.log 2>&1
 ```
 
+**OpenClaw Cron (every 30 minutes):**
+```bash
+openclaw cron add \
+  --name "feedship-fetch" \
+  --agent agent \
+  --cron "*/30 * * * *" \
+  --tz Asia/Shanghai \
+  --session isolated \
+  --message "feedship fetch --all" \
+  --timeout-seconds 300
+```
+
 ---
 
 ## Optional Dependencies
