@@ -193,13 +193,8 @@ DATE=$(date +%Y-%m-%d)
 SINCE=$(date -d '2 days ago' +%Y-%m-%d)
 mkdir -p /tmp/ai-daily-$DATE
 # AI应用
-feedship search "AI应用 Agent智能体 SaaS AI商业模式" --semantic --limit 100 --since $SINCE > /tmp/ai-daily-$DATE/s1.txt
-# AI模型
-feedship search "LLM GPT Claude Gemini Llama MoE 开源模型" --semantic --limit 100 --since $SINCE > /tmp/ai-daily-$DATE/s2.txt
-# AI基础设施
-feedship search "Agent框架 RAG devtools" --semantic --limit 100 --since $SINCE > /tmp/ai-daily-$DATE/s3.txt
-# 芯片与能源
-feedship search "芯片 GPU AI芯片 能源" --semantic --limit 50 --since $SINCE > /tmp/ai-daily-$DATE/s4.txt
+feedship search "Focusing on the full-stack AI ecosystem: with underlying energy as the physical chassis, chip computing power as the hardware engine, the infrastructure toolchain supports the emergence of intelligence in cutting-edge models, ultimately achieving a closed value loop of business model reconstruction and monetization at the application layer." --semantic --limit 333 --since $SINCE
+
 cat > /tmp/ai-daily-$DATE/section_a.md << 'EOF'
 # AI 日报 DATE_PLACEHOLDER
 
@@ -210,7 +205,7 @@ EOF
 
 **Step 3b: Section B (精选推荐)**
 ```bash
-feedship search "AI 热门 精选 推荐" --semantic --limit 50 --since $SINCE > /tmp/ai-daily-$DATE/s5.txt
+feedship search "AI 热门 精选 推荐" --semantic --limit 333 --since $SINCE > /tmp/ai-daily-$DATE/s5.txt
 cat > /tmp/ai-daily-$DATE/section_b.md << 'EOF'
 ## B. 精选推荐
 [按格式生成]
@@ -219,7 +214,7 @@ EOF
 
 **Step 3c: Section C (创业信号)**
 ```bash
-feedship search "融资 创业 投资 收购" --semantic --limit 50 --since $SINCE > /tmp/ai-daily-$DATE/s6.txt
+feedship search "融资 创业 投资 收购" --semantic --limit 333 --since $SINCE > /tmp/ai-daily-$DATE/s6.txt
 cat > /tmp/ai-daily-$DATE/section_c.md << 'EOF'
 ## C. 创业信号
 [按格式生成]
@@ -228,7 +223,7 @@ EOF
 
 **Step 3d: Section D (创作点)**
 ```bash
-feedship search "AI创作 热门话题 趋势" --semantic --limit 50 --since $SINCE > /tmp/ai-daily-$DATE/s7.txt
+feedship search "AI创作 热门话题 趋势" --semantic --limit 333 --since $SINCE > /tmp/ai-daily-$DATE/s7.txt
 cat > /tmp/ai-daily-$DATE/section_d.md << 'EOF'
 ## D. 创作点
 [按格式生成]
@@ -237,7 +232,7 @@ EOF
 
 **Step 3e: Section E (政策解读)**
 ```bash
-feedship search "AI政策 监管 合规 安全" --semantic --limit 50 --since $SINCE > /tmp/ai-daily-$DATE/s8.txt
+feedship search "AI政策 监管 合规 安全" --semantic --limit 333 --since $SINCE > /tmp/ai-daily-$DATE/s8.txt
 cat > /tmp/ai-daily-$DATE/section_e.md << 'EOF'
 ## E. 政策解读
 [按格式生成]
@@ -246,7 +241,7 @@ EOF
 
 **Step 3f: Section F (媒体热点)**
 ```bash
-feedship search "AI社交热议 舆论焦点" --semantic --limit 50 --since $SINCE > /tmp/ai-daily-$DATE/s9.txt
+feedship search "AI社交热议 舆论焦点" --semantic --limit 333 --since $SINCE > /tmp/ai-daily-$DATE/s9.txt
 cat > /tmp/ai-daily-$DATE/section_f.md << 'EOF'
 ## F. 媒体热点
 [按格式生成]
@@ -311,11 +306,25 @@ cat > /tmp/ai-daily/$DATE/section_f.md << 'EOF'
 EOF
 ```
 
-**Step 4g: Send report (final output)**
+**Step 4g: Generate Editor's Note (主编导读)**
+```bash
+# 通读所有section文件，撰写高阶洞察
+cat /tmp/ai-daily-$DATE/section_*.md > /tmp/ai-daily-$DATE/all_sections.txt
+
+cat > /tmp/ai-daily-$DATE/editors_note.md << 'EOF'
+**💡 主编导读 (Editor's Note)：**
+[请基于以上全部内容，用第一性原理剖析今日资讯隐藏的"暗线"：底层模型发布如何倒逼应用层洗牌、某芯片法案如何影响基础设施投资逻辑、某监管动向如何重塑竞争格局等。150字左右，语气专业犀利，具备前瞻性。]
+EOF
+```
+
+**Step 4h: Concatenate final report**
 ```bash
 DATE=$(date +%Y-%m-%d)
 # 替换日期占位符
 sed -i '' "s/DATE_PLACEHOLDER/$DATE/g" /tmp/ai-daily-$DATE/section_*.md
+
+# 合并：主编导读 + 全部sections
+cat /tmp/ai-daily-$DATE/editors_note.md /tmp/ai-daily-$DATE/section_*.md
 
 # 输出完整报告
 cat /tmp/ai-daily-$DATE/section_*.md
