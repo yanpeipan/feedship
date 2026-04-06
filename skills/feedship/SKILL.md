@@ -85,10 +85,13 @@ Add a new feed by URL with automatic provider detection.
 
 **Examples:**
 ```bash
-feedship feed add https://example.com
-feedship feed add https://github.com/python/cpython --automatic on
-feedship feed add https://example.com --discover-depth 3
+feedship feed add "https://example.com"
+feedship feed add "https://github.com/python/cpython" --automatic on
+feedship feed add "https://example.com" --discover-depth 3
 ```
+
+> **Tip:** URL containing special chars (e.g., YouTube RSS with `?channel_id=`) must be quoted:
+> `feedship feed add "https://www.youtube.com/feeds/videos.xml?channel_id=..."`
 
 #### feed list
 
@@ -279,7 +282,7 @@ feedship info --json
 
 ```bash
 # Add a website feed
-feedship feed add https://example.com --automatic on
+feedship feed add "https://example.com" --automatic on
 
 # Fetch all feeds
 feedship fetch --all

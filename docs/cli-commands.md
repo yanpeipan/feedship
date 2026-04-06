@@ -77,6 +77,18 @@ feedship feed add https://example.com/feed.xml
 feedship feed add https://github.com/python/cpython
 ```
 
+### Shell Quoting
+
+**Important:** If your URL contains special characters like `?`, `*`, `[`, or `]`, you must quote the URL to prevent shell glob expansion. For example, YouTube feed URLs contain `?` which zsh interprets as a glob pattern:
+
+```bash
+# WRONG - zsh will fail with "no matches found"
+feedship feed add https://www.youtube.com/feeds/videos.xml?channel_id=UCUl-s_Vp-Kkk_XVyDylNwLA
+
+# CORRECT - URL is quoted, preventing glob expansion
+feedship feed add "https://www.youtube.com/feeds/videos.xml?channel_id=UCUl-s_Vp-Kkk_XVyDylNwLA"
+```
+
 ### Output
 
 ```
