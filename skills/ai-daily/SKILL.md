@@ -172,9 +172,7 @@ Find `<job-id>` from `openclaw cron list`.
 **Core principle:** Process **all** available articles systematically. Do not manually select 5‑8 articles. Use clustering and batch processing.
 
 ### Step 1: Fetch latest articles
-```bash
-feedship fetch --all
-```
+
 
 ### Step 2: Get recent articles (last 2 days – covers timezone issues)
 ```bash
@@ -190,61 +188,68 @@ Each section is generated with its dedicated search to avoid context overflow. S
 **Step 3a: Generate Section A (AI五层蛋糕)**
 ```bash
 DATE=$(date +%Y-%m-%d)
-SINCE=$(date -d '2 days ago' +%Y-%m-%d)
 mkdir -p /tmp/ai-daily-$DATE
-# AI应用
-feedship search "Focusing on the full-stack AI ecosystem: with underlying energy as the physical chassis, chip computing power as the hardware engine, the infrastructure toolchain supports the emergence of intelligence in cutting-edge models, ultimately achieving a closed value loop of business model reconstruction and monetization at the application layer." --semantic --limit 333 --since $SINCE
+# AI应用 - 必须使用 --json 获取真实文章链接！
+feedship search "Focusing on the full-stack AI ecosystem..." --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_a.json
+# 提取链接用于报告
+cat /tmp/ai-daily-$DATE/search_a.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_a.txt
 
 cat > /tmp/ai-daily-$DATE/section_a.md << 'EOF'
 # AI 日报 DATE_PLACEHOLDER
 
 ## A. AI五层蛋糕
-[按 REPORT_FORMAT.md 格式生成]
+[按 REPORT_FORMAT.md 格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
 
 **Step 3b: Section B (精选推荐)**
 ```bash
-feedship search "AI 热门 精选 推荐" --semantic --limit 333 --since $SINCE > /tmp/ai-daily-$DATE/s5.txt
+# 必须使用 --json 获取真实文章链接！
+feedship search "AI 热门 精选 推荐" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_b.json
+cat /tmp/ai-daily-$DATE/search_b.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_b.txt
 cat > /tmp/ai-daily-$DATE/section_b.md << 'EOF'
 ## B. 精选推荐
-[按格式生成]
+[按格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
 
 **Step 3c: Section C (创业信号)**
 ```bash
-feedship search "融资 创业 投资 收购" --semantic --limit 333 --since $SINCE > /tmp/ai-daily-$DATE/s6.txt
+feedship search "融资 创业 投资 收购" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_c.json
+cat /tmp/ai-daily-$DATE/search_c.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_c.txt
 cat > /tmp/ai-daily-$DATE/section_c.md << 'EOF'
 ## C. 创业信号
-[按格式生成]
+[按格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
 
 **Step 3d: Section D (创作点)**
 ```bash
-feedship search "AI创作 热门话题 趋势" --semantic --limit 333 --since $SINCE > /tmp/ai-daily-$DATE/s7.txt
+feedship search "AI创作 热门话题 趋势" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_d.json
+cat /tmp/ai-daily-$DATE/search_d.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_d.txt
 cat > /tmp/ai-daily-$DATE/section_d.md << 'EOF'
 ## D. 创作点
-[按格式生成]
+[按格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
 
 **Step 3e: Section E (政策解读)**
 ```bash
-feedship search "AI政策 监管 合规 安全" --semantic --limit 333 --since $SINCE > /tmp/ai-daily-$DATE/s8.txt
+feedship search "AI政策 监管 合规 安全" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_e.json
+cat /tmp/ai-daily-$DATE/search_e.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_e.txt
 cat > /tmp/ai-daily-$DATE/section_e.md << 'EOF'
 ## E. 政策解读
-[按格式生成]
+[按格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
 
 **Step 3f: Section F (媒体热点)**
 ```bash
-feedship search "AI社交热议 舆论焦点" --semantic --limit 333 --since $SINCE > /tmp/ai-daily-$DATE/s9.txt
+feedship search "AI社交热议 舆论焦点" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_f.json
+cat /tmp/ai-daily-$DATE/search_f.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_f.txt
 cat > /tmp/ai-daily-$DATE/section_f.md << 'EOF'
 ## F. 媒体热点
-[按格式生成]
+[按格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
 
