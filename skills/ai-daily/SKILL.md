@@ -255,70 +255,73 @@ EOF
 
 ### Step 4: Generate report sections (sequential file write)
 
-**关键：必须先读取链接文件，使用真实 article.link 生成内容！**
+**关键要求：**
+1. 必须先读取 links_*.txt 中的真实文章链接
+2. **只写 links_*.txt 中存在的文章**，禁止凭空创作文章或链接
+3. 如果某篇文章在 links_*.txt 中没有链接，则不要写那篇文章
+4. 所有链接必须来自 links_*.txt，禁止使用训练数据记忆生成链接
 
 **Step 4a: Generate Section A**
 ```bash
 DATE=$(date +%Y-%m-%d)
-mkdir -p /tmp/ai-daily-$DATE
-# 必须先读取真实链接！
-LINKS=$(cat /tmp/ai-daily-$DATE/links_a.txt 2>/dev/null || echo "无链接数据")
+# 直接写入真实链接到section文件，只做格式转换不生成新内容！
+cat /tmp/ai-daily-$DATE/links_a.txt > /tmp/ai-daily-$DATE/section_a_raw.txt
 cat > /tmp/ai-daily-$DATE/section_a.md << 'EOF'
 # AI 日报 DATE_PLACEHOLDER
 
 ## A. AI五层蛋糕
-[基于以下真实链接生成，链接必须使用 article.link：
-${LINKS}]
+
+[以上链接为基础，按 REPORT_FORMAT.md 格式分类生成，只使用真实链接禁止虚构]
 EOF
 ```
 
 **Step 4b: Generate Section B**
 ```bash
-LINKS=$(cat /tmp/ai-daily-$DATE/links_b.txt 2>/dev/null || echo "无链接数据")
+cat /tmp/ai-daily-$DATE/links_b.txt > /tmp/ai-daily-$DATE/section_b_raw.txt
 cat > /tmp/ai-daily-$DATE/section_b.md << 'EOF'
 ## B. 精选推荐
-[基于以下真实链接生成：
-${LINKS}]
+
+[以上链接为基础，按 REPORT_FORMAT.md 格式生成，只使用真实链接禁止虚构]
 EOF
 ```
 
 **Step 4c: Generate Section C**
 ```bash
-LINKS=$(cat /tmp/ai-daily-$DATE/links_c.txt 2>/dev/null || echo "无链接数据")
+cat /tmp/ai-daily-$DATE/links_c.txt > /tmp/ai-daily-$DATE/section_c_raw.txt
 cat > /tmp/ai-daily-$DATE/section_c.md << 'EOF'
 ## C. 创业信号
-[基于以下真实链接生成：
-${LINKS}]
+
+[以上链接为基础，按 REPORT_FORMAT.md 格式生成，只使用真实链接禁止虚构]
 EOF
 ```
 
 **Step 4d: Generate Section D**
 ```bash
-LINKS=$(cat /tmp/ai-daily-$DATE/links_d.txt 2>/dev/null || echo "无链接数据")
+cat /tmp/ai-daily-$DATE/links_d.txt > /tmp/ai-daily-$DATE/section_d_raw.txt
 cat > /tmp/ai-daily-$DATE/section_d.md << 'EOF'
 ## D. 创作点
-[基于以下真实链接生成：
-${LINKS}]
+
+[以上链接为基础，按 REPORT_FORMAT.md 格式生成，只使用真实链接禁止虚构]
 EOF
 ```
 
 **Step 4e: Generate Section E**
 ```bash
-LINKS=$(cat /tmp/ai-daily-$DATE/links_e.txt 2>/dev/null || echo "无链接数据")
+cat /tmp/ai-daily-$DATE/links_e.txt > /tmp/ai-daily-$DATE/section_e_raw.txt
 cat > /tmp/ai-daily-$DATE/section_e.md << 'EOF'
 ## E. 政策解读
-[基于以下真实链接生成：
-${LINKS}]
+
+[以上链接为基础，按 REPORT_FORMAT.md 格式生成，只使用真实链接禁止虚构]
 EOF
 ```
 
 **Step 4f: Generate Section F**
 ```bash
-LINKS=$(cat /tmp/ai-daily-$DATE/links_f.txt 2>/dev/null || echo "无链接数据")
+cat /tmp/ai-daily-$DATE/links_f.txt > /tmp/ai-daily-$DATE/section_f_raw.txt
 cat > /tmp/ai-daily-$DATE/section_f.md << 'EOF'
 ## F. 媒体热点
-[基于以下真实链接生成：
-${LINKS}]
+
+[以上链接为基础，按 REPORT_FORMAT.md 格式生成，只使用真实链接禁止虚构]
 EOF
 ```
 
