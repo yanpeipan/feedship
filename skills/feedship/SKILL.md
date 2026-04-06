@@ -6,6 +6,10 @@ metadata:
     requires:
       bins:
         - uv
+    cron:
+      syntax: cron([minute,] [hour,] [day-of-month,] [month,] [day-of-week])
+      default: "*/30 * * * *"  # Every 30 minutes
+      description: "Fetch new articles from all subscribed feeds every 30 minutes"
 ---
 
 # Feedship Skill
