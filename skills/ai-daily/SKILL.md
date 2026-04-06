@@ -255,59 +255,70 @@ EOF
 
 ### Step 4: Generate report sections (sequential file write)
 
-Each section is generated and written to a separate file to avoid output truncation. Use bash to write files sequentially.
+**关键：必须先读取链接文件，使用真实 article.link 生成内容！**
 
 **Step 4a: Generate Section A**
-
-
 ```bash
 DATE=$(date +%Y-%m-%d)
 mkdir -p /tmp/ai-daily-$DATE
-cat > /tmp/ai-daily/$DATE/section_a.md << 'EOF'
+# 必须先读取真实链接！
+LINKS=$(cat /tmp/ai-daily-$DATE/links_a.txt 2>/dev/null || echo "无链接数据")
+cat > /tmp/ai-daily-$DATE/section_a.md << 'EOF'
 # AI 日报 DATE_PLACEHOLDER
 
 ## A. AI五层蛋糕
-[按 REPORT_FORMAT.md 格式生成 AI五层蛋糕 内容]
+[基于以下真实链接生成，链接必须使用 article.link：
+${LINKS}]
 EOF
 ```
 
 **Step 4b: Generate Section B**
 ```bash
-cat > /tmp/ai-daily/$DATE/section_b.md << 'EOF'
+LINKS=$(cat /tmp/ai-daily-$DATE/links_b.txt 2>/dev/null || echo "无链接数据")
+cat > /tmp/ai-daily-$DATE/section_b.md << 'EOF'
 ## B. 精选推荐
-[按格式生成 精选推荐 内容]
+[基于以下真实链接生成：
+${LINKS}]
 EOF
 ```
 
 **Step 4c: Generate Section C**
 ```bash
-cat > /tmp/ai-daily/$DATE/section_c.md << 'EOF'
+LINKS=$(cat /tmp/ai-daily-$DATE/links_c.txt 2>/dev/null || echo "无链接数据")
+cat > /tmp/ai-daily-$DATE/section_c.md << 'EOF'
 ## C. 创业信号
-[按格式生成 创业信号 内容]
+[基于以下真实链接生成：
+${LINKS}]
 EOF
 ```
 
 **Step 4d: Generate Section D**
 ```bash
-cat > /tmp/ai-daily/$DATE/section_d.md << 'EOF'
+LINKS=$(cat /tmp/ai-daily-$DATE/links_d.txt 2>/dev/null || echo "无链接数据")
+cat > /tmp/ai-daily-$DATE/section_d.md << 'EOF'
 ## D. 创作点
-[按格式生成 创作点 内容]
+[基于以下真实链接生成：
+${LINKS}]
 EOF
 ```
 
 **Step 4e: Generate Section E**
 ```bash
-cat > /tmp/ai-daily/$DATE/section_e.md << 'EOF'
+LINKS=$(cat /tmp/ai-daily-$DATE/links_e.txt 2>/dev/null || echo "无链接数据")
+cat > /tmp/ai-daily-$DATE/section_e.md << 'EOF'
 ## E. 政策解读
-[按格式生成 政策解读 内容]
+[基于以下真实链接生成：
+${LINKS}]
 EOF
 ```
 
 **Step 4f: Generate Section F**
 ```bash
-cat > /tmp/ai-daily/$DATE/section_f.md << 'EOF'
+LINKS=$(cat /tmp/ai-daily-$DATE/links_f.txt 2>/dev/null || echo "无链接数据")
+cat > /tmp/ai-daily-$DATE/section_f.md << 'EOF'
 ## F. 媒体热点
-[按格式生成 媒体热点 内容]
+[基于以下真实链接生成：
+${LINKS}]
 EOF
 ```
 
