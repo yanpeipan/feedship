@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from src.application.llm import llm_complete
+from src.llm.core import llm_complete
 from src.storage import get_article_with_llm, list_articles_for_llm
 
 logger = logging.getLogger(__name__)
@@ -82,7 +82,7 @@ async def generate_cluster_summary(articles: list[dict], layer: str) -> str:
 
     # Build article list for prompt
     article_list = "\n".join(
-        f"- {a.get('title', 'Untitled')} (q={a.get('quality_score', 0):.2f})"
+        f"- {a.get('title', 'Untitled')} (q={a.get('quality_score') or 0:.2f})"
         for a in articles[:10]  # Max 10 articles in prompt
     )
 

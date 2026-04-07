@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from src.application.llm import (
+from src.llm.core import (
     extract_keywords,
     score_quality,
     summarize_text,
@@ -68,13 +68,23 @@ async def process_article_llm(
     title = article.get("title", "")
     content = article.get("content") or article.get("description") or ""
 
+    # If no content, try to fetch from the article's URL
     if not content:
-        return {
-            "success": False,
-            "error": "No content available for summarization",
-            "article_id": article_id,
-            "title": title,
-        }
+        from src.application.article_view import fetch_and_fill_article
+
+        logger.info("No content for article %s, fetching from URL...", article_id)
+        fetch_result = fetch_and_fill_article(article_id)
+        if "error" in fetch_result:
+            return {
+                "success": False,
+                "error": f"No content available and failed to fetch URL: {fetch_result['error']}",
+                "article_id": article_id,
+                "title": title,
+            }
+        content = fetch_result.get("content", "")
+        logger.info(
+            "Successfully fetched %d chars for article %s", len(content), article_id
+        )
 
     # Run LLM tasks in parallel for efficiency
 
@@ -82,7 +92,9 @@ async def process_article_llm(
     quality_task = score_quality(content, title)
     keywords_task = extract_keywords(content)
 
+    print(f"[DEBUG] content length: {len(content)}, title: {title[:30]}")
     summary, was_truncated = await summary_task
+    print(f"[DEBUG] summary result: {repr(summary[:50]) if summary else 'EMPTY'}")
     quality_score = await quality_task
     keywords = await keywords_task
 
