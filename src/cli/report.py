@@ -33,6 +33,11 @@ console = Console()
     default=200,
     help="Max articles to include in report (default: 200)",
 )
+@click.option(
+    "--auto-summarize/--no-auto-summarize",
+    default=True,
+    help="Automatically summarize unsummarized articles on-demand (default: True)",
+)
 @click.pass_context
 def report(
     ctx: click.Context,
@@ -42,6 +47,7 @@ def report(
     output: str | None,
     json_output: bool,
     limit: int,
+    auto_summarize: bool,
 ) -> None:
     """Generate a structured daily report from clustered articles.
 
@@ -61,9 +67,11 @@ def report(
                 since=since,
                 until=until,
                 limit=limit,
+                auto_summarize=auto_summarize,
             )
 
         total_articles = sum(len(arts) for arts in data["articles_by_layer"].values())
+        summarized_on_demand = data.get("summarized_on_demand", 0)
 
         if total_articles == 0:
             if json_output:
@@ -83,6 +91,11 @@ def report(
                     "Run 'feedship summarize --all' first to generate summaries."
                 )
             return
+
+        if summarized_on_demand > 0:
+            console.print(
+                f"[cyan]Summarized {summarized_on_demand} articles on-demand[/cyan]"
+            )
 
         # Render report
         try:

@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from src.application.summarize import summarize_article_content
 from src.llm.core import llm_complete
 from src.storage import get_article_with_llm, list_articles_for_llm
 
@@ -109,6 +110,7 @@ def cluster_articles_for_report(
     since: str,
     until: str,
     limit: int = 200,
+    auto_summarize: bool = True,
 ) -> dict[str, Any]:
     """Fetch and cluster articles for a report date range.
 
@@ -116,10 +118,12 @@ def cluster_articles_for_report(
         since: Start date YYYY-MM-DD
         until: End date YYYY-MM-DD
         limit: Max articles to process
+        auto_summarize: If True, summarize unsummarized articles on-demand
 
     Returns:
         dict with keys: articles_by_layer (dict of layer -> list),
-        layer_summaries (dict of layer -> summary text), date_range
+        layer_summaries (dict of layer -> summary text), date_range,
+        summarized_on_demand (count of articles summarized during generation)
     """
     # Fetch articles in date range that have summaries
     articles = list_articles_for_llm(
@@ -128,13 +132,14 @@ def cluster_articles_for_report(
         until=until,
     )
 
-    return asyncio.run(_cluster_articles_async(articles, since, until))
+    return asyncio.run(_cluster_articles_async(articles, since, until, auto_summarize))
 
 
 async def _cluster_articles_async(
     pre_fetched_articles: list,
     since: str,
     until: str,
+    auto_summarize: bool = True,
 ) -> dict[str, Any]:
     """Async helper to cluster articles by layer."""
     # Fetch articles with summaries
@@ -146,6 +151,7 @@ async def _cluster_articles_async(
 
     # Classify each article into a layer
     results: dict[str, list] = {cat: [] for cat in FIVE_LAYER_CATEGORIES}
+    summarized_on_demand: int = 0
 
     async def process_one(article: dict) -> tuple[str, dict]:
         aid = article["id"]
@@ -153,10 +159,26 @@ async def _cluster_articles_async(
             full = get_article_with_llm(aid)
         except Exception:
             full = article
-        text = (
-            full.get("summary") or full.get("content") or full.get("description") or ""
-        )
+
+        summary = full.get("summary") or ""
         title = full.get("title", "")
+
+        # On-demand summarize if missing
+        nonlocal summarized_on_demand
+        if not summary and auto_summarize:
+            content = full.get("content") or full.get("description") or ""
+            if content:
+                try:
+                    summary, _, quality, _ = await summarize_article_content(
+                        content, title
+                    )
+                    full["summary"] = summary
+                    full["quality_score"] = quality
+                    summarized_on_demand += 1
+                except Exception as e:
+                    logger.warning("On-demand summarize failed for %s: %s", aid, e)
+
+        text = summary or full.get("content") or full.get("description") or ""
         layer = await classify_article_layer(text, title)
         return layer, {
             "id": aid,
@@ -195,6 +217,7 @@ async def _cluster_articles_async(
         "articles_by_layer": results,
         "layer_summaries": layer_summaries,
         "date_range": {"since": since, "until": until},
+        "summarized_on_demand": summarized_on_demand,
     }
 
 

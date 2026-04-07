@@ -26,6 +26,26 @@ from src.storage.vector import (
 logger = logging.getLogger(__name__)
 
 
+async def summarize_article_content(
+    content: str,
+    title: str,
+) -> tuple[str, bool, float, list[str]]:
+    """Summarize article content without writing to storage.
+
+    Pure LLM transformation for on-demand use during report generation.
+    Returns (summary, was_truncated, quality_score, keywords).
+    """
+    summary_task = summarize_text(content, title)
+    quality_task = score_quality(content, title)
+    keywords_task = extract_keywords(content)
+
+    summary, was_truncated = await summary_task
+    quality_score = await quality_task
+    keywords = await keywords_task
+
+    return summary, was_truncated, quality_score, keywords
+
+
 async def process_article_llm(
     article_id: str,
     *,
@@ -87,16 +107,11 @@ async def process_article_llm(
         )
 
     # Run LLM tasks in parallel for efficiency
-
-    summary_task = summarize_text(content, title)
-    quality_task = score_quality(content, title)
-    keywords_task = extract_keywords(content)
-
     print(f"[DEBUG] content length: {len(content)}, title: {title[:30]}")
-    summary, was_truncated = await summary_task
+    summary, was_truncated, quality_score, keywords = await summarize_article_content(
+        content, title
+    )
     print(f"[DEBUG] summary result: {repr(summary[:50]) if summary else 'EMPTY'}")
-    quality_score = await quality_task
-    keywords = await keywords_task
 
     # Persist to SQLite
     update_result = update_article_llm(
