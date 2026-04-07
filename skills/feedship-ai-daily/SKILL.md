@@ -1,7 +1,7 @@
 ---
-version: 1.17.0
+version: 1.18.0
 name: feedship-ai-daily
-description: "Generate daily AI news digest from feedship subscriptions. Use when user wants today's news summary, daily briefing, periodic news recap, AI daily digest, ai daily, AI 日报, ai 日报, 生成简报, or 大模型日报. Reads existing feedship subscriptions, fetches latest articles, and generates a 5-section digest: (A) AI五层蛋糕, (B) 创业信号, (C) 创作点, (D) 政策解读, (E) 媒体热点. Requires feedship skill."
+description: "Generate daily AI news digest from feedship subscriptions. Use when user wants today's news summary, daily briefing, periodic news recap, AI daily digest, ai daily, AI 日报, ai 日报, 生成简报, or 大模型日报. Reads existing feedship subscriptions, fetches latest articles, and generates a 5-section digest: (A) AI五层蛋糕, (B) 创业信号, (C) 创作选题, (D) 政策解读, (E) 媒体热点. Requires feedship skill."
 metadata:
   openclaw:
     requires:
@@ -15,7 +15,7 @@ metadata:
 
 # AI 日报 (Feedship AI Daily)
 
-**Version:** 1.17.0
+**Version:** 1.18.0
 **For:** OpenClaw compatible agents
 **Description:** Generate daily AI news digest from feedship subscriptions
 
@@ -209,12 +209,12 @@ cat > /tmp/ai-daily-$DATE/section_b.md << 'EOF'
 EOF
 ```
 
-**Step 3c: Section C (创作点)**
+**Step 3c: Section C (创作选题)**
 ```bash
 feedship search "AI创作 热门话题 趋势" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_c.json
 cat /tmp/ai-daily-$DATE/search_c.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_c.txt
 cat > /tmp/ai-daily-$DATE/section_c.md << 'EOF'
-## C. 创作点
+## C. 创作选题
 [按格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
@@ -287,7 +287,7 @@ Quick reference:
 |---------|------|------------------|
 | A | AI五层蛋糕 | For each layer: AI-generated summary + at least 2 source links |
 | B | 创业信号 | High-leverage tools (max 3) + conditional business teardown (触发条件: 融资>$10M OR 爆款应用 OR 技术栈可推测) |
-| C | 创作点 | Story angles and content inspiration for creators |
+| C | 创作选题 | Story angles and content inspiration for creators |
 | D | 政策解读 | Regulations, compliance developments, impact analysis |
 | E | 媒体热点 | Highly discussed AI topics on social/ traditional media |
 
@@ -373,6 +373,7 @@ openclaw cron add \
 ---
 
 **Changelog:**
+- 1.18.0: Rename 创作点 to 创作选题.
 - 1.17.0: Remove 精选推荐 section, reduce from 6 to 5 sections.
 - 1.16.0: Remove empty Step 1 "Fetch latest articles".
 - 1.15.0: Extract auto-format sections into `scripts/format_sections.py`.

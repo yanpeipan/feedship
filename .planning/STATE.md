@@ -49,9 +49,11 @@ Last activity: 2026-04-06
 
 ## Quick Tasks Completed
 
-(None yet)
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
 
 ---
-| 2026-04-07 | fast | 优化 feedship-ai-daily: A/B 互换，精选推荐最后生成 | ✅ |
-| 2026-04-07 | fast | feedship-ai-daily: 提取 format sections 到 scripts/ | ✅ |
-| 2026-04-07 | fast | feedship-ai-daily: 删除空的 Step 1 | ✅ |
+| 260407-lre | 删除精选推荐 section | 2026-04-07 | f0d86b2 | [260407-lre-section](./quick/260407-lre-section/) |
+| | 优化 feedship-ai-daily: A/B 互换，精选推荐最后生成 | 2026-04-07 | 03b4130 | |
+| | feedship-ai-daily: 提取 format sections 到 scripts/ | 2026-04-07 | e2a0811 | |
+| | feedship-ai-daily: 删除空的 Step 1 | 2026-04-07 | 6d37a8e | |
