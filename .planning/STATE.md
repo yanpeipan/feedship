@@ -24,7 +24,7 @@ progress:
 Phase: None
 Plan: —
 Status: v1.10 milestone complete, ready for next
-Last activity: 2026-04-07 — v1.10 milestone completed
+Last activity: 2026-04-07 — Completed quick task 260407-tbk: 为 feedship fetch --url 添加端到端测试
 
 ## Current Milestone: (none)
 
@@ -36,6 +36,7 @@ Last activity: 2026-04-07 — v1.10 milestone completed
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260407-tbk | 为 feedship fetch --url 添加端到端测试 | 2026-04-07 | c5a80e0 | [260407-tbk-feedship-fetch-url](./quick/260407-tbk-feedship-fetch-url/) |
 | 260407-m4s | 实现修改feed功能：调整权重，修改分组，补充meta等等 | 2026-04-07 | 2c90033 | [260407-m4s-feed-meta](./quick/260407-m4s-feed-meta/) |
 
 ---
