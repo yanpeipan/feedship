@@ -4,7 +4,7 @@ milestone: v1.10
 milestone_name: milestone
 status: completed
 last_updated: "2026-04-06T00:13:27.370Z"
-last_activity: 2026-04-06
+last_activity: 2026-04-07
 progress:
   total_phases: 6
   completed_phases: 1
@@ -24,7 +24,7 @@ progress:
 Phase: Phase 19 COMPLETE
 Plan: 1/1 complete
 Status: Milestone v1.10 complete
-Last activity: 2026-04-06
+Last activity: 2026-04-07
 
 ## Current Milestone: v1.10 article view 增强
 
@@ -51,9 +51,11 @@ Last activity: 2026-04-06
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260407-m4s | 实现修改feed功能：调整权重，修改分组，补充meta等等 | 2026-04-07 | 2c90033 | [260407-m4s-feed-meta](./quick/260407-m4s-feed-meta/) |
 
 ---
 | 260407-lre | 删除精选推荐 section | 2026-04-07 | f0d86b2 | [260407-lre-section](./quick/260407-lre-section/) |
 | | 优化 feedship-ai-daily: A/B 互换，精选推荐最后生成 | 2026-04-07 | 03b4130 | |
 | | feedship-ai-daily: 提取 format sections 到 scripts/ | 2026-04-07 | e2a0811 | |
+| | feedship-ai-daily: 创作点 → 创作选题 | 2026-04-07 | 88793b6 | |
 | | feedship-ai-daily: 删除空的 Step 1 | 2026-04-07 | 6d37a8e | |
