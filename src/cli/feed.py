@@ -26,6 +26,7 @@ from src.application.feed import (  # noqa: E402
     list_feeds,
     register_feed,
     remove_feed,
+    update_feed_metadata,
 )
 from src.cli.ui import (  # noqa: E402
     FetchProgress,
@@ -400,6 +401,92 @@ def feed_remove(ctx: click.Context, feed_id: str, json_output: bool) -> None:
             return
         click.secho(f"Error: Failed to remove feed: {e}", err=True, fg="red")
         logger.exception("Failed to remove feed")
+        sys.exit(1)
+
+
+@feed.command("update")
+@click.argument("feed_id")
+@click.option("--weight", default=None, type=float, help="Feed weight (0.0-1.0)")
+@click.option(
+    "--group", default=None, type=str, help="Group name (use empty string to clear)"
+)
+@click.option(
+    "--feed-type",
+    "feed_type",
+    default=None,
+    type=str,
+    help="Feed type (rss, atom, webpage, etc.)",
+)
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.pass_context
+def feed_update(
+    ctx: click.Context,
+    feed_id: str,
+    weight: float | None,
+    group: str | None,
+    feed_type: str | None,
+    json_output: bool,
+) -> None:
+    """Update feed metadata (weight, group, feed-type).
+
+    Examples:
+
+      feedship feed update abc123 --weight 0.5
+      feedship feed update abc123 --group AI
+      feedship feed update abc123 --feed-type rss
+      feedship feed update abc123 --weight 0.8 --group Tech --feed-type atom
+    """
+    try:
+        # Check feed exists
+        feed = get_feed(feed_id)
+        if not feed:
+            if json_output:
+                print_json_error("Feed not found", "not_found", exit_code=2)
+            click.secho(f"Feed not found: {feed_id}", fg="yellow")
+            sys.exit(1)
+
+        # Build FeedMetaData if feed_type is provided
+        feed_meta_data = None
+        if feed_type is not None:
+            # Preserve existing selectors from current metadata
+            current_meta = feed.metadata_parsed if feed.metadata else None
+            existing_selectors = current_meta.selectors if current_meta else None
+            feed_meta_data = FeedMetaData(
+                feed_type=feed_type, selectors=existing_selectors
+            )
+
+        # Call application layer
+        updated_feed, success = update_feed_metadata(
+            feed_id, weight=weight, group=group, feed_meta_data=feed_meta_data
+        )
+
+        if not success:
+            if json_output:
+                print_json_error("Failed to update feed", "update_error")
+            click.secho("Failed to update feed", fg="red")
+            sys.exit(1)
+
+        if json_output:
+            print_json(
+                {
+                    "item": {
+                        "id": updated_feed.id,
+                        "name": updated_feed.name,
+                        "weight": updated_feed.weight,
+                        "group": updated_feed.group,
+                        "metadata": updated_feed.metadata,
+                        "updated": True,
+                    }
+                }
+            )
+        else:
+            click.secho(f"Updated feed: {updated_feed.name}", fg="green")
+    except Exception as e:
+        if json_output:
+            print_json_error(f"Failed to update feed: {e}", "update_error")
+            return
+        click.secho(f"Error: Failed to update feed: {e}", err=True, fg="red")
+        logger.exception("Failed to update feed")
         sys.exit(1)
 
 
