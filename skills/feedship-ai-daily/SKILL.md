@@ -1,7 +1,7 @@
 ---
-version: 1.16.0
+version: 1.17.0
 name: feedship-ai-daily
-description: "Generate daily AI news digest from feedship subscriptions. Use when user wants today's news summary, daily briefing, periodic news recap, AI daily digest, ai daily, AI 日报, ai 日报, 生成简报, or 大模型日报. Reads existing feedship subscriptions, fetches latest articles, and generates a 6-section digest: (A) 精选推荐, (B) AI五层蛋糕, (C) 创业信号, (D) 创作点, (E) 政策解读, (F) 媒体热点. Requires feedship skill."
+description: "Generate daily AI news digest from feedship subscriptions. Use when user wants today's news summary, daily briefing, periodic news recap, AI daily digest, ai daily, AI 日报, ai 日报, 生成简报, or 大模型日报. Reads existing feedship subscriptions, fetches latest articles, and generates a 5-section digest: (A) AI五层蛋糕, (B) 创业信号, (C) 创作点, (D) 政策解读, (E) 媒体热点. Requires feedship skill."
 metadata:
   openclaw:
     requires:
@@ -15,7 +15,7 @@ metadata:
 
 # AI 日报 (Feedship AI Daily)
 
-**Version:** 1.16.0
+**Version:** 1.17.0
 **For:** OpenClaw compatible agents
 **Description:** Generate daily AI news digest from feedship subscriptions
 
@@ -145,7 +145,7 @@ openclaw cron add \
   --channel <your-channel> \
   --to <your-destination> \
   --timeout-seconds 900 \
-  --message "使用 feedship-ai-daily skill 生成今日日报。先读取 ~/.openclaw/skills/ai-daily/SKILL.md 了解格式要求，然后严格遵循 A-F 六段式格式生成报告。"
+  --message "使用 feedship-ai-daily skill 生成今日日报。先读取 ~/.openclaw/skills/ai-daily/SKILL.md 了解格式要求，然后严格遵循 A-E 五段式格式生成报告。"
 ```
 
 **Important:**
@@ -171,7 +171,7 @@ Find `<job-id>` from `openclaw cron list`.
 
 **Core principle:** Process **all** available articles systematically. Do not manually select 5‑8 articles. Use clustering and batch processing.
 
-### Step 1: Get recent articles (last 2 days – covers timezone issues) (last 2 days – covers timezone issues)
+### Step 1: Get recent articles (last 2 days – covers timezone issues)
 ```bash
 # Use dynamic dates (example for today)
 SINCE=$(date -d '2 days ago' +%Y-%m-%d)
@@ -182,70 +182,59 @@ feedship article list --limit 333 --since $SINCE
 
 Each section is generated with its dedicated search to avoid context overflow. Search results are saved to files first.
 
-**Step 3a: Generate Section B (精选推荐)** — generated last
+**Step 3a: Section A (AI五层蛋糕)**
 ```bash
 DATE=$(date +%Y-%m-%d)
 mkdir -p /tmp/ai-daily-$DATE
-# 精选推荐 - 必须使用 --json 获取真实文章链接！
-feedship search "AI 热门 精选 推荐" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_b.json
+# AI五层蛋糕 - 必须使用 --json 获取真实文章链接！
+feedship search "Focusing on the full-stack AI ecosystem..." --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_a.json
 # 提取链接用于报告
-cat /tmp/ai-daily-$DATE/search_b.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_b.txt
+cat /tmp/ai-daily-$DATE/search_a.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_a.txt
 
-cat > /tmp/ai-daily-$DATE/section_b.md << 'EOF'
+cat > /tmp/ai-daily-$DATE/section_a.md << 'EOF'
 # AI 日报 DATE_PLACEHOLDER
 
-## B. 精选推荐
+## A. AI五层蛋糕
 [按 REPORT_FORMAT.md 格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
 
-**Step 3b: Section A (AI五层蛋糕)**
+**Step 3b: Section B (创业信号)**
 ```bash
-# 必须使用 --json 获取真实文章链接！
-feedship search "Focusing on the full-stack AI ecosystem..." --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_a.json
-cat /tmp/ai-daily-$DATE/search_a.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_a.txt
-cat > /tmp/ai-daily-$DATE/section_a.md << 'EOF'
-## A. AI五层蛋糕
+feedship search "融资 创业 投资 收购" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_b.json
+cat /tmp/ai-daily-$DATE/search_b.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_b.txt
+cat > /tmp/ai-daily-$DATE/section_b.md << 'EOF'
+## B. 创业信号
 [按格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
 
-**Step 3c: Section C (创业信号)**
+**Step 3c: Section C (创作点)**
 ```bash
-feedship search "融资 创业 投资 收购" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_c.json
+feedship search "AI创作 热门话题 趋势" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_c.json
 cat /tmp/ai-daily-$DATE/search_c.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_c.txt
 cat > /tmp/ai-daily-$DATE/section_c.md << 'EOF'
-## C. 创业信号
+## C. 创作点
 [按格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
 
-**Step 3d: Section D (创作点)**
+**Step 3d: Section D (政策解读)**
 ```bash
-feedship search "AI创作 热门话题 趋势" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_d.json
+feedship search "AI政策 监管 合规 安全" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_d.json
 cat /tmp/ai-daily-$DATE/search_d.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_d.txt
 cat > /tmp/ai-daily-$DATE/section_d.md << 'EOF'
-## D. 创作点
+## D. 政策解读
 [按格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
 
-**Step 3e: Section E (政策解读)**
+**Step 3e: Section E (媒体热点)**
 ```bash
-feedship search "AI政策 监管 合规 安全" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_e.json
+feedship search "AI社交热议 舆论焦点" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_e.json
 cat /tmp/ai-daily-$DATE/search_e.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_e.txt
 cat > /tmp/ai-daily-$DATE/section_e.md << 'EOF'
-## E. 政策解读
-[按格式生成，必须使用 search_*.json 中的真实 article.link]
-EOF
-```
-
-**Step 3f: Section F (媒体热点)**
-```bash
-feedship search "AI社交热议 舆论焦点" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_f.json
-cat /tmp/ai-daily-$DATE/search_f.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_f.txt
-cat > /tmp/ai-daily-$DATE/section_f.md << 'EOF'
-## F. 媒体热点
+## E. 媒体热点
 [按格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
@@ -289,19 +278,18 @@ cat /tmp/ai-daily-$DATE/section_*.md
 
 ## 6. Report Format
 
-**Every report MUST contain exactly 6 sections (A–F) in order.**
+**Every report MUST contain exactly 5 sections (A–E) in order.**
 
 See the full format specification in `~/.openclaw/skills/ai-daily/REPORT_FORMAT.md` (if present).
 Quick reference:
 
 | Section | Name | Required content |
 |---------|------|------------------|
-| A | 精选推荐 | 5‑8 articles with title, one‑sentence summary, link; merge hot topics |
-| B | AI五层蛋糕 | For each layer: AI-generated summary + at least 2 source links |
-| C | 创业信号 | High-leverage tools (max 3) + conditional business teardown (触发条件: 融资>$10M OR 爆款应用 OR 技术栈可推测) |
-| D | 创作点 | Story angles and content inspiration for creators |
-| E | 政策解读 | Regulations, compliance developments, impact analysis |
-| F | 媒体热点 | Highly discussed AI topics on social/ traditional media |
+| A | AI五层蛋糕 | For each layer: AI-generated summary + at least 2 source links |
+| B | 创业信号 | High-leverage tools (max 3) + conditional business teardown (触发条件: 融资>$10M OR 爆款应用 OR 技术栈可推测) |
+| C | 创作点 | Story angles and content inspiration for creators |
+| D | 政策解读 | Regulations, compliance developments, impact analysis |
+| E | 媒体热点 | Highly discussed AI topics on social/ traditional media |
 
 **Example snippet:**
 
@@ -385,6 +373,7 @@ openclaw cron add \
 ---
 
 **Changelog:**
+- 1.17.0: Remove 精选推荐 section, reduce from 6 to 5 sections.
 - 1.16.0: Remove empty Step 1 "Fetch latest articles".
 - 1.15.0: Extract auto-format sections into `scripts/format_sections.py`.
 - 1.14.0: Swap section order: A (精选推荐) now first, B (AI五层蛋糕) now second; 精选推荐 generated last.
