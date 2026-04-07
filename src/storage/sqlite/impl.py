@@ -1114,3 +1114,57 @@ def update_feed(
         updated = cursor.rowcount > 0
         conn.commit()
         return updated
+
+
+def update_feed_metadata(
+    feed_id: str,
+    weight: float | None = None,
+    group: str | None = None,
+    metadata: str | None = None,
+) -> tuple[Feed | None, bool]:
+    """Update feed metadata (weight, group, metadata JSON).
+
+    Args:
+        feed_id: The ID of the feed to update.
+        weight: Optional new weight (0.0-1.0). If None, not updated.
+        group: Optional new group name. If None, not updated. Use empty string to clear.
+        metadata: Optional JSON metadata string. If None, not updated.
+
+    Returns:
+        Tuple of (updated Feed object or None if not found, success bool).
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Build dynamic UPDATE query based on provided fields
+        set_clauses = []
+        params = []
+        if weight is not None:
+            set_clauses.append("weight = ?")
+            params.append(weight)
+        if group is not None:
+            set_clauses.append('"group" = ?')
+            params.append(group)
+        if metadata is not None:
+            set_clauses.append("metadata = ?")
+            params.append(metadata)
+
+        if not set_clauses:
+            # No fields to update, just return current feed
+            return get_feed(feed_id), False
+
+        params.append(feed_id)
+        set_sql = ", ".join(set_clauses)
+
+        cursor.execute(
+            f"""UPDATE feeds SET {set_sql} WHERE id = ?""",
+            tuple(params),
+        )
+        updated = cursor.rowcount > 0
+        conn.commit()
+
+        if not updated:
+            return None, False
+
+        # Return updated Feed object (fetch fresh from DB)
+        return get_feed(feed_id), True
