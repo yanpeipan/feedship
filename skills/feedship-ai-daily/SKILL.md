@@ -1,5 +1,5 @@
 ---
-version: 1.15.0
+version: 1.16.0
 name: feedship-ai-daily
 description: "Generate daily AI news digest from feedship subscriptions. Use when user wants today's news summary, daily briefing, periodic news recap, AI daily digest, ai daily, AI 日报, ai 日报, 生成简报, or 大模型日报. Reads existing feedship subscriptions, fetches latest articles, and generates a 6-section digest: (A) 精选推荐, (B) AI五层蛋糕, (C) 创业信号, (D) 创作点, (E) 政策解读, (F) 媒体热点. Requires feedship skill."
 metadata:
@@ -15,7 +15,7 @@ metadata:
 
 # AI 日报 (Feedship AI Daily)
 
-**Version:** 1.15.0
+**Version:** 1.16.0
 **For:** OpenClaw compatible agents
 **Description:** Generate daily AI news digest from feedship subscriptions
 
@@ -171,10 +171,7 @@ Find `<job-id>` from `openclaw cron list`.
 
 **Core principle:** Process **all** available articles systematically. Do not manually select 5‑8 articles. Use clustering and batch processing.
 
-### Step 1: Fetch latest articles
-
-
-### Step 2: Get recent articles (last 2 days – covers timezone issues)
+### Step 1: Get recent articles (last 2 days – covers timezone issues) (last 2 days – covers timezone issues)
 ```bash
 # Use dynamic dates (example for today)
 SINCE=$(date -d '2 days ago' +%Y-%m-%d)
@@ -388,6 +385,7 @@ openclaw cron add \
 ---
 
 **Changelog:**
+- 1.16.0: Remove empty Step 1 "Fetch latest articles".
 - 1.15.0: Extract auto-format sections into `scripts/format_sections.py`.
 - 1.14.0: Swap section order: A (精选推荐) now first, B (AI五层蛋糕) now second; 精选推荐 generated last.
 - 1.13.0: Fixed YAML syntax, updated skill path to `~/.openclaw/skills/`, improved date handling, added troubleshooting table, clarified cron instructions.

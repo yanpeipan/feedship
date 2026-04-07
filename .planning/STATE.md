@@ -53,3 +53,4 @@ Last activity: 2026-04-06
 
 ---
 | 2026-04-07 | fast | 优化 feedship-ai-daily: A/B 互换，精选推荐最后生成 | ✅ |
+| 2026-04-07 | fast | feedship-ai-daily: 提取 format sections 到 scripts/ | ✅ |
