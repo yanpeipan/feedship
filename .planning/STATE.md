@@ -1,36 +1,44 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
-status: completed
-last_updated: "2026-04-07T12:00:00Z"
+milestone: v1.11
+milestone_name: LLM 智能报告生成
+status: in_progress
+last_updated: "2026-04-07T21:00:00Z"
 last_activity: 2026-04-07
 progress:
   total_phases: 0
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
-  percent: 100
+  percent: 0
 ---
 
 # State: Feedship
 
-**Milestone:** v1.10 - article view 增强 (SHIPPED)
+**Milestone:** v1.11 — LLM 智能报告生成
 **Project:** Feedship - Python RSS Reader CLI Tool
 **Updated:** 2026-04-07
 
 ## Current Position
 
-Phase: None
+Phase: Not started (defining requirements)
 Plan: —
-Status: v1.10 milestone complete, ready for next
-Last activity: 2026-04-07 — Completed quick task 260407-tbk: 为 feedship fetch --url 添加端到端测试
+Status: Defining requirements
+Last activity: 2026-04-07 — Milestone v1.11 started: LLM 智能报告生成
 
-## Current Milestone: (none)
+## Current Milestone: v1.11 — LLM 智能报告生成
+
+**Goal:** 引入 LLM，为订阅源生成带结构化模板的 AI 日报
+
+**Target features:**
+- `feedship summarize --url/--id/--group --force`
+- `feedship report --template xxx --since --until`
+- Quality scoring (0-1)
+- 关键词提取 + tags (SQLite + ChromaDB)
+- 主题聚类
+- 混合 LLM (Ollama + OpenAI/Azure)
 
 **Last shipped:** v1.10 — article view 增强 (SHIPPED 2026-04-06)
-
-**Next milestone:** Pending — use `/gsd:new-milestone` to define
 
 ## Quick Tasks Completed
 
@@ -38,10 +46,3 @@ Last activity: 2026-04-07 — Completed quick task 260407-tbk: 为 feedship fetc
 |---|-------------|------|--------|-----------|
 | 260407-tbk | 为 feedship fetch --url 添加端到端测试 | 2026-04-07 | c5a80e0 | [260407-tbk-feedship-fetch-url](./quick/260407-tbk-feedship-fetch-url/) |
 | 260407-m4s | 实现修改feed功能：调整权重，修改分组，补充meta等等 | 2026-04-07 | 2c90033 | [260407-m4s-feed-meta](./quick/260407-m4s-feed-meta/) |
-
----
-| 260407-lre | 删除精选推荐 section | 2026-04-07 | f0d86b2 | [260407-lre-section](./quick/260407-lre-section/) |
-| | 优化 feedship-ai-daily: A/B 互换，精选推荐最后生成 | 2026-04-07 | 03b4130 | |
-| | feedship-ai-daily: 提取 format sections 到 scripts/ | 2026-04-07 | e2a0811 | |
-| | feedship-ai-daily: 创作点 → 创作选题 | 2026-04-07 | 88793b6 | |
-| | feedship-ai-daily: 删除空的 Step 1 | 2026-04-07 | 6d37a8e | |
