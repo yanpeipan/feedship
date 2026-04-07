@@ -1,7 +1,7 @@
 ---
-version: 1.13.0
+version: 1.14.0
 name: feedship-ai-daily
-description: "Generate daily AI news digest from feedship subscriptions. Use when user wants today's news summary, daily briefing, periodic news recap, AI daily digest, ai daily, AI 日报, ai 日报, 生成简报, or 大模型日报. Reads existing feedship subscriptions, fetches latest articles, and generates a 6-section digest: (A) AI五层蛋糕, (B) 精选推荐, (C) 创业信号, (D) 创作点, (E) 政策解读, (F) 媒体热点. Requires feedship skill."
+description: "Generate daily AI news digest from feedship subscriptions. Use when user wants today's news summary, daily briefing, periodic news recap, AI daily digest, ai daily, AI 日报, ai 日报, 生成简报, or 大模型日报. Reads existing feedship subscriptions, fetches latest articles, and generates a 6-section digest: (A) 精选推荐, (B) AI五层蛋糕, (C) 创业信号, (D) 创作点, (E) 政策解读, (F) 媒体热点. Requires feedship skill."
 metadata:
   openclaw:
     requires:
@@ -15,7 +15,7 @@ metadata:
 
 # AI 日报 (Feedship AI Daily)
 
-**Version:** 1.13.0
+**Version:** 1.14.0
 **For:** OpenClaw compatible agents
 **Description:** Generate daily AI news digest from feedship subscriptions
 
@@ -185,30 +185,30 @@ feedship article list --limit 333 --since $SINCE
 
 Each section is generated with its dedicated search to avoid context overflow. Search results are saved to files first.
 
-**Step 3a: Generate Section A (AI五层蛋糕)**
+**Step 3a: Generate Section B (精选推荐)** — generated last
 ```bash
 DATE=$(date +%Y-%m-%d)
 mkdir -p /tmp/ai-daily-$DATE
-# AI应用 - 必须使用 --json 获取真实文章链接！
-feedship search "Focusing on the full-stack AI ecosystem..." --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_a.json
+# 精选推荐 - 必须使用 --json 获取真实文章链接！
+feedship search "AI 热门 精选 推荐" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_b.json
 # 提取链接用于报告
-cat /tmp/ai-daily-$DATE/search_a.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_a.txt
+cat /tmp/ai-daily-$DATE/search_b.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_b.txt
 
-cat > /tmp/ai-daily-$DATE/section_a.md << 'EOF'
+cat > /tmp/ai-daily-$DATE/section_b.md << 'EOF'
 # AI 日报 DATE_PLACEHOLDER
 
-## A. AI五层蛋糕
+## B. 精选推荐
 [按 REPORT_FORMAT.md 格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
 
-**Step 3b: Section B (精选推荐)**
+**Step 3b: Section A (AI五层蛋糕)**
 ```bash
 # 必须使用 --json 获取真实文章链接！
-feedship search "AI 热门 精选 推荐" --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_b.json
-cat /tmp/ai-daily-$DATE/search_b.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_b.txt
-cat > /tmp/ai-daily-$DATE/section_b.md << 'EOF'
-## B. 精选推荐
+feedship search "Focusing on the full-stack AI ecosystem..." --semantic --limit 333 --json > /tmp/ai-daily-$DATE/search_a.json
+cat /tmp/ai-daily-$DATE/search_a.json | jq -r '.items[] | "\(.title) | \(.link)"' > /tmp/ai-daily-$DATE/links_a.txt
+cat > /tmp/ai-daily-$DATE/section_a.md << 'EOF'
+## A. AI五层蛋糕
 [按格式生成，必须使用 search_*.json 中的真实 article.link]
 EOF
 ```
@@ -284,7 +284,7 @@ def format_section(lines, section_name):
             f.write(f'{i}. {safe_title}\n')
             f.write(f'   来源：[**链接**]({link})\n\n')
 
-for section, filename in [('A', 'links_a'), ('B', 'links_b'), ('C', 'links_c'),
+for section, filename in [('B', 'links_b'), ('A', 'links_a'), ('C', 'links_c'),
                            ('D', 'links_d'), ('E', 'links_e'), ('F', 'links_f')]:
     try:
         with open(f'/tmp/ai-daily-{DATE}/{filename}.txt') as f:
@@ -326,8 +326,8 @@ Quick reference:
 
 | Section | Name | Required content |
 |---------|------|------------------|
-| A | AI五层蛋糕 | For each layer: AI-generated summary + at least 2 source links |
-| B | 精选推荐 | 5‑8 articles with title, one‑sentence summary, link; merge hot topics |
+| A | 精选推荐 | 5‑8 articles with title, one‑sentence summary, link; merge hot topics |
+| B | AI五层蛋糕 | For each layer: AI-generated summary + at least 2 source links |
 | C | 创业信号 | High-leverage tools (max 3) + conditional business teardown (触发条件: 融资>$10M OR 爆款应用 OR 技术栈可推测) |
 | D | 创作点 | Story angles and content inspiration for creators |
 | E | 政策解读 | Regulations, compliance developments, impact analysis |
@@ -415,5 +415,6 @@ openclaw cron add \
 ---
 
 **Changelog:**
+- 1.14.0: Swap section order: A (精选推荐) now first, B (AI五层蛋糕) now second; 精选推荐 generated last.
 - 1.13.0: Fixed YAML syntax, updated skill path to `~/.openclaw/skills/`, improved date handling, added troubleshooting table, clarified cron instructions.
 - 1.12.0: Initial version.
