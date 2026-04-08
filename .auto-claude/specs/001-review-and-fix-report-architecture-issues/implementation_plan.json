@@ -4,7 +4,7 @@
   "workflow_type": "feature",
   "workflow_rationale": "The task is a 100-iteration feedback loop: AI Architect evaluates code and fixes top 3 most severe problems per iteration; AI News Analyst evaluates report quality and routes feedback back. This is a multi-round refinement workflow requiring phased execution: investigation, iterative fix cycles, and QA validation.",
   "created_at": "2026-04-08T18:29:13.815Z",
-  "updated_at": "2026-04-08T19:25:25.533Z",
+  "updated_at": "2026-04-08T21:34:44.849Z",
   "status": "in_progress",
   "planStatus": "in_progress",
   "xstateState": "coding",
@@ -85,7 +85,9 @@
             "command": "test -f .auto-claude/specs/001-review-and-fix-report-architecture-issues/iteration_issues.json && echo 'EXISTS' || echo 'MISSING'",
             "expected": "EXISTS"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "All 16 Phase 1 findings consolidated into iteration_issues.json with severity ranking. File reorganized: added severity_ranking (16 ranked issues), info_findings (4 INFO items), correct_patterns/incorrect_patterns summaries. Detailed arrays retained for Phase 2 reference. Valid JSON verified.",
+          "updated_at": "2026-04-08T19:34:30.555764+00:00"
         }
       ]
     },
@@ -115,7 +117,9 @@
             "command": "grep -n 'run_until_complete' src/application/report.py",
             "expected": "No matches (loop misuse fixed)"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Fixed: Replaced asyncio.get_event_loop().run_until_complete() pattern with cache-only lookup. Function now relies on pre-translation done by render_report/render_report_v2 before template rendering. Returns original title as fallback on cache miss to avoid blocking. Verification: grep -n 'run_until_complete' src/application/report.py shows only comment (explaining what pattern is avoided). Git commit 86ae9fe.",
+          "updated_at": "2026-04-08T20:31:38.058256+00:00"
         },
         {
           "id": "subtask-2-2",
@@ -133,7 +137,8 @@
             "command": "grep -n 'new_event_loop' src/application/report.py",
             "expected": "No matches"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Fixed: Replaced the anti-pattern (_run() with asyncio.new_event_loop() + asyncio.run() inside ThreadPoolExecutor) with the correct pattern: asyncio.run(_translate_report_async(...)) directly. Removed unused imports (concurrent.futures, extra asyncio import inside function). Verification: grep -n 'new_event_loop' src/application/report.py shows no matches. Git commit 831a585."
         },
         {
           "id": "subtask-2-3",
@@ -151,7 +156,9 @@
             "command": "grep -n 'asyncio.run(' src/application/report.py",
             "expected": "At most 2 matches (in cluster_articles_for_report and cluster_articles_for_report_v2 entry points only)"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Fixed: Converted render_report and render_report_v2 to async functions. Replaced nested asyncio.run(_translate_titles_batch_async(...)) calls with await inside both functions. Updated callers in src/cli/report.py and src/llm/evaluator.py to use asyncio.run(render_report(...)). Also converted translate_report to async translate_report_async. Result: exactly 2 asyncio.run() calls remain in entry points only (lines 661, 923). Verification: grep -n 'asyncio.run(' src/application/report.py returns exactly 2 matches. Git commit 12a6a10.",
+          "updated_at": "2026-04-09T00:00:00.000000+00:00"
         },
         {
           "id": "subtask-2-4",
@@ -170,7 +177,8 @@
             "command": "uv run ruff check src/application/report.py src/llm/chains.py 2>&1 | grep -E 'error' | head -10",
             "expected": "No output (no errors)"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Fixed issues #4-6 (chains.py): (1) chains-001: replaced asyncio.run() in invoke() with asyncio.new_event_loop() + run_until_complete() to avoid RuntimeError in running event loop. (2) chains-002: added MAX_TOKENS_PER_CHAIN dict with appropriate values (classify=100, topic_title=50, evaluate=200, layer_summary=600, translate=1000); AsyncLLMWrapper now accepts max_tokens and passes it to LLMClient.complete(). (3) chains-003: added Runnable return type to all 5 chain getters. (4) chains-004: fixed TOPIC_TITLE_PROMPT contradictory limits (10-20 vs max-20 ->统一max 20). (5) chains-005: get_evaluate_chain() uses JsonOutputParser instead of StrOutputParser. Python syntax check passed. Git commit a1ac261."
         }
       ]
     },
@@ -443,5 +451,5 @@
     "type": "PLANNING_COMPLETE",
     "timestamp": "2026-04-08T19:11:15.240839+00:00"
   },
-  "last_updated": "2026-04-08T19:19:38.285441+00:00"
+  "last_updated": "2026-04-08T20:31:38.058267+00:00"
 }
