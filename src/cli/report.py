@@ -10,7 +10,9 @@ from rich.console import Console
 
 from src.application.report import (
     cluster_articles_for_report,
+    cluster_articles_for_report_v2,
     render_report,
+    render_report_v2,
 )
 from src.cli import cli
 from src.cli.ui import print_json, print_json_error
@@ -73,15 +75,31 @@ def report(
     try:
         # Cluster articles
         with console.status("[cyan]Fetching and clustering articles..."):
-            data = cluster_articles_for_report(
-                since=since,
-                until=until,
-                limit=limit,
-                auto_summarize=auto_summarize,
-                target_lang=language,
-            )
+            if template == "v2":
+                data = cluster_articles_for_report_v2(
+                    since=since,
+                    until=until,
+                    limit=limit,
+                    auto_summarize=auto_summarize,
+                    target_lang=language,
+                )
+                total_articles = sum(
+                    len(t["sources"])
+                    for layer in data.get("layers", [])
+                    for t in layer.get("topics", [])
+                )
+            else:
+                data = cluster_articles_for_report(
+                    since=since,
+                    until=until,
+                    limit=limit,
+                    auto_summarize=auto_summarize,
+                    target_lang=language,
+                )
+                total_articles = sum(
+                    len(arts) for arts in data["articles_by_layer"].values()
+                )
 
-        total_articles = sum(len(arts) for arts in data["articles_by_layer"].values())
         summarized_on_demand = data.get("summarized_on_demand", 0)
 
         if total_articles == 0:
@@ -110,9 +128,14 @@ def report(
 
         # Render report
         try:
-            report_text = render_report(
-                data, template_name=template, target_lang=language
-            )
+            if template == "v2":
+                report_text = render_report_v2(
+                    data, template_name="v2", target_lang=language
+                )
+            else:
+                report_text = render_report(
+                    data, template_name=template, target_lang=language
+                )
         except Exception as e:
             if json_output:
                 print_json_error(f"Failed to render template: {e}", "template_error")
@@ -125,22 +148,27 @@ def report(
                 "date_range": data["date_range"],
                 "total_articles": total_articles,
                 "template": template,
-                "layers": {},
             }
-            for layer, arts in data["articles_by_layer"].items():
-                if arts:
-                    output_json["layers"][layer] = {
-                        "summary": data["layer_summaries"].get(layer, ""),
-                        "articles": [
-                            {
-                                "id": a["id"],
-                                "title": a["title"],
-                                "link": a["link"],
-                                "quality_score": a["quality_score"],
-                            }
-                            for a in arts
-                        ],
-                    }
+            if template == "v2":
+                output_json["layers"] = data.get("layers", [])
+                output_json["signals"] = data.get("signals", {})
+                output_json["creation"] = data.get("creation", [])
+            else:
+                output_json["layers"] = {}
+                for layer, arts in data["articles_by_layer"].items():
+                    if arts:
+                        output_json["layers"][layer] = {
+                            "summary": data["layer_summaries"].get(layer, ""),
+                            "articles": [
+                                {
+                                    "id": a["id"],
+                                    "title": a["title"],
+                                    "link": a["link"],
+                                    "quality_score": a["quality_score"],
+                                }
+                                for a in arts
+                            ],
+                        }
             print_json(output_json)
             return
 

@@ -12,6 +12,7 @@ from src.application.summarize import summarize_article_content
 from src.llm.chains import (
     get_classify_chain,
     get_layer_summary_chain,
+    get_topic_title_chain,
     get_translate_chain,
 )
 from src.storage import get_article_with_llm, list_articles_for_llm, update_article_llm
@@ -40,6 +41,259 @@ def _lang_name(code: str) -> str:
 def _layer_names(lang: str) -> list[str]:
     """Return layer category names in the specified language."""
     return LAYER_NAMES.get(lang, LAYER_NAMES["zh"])
+
+
+# ---------------------------------------------------------------------------
+# v2 report helpers — topic clustering
+# ---------------------------------------------------------------------------
+
+# Keywords for Section B (signals) rule-based classification
+_LEVERAGE_KEYWORDS = [
+    "tool",
+    "platform",
+    "api",
+    "framework",
+    "open source",
+    "library",
+    "sdk",
+    "model",
+    "release",
+    "launch",
+    "github",
+    "npm",
+    "pypi",
+    "runtime",
+    "compiler",
+    "assistant",
+    "agent",
+    "claude",
+    "gpt",
+    "gemini",
+    "openai",
+    "anthropic",
+]
+_BUSINESS_KEYWORDS = [
+    "startup",
+    "funding",
+    "raise",
+    "series",
+    "ipo",
+    "business model",
+    "revenue",
+    "unicorn",
+    "vc",
+    "venture",
+    "investor",
+    "seed round",
+    " Series A",
+    " Series B",
+    "acqui-hire",
+    "acquisition",
+    "merger",
+    "profit",
+]
+
+# Keywords for Section C (creation) rule-based classification
+_CREATION_KEYWORDS = [
+    "how to",
+    "tutorial",
+    "review",
+    "top",
+    "best",
+    "vs",
+    "comparison",
+    "guide",
+    "introduction",
+    "beginner",
+    "getting started",
+    "101",
+    "cheat sheet",
+    "tips",
+    "master",
+    "learn",
+    "course",
+    "workshop",
+]
+
+
+def _keyword_overlap(title1: str, title2: str) -> float:
+    """Compute simple keyword overlap between two titles (0.0–1.0)."""
+    words1 = set(title1.lower().split())
+    words2 = set(title2.lower().split())
+    if not words1 or not words2:
+        return 0.0
+    intersection = words1 & words2
+    union = words1 | words2
+    return len(intersection) / len(union)
+
+
+async def _cluster_articles_into_topics(
+    articles: list[dict],
+    target_lang: str,
+) -> list[dict]:
+    """Group articles into topics by theme within a layer.
+
+    Clustering strategy:
+      1. Group by feed_id (same source = same topic).
+      2. Merge small clusters (<=2 articles) with nearest neighbour by
+         title similarity (keyword overlap >= 0.2).
+      3. Generate a short topic title via get_topic_title_chain.
+
+    Each topic dict has keys: title, sources (list of article dicts),
+    sources_count, insight (empty str, filled later by caller).
+    """
+    if not articles:
+        return []
+
+    # Step 1 — group by feed_id
+    feed_groups: dict[str, list[dict]] = {}
+    for a in articles:
+        fid = a.get("feed_id") or a.get("feed_id") or "unknown"
+        feed_groups.setdefault(fid, []).append(a)
+
+    topics: list[dict] = []
+    for _fid, arts in feed_groups.items():
+        topics.append(
+            {
+                "title": "",  # filled below
+                "sources": arts,
+                "sources_count": len(arts),
+                "insight": "",
+            }
+        )
+
+    # Step 2 — merge small clusters with nearest neighbour
+    merged = True
+    while merged:
+        merged = False
+        new_topics: list[dict] = []
+        skip = set()
+        for i, t1 in enumerate(topics):
+            if i in skip:
+                continue
+            if t1["sources_count"] <= 2:
+                # find nearest neighbour
+                best_score = 0.2  # minimum threshold
+                best_j = -1
+                for j, t2 in enumerate(topics):
+                    if j == i or j in skip:
+                        continue
+                    titles_i = " ".join(a.get("title", "") for a in t1["sources"])
+                    titles_j = " ".join(a.get("title", "") for a in t2["sources"])
+                    score = _keyword_overlap(titles_i, titles_j)
+                    if score > best_score:
+                        best_score = score
+                        best_j = j
+                if best_j >= 0:
+                    # merge t1 into t2
+                    t2 = topics[best_j]
+                    t2["sources"].extend(t1["sources"])
+                    t2["sources_count"] = len(t2["sources"])
+                    skip.add(i)
+                    skip.add(best_j)
+                    new_topics.append(t2)
+                    merged = True
+                else:
+                    new_topics.append(t1)
+            else:
+                new_topics.append(t1)
+        if merged:
+            # remove duplicates that were merged multiple times
+            seen = set()
+            filtered = []
+            for t in new_topics:
+                key = id(t)
+                if key not in seen:
+                    seen.add(key)
+                    filtered.append(t)
+            topics = filtered
+            merged = True  # loop again in case new small clusters formed
+
+    # Deduplicate final list
+    final: list[dict] = []
+    seen_ids: set[int] = set()
+    for t in topics:
+        for a in t["sources"]:
+            aid = id(a)
+            if aid not in seen_ids:
+                seen_ids.add(aid)
+                final.append(t)
+                break
+
+    # Step 3 — generate topic titles via LLM
+    semaphore = asyncio.Semaphore(5)
+
+    async def title_for(topic: dict) -> dict:
+        async with semaphore:
+            article_list = "\n".join(
+                f"- {a.get('title', 'Untitled')}" for a in topic["sources"][:8]
+            )
+            try:
+                chain = get_topic_title_chain()
+                title = await chain.ainvoke(
+                    {
+                        "article_list": article_list,
+                        "target_lang": _lang_name(target_lang),
+                    }
+                )
+                topic["title"] = title.strip()
+            except Exception as e:
+                logger.warning("Topic title generation failed: %s", e)
+                # Fallback: use first article title
+                topic["title"] = (
+                    topic["sources"][0].get("title", "Misc")[:20]
+                    if topic["sources"]
+                    else "Misc"
+                )
+        return topic
+
+    titled = await asyncio.gather(
+        *[title_for(t) for t in final], return_exceptions=True
+    )
+    result: list[dict] = []
+    for t in titled:
+        if isinstance(t, Exception):
+            logger.warning("Topic title task failed: %s", t)
+            continue
+        result.append(t)
+
+    return result
+
+
+def _classify_signal_leverage(article: dict) -> bool:
+    """Rule-based check if article is about developer tools / AI platforms."""
+    text = (
+        article.get("title", "")
+        + " "
+        + article.get("summary", "")
+        + " "
+        + article.get("description", "")
+    ).lower()
+    return any(kw in text for kw in _LEVERAGE_KEYWORDS)
+
+
+def _classify_signal_business(article: dict) -> bool:
+    """Rule-based check if article is about startups / funding / business."""
+    text = (
+        article.get("title", "")
+        + " "
+        + article.get("summary", "")
+        + " "
+        + article.get("description", "")
+    ).lower()
+    return any(kw in text for kw in _BUSINESS_KEYWORDS)
+
+
+def _classify_creation(article: dict) -> bool:
+    """Rule-based check if article is a tutorial / how-to / review / best-of."""
+    text = (
+        article.get("title", "")
+        + " "
+        + article.get("summary", "")
+        + " "
+        + article.get("description", "")
+    ).lower()
+    return any(kw in text for kw in _CREATION_KEYWORDS)
 
 
 def _is_chinese(text: str) -> bool:
@@ -312,6 +566,208 @@ async def _cluster_articles_async(
         "date_range": {"since": since, "until": until},
         "summarized_on_demand": summarized_on_demand,
     }
+
+
+# ---------------------------------------------------------------------------
+# v2 report — topic clustering + signals + creation
+# ---------------------------------------------------------------------------
+
+
+async def _cluster_articles_v2_async(
+    pre_fetched_articles: list,
+    since: str,
+    until: str,
+    auto_summarize: bool,
+    target_lang: str,
+) -> dict[str, Any]:
+    """Async implementation of v2 clustering with topic grouping."""
+    articles = pre_fetched_articles
+    articles_by_layer: dict[str, list[dict]] = {cat: [] for cat in LAYER_KEYS}
+
+    # Also collect all articles flat (for signals / creation classification)
+    all_processed: list[dict] = []
+
+    async def process_one(article: dict) -> tuple[str, dict, dict]:
+        aid = article["id"]
+        try:
+            full = get_article_with_llm(aid)
+        except Exception:
+            full = article
+
+        summary = full.get("summary") or ""
+        title = full.get("title", "")
+        feed_weight = full.get("feed_weight", 0)
+        feed_id = full.get("feed_id", "unknown")
+
+        if not summary and auto_summarize and feed_weight >= 0.7:
+            content = full.get("content") or full.get("description") or ""
+            if content:
+                try:
+                    summary, _, quality, _ = await summarize_article_content(
+                        content, title
+                    )
+                    full["summary"] = summary
+                    full["quality_score"] = quality
+                    update_article_llm(
+                        aid,
+                        summary=summary,
+                        quality_score=quality,
+                        keywords=[],
+                        tags=[],
+                    )
+                except Exception as e:
+                    logger.warning("On-demand summarize failed for %s: %s", aid, e)
+
+        text = summary or full.get("content") or full.get("description") or ""
+        layer = await classify_article_layer(text, title)
+
+        processed = {
+            "id": aid,
+            "title": title,
+            "link": full.get("link", ""),
+            "summary": full.get("summary", ""),
+            "quality_score": full.get("quality_score"),
+            "published_at": full.get("published_at"),
+            "feed_id": feed_id,
+            "layer": layer,
+        }
+        return layer, processed, processed
+
+    semaphore = asyncio.Semaphore(10)
+
+    async def bounded_process(a: dict) -> tuple[str, dict, dict]:
+        async with semaphore:
+            return await process_one(a)
+
+    if articles:
+        classified = await asyncio.gather(
+            *[bounded_process(a) for a in articles],
+            return_exceptions=True,
+        )
+        for item in classified:
+            if isinstance(item, Exception):
+                continue
+            layer, processed, _ = item
+            if layer in articles_by_layer:
+                articles_by_layer[layer].append(processed)
+            all_processed.append(processed)
+
+    # Cluster articles into topics within each layer
+    layers_data: list[dict] = []
+    for layer_name in LAYER_KEYS:
+        arts = articles_by_layer.get(layer_name, [])
+        topics = await _cluster_articles_into_topics(arts, target_lang)
+        layers_data.append(
+            {
+                "name": layer_name,
+                "topics": topics,
+            }
+        )
+
+    # Section B — signals
+    leverage_topics: list[dict] = []
+    business_topics: list[dict] = []
+    for article in all_processed:
+        if _classify_signal_leverage(article):
+            leverage_topics.append(article)
+        elif _classify_signal_business(article):
+            business_topics.append(article)
+
+    # Section C — creation
+    creation_sections: list[dict] = []
+    creation_arts = [a for a in all_processed if _classify_creation(a)]
+    if creation_arts:
+        # Cluster creation articles into a single "创作选题" section
+        creation_topics = await _cluster_articles_into_topics(
+            creation_arts, target_lang
+        )
+        creation_sections.append(
+            {
+                "name": "创作选题",
+                "topics": creation_topics,
+            }
+        )
+
+    return {
+        "layers": layers_data,
+        "signals": {
+            "leverage": leverage_topics,
+            "business": business_topics,
+        },
+        "creation": creation_sections,
+        "date_range": {"since": since, "until": until},
+    }
+
+
+def cluster_articles_for_report_v2(
+    since: str,
+    until: str,
+    limit: int = 200,
+    auto_summarize: bool = True,
+    target_lang: str = "zh",
+) -> dict[str, Any]:
+    """Fetch and cluster articles for a v2 report with topic clustering.
+
+    Returns:
+        dict with keys: layers (list of {name, topics}), signals
+        ({leverage, business}), creation (list of {name, topics}),
+        date_range ({since, until}).
+    """
+    articles = list_articles_for_llm(
+        limit=limit,
+        since=since,
+        until=until,
+        unsummarized_only=False,
+    )
+    return asyncio.run(
+        _cluster_articles_v2_async(articles, since, until, auto_summarize, target_lang)
+    )
+
+
+def render_report_v2(
+    data: dict[str, Any],
+    template_name: str = "v2",
+    target_lang: str = "zh",
+) -> str:
+    """Render a v2 report using Jinja2 template.
+
+    Args:
+        data: Report data from cluster_articles_for_report_v2()
+        template_name: Template name (without extension)
+        target_lang: Target language code (zh, en, ja, ko).
+
+    Returns:
+        Rendered markdown string.
+    """
+    try:
+        from jinja2 import Environment, FileSystemLoader
+    except ImportError:
+        logger.error("Jinja2 not installed: pip install jinja2")
+        raise
+
+    template_path = DEFAULT_TEMPLATE_DIR / f"{template_name}.md"
+    if template_path.exists():
+        env = Environment(
+            loader=FileSystemLoader(template_path.parent),
+            autoescape=False,
+        )
+        env.filters["format_title"] = lambda title: _format_article_title(
+            title, target_lang
+        )
+        template = env.get_template(template_path.name)
+    else:
+        logger.error("v2 template not found at %s", template_path)
+        raise FileNotFoundError(
+            f"Template '{template_name}' not found at {template_path}"
+        )
+
+    return template.render(
+        layers=data.get("layers", []),
+        signals=data.get("signals", {}),
+        creation=data.get("creation", []),
+        date_range=data.get("date_range", {}),
+        target_lang=target_lang,
+    )
 
 
 def render_report(
