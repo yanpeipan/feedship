@@ -4,7 +4,7 @@ milestone: v1.11
 milestone_name: LLM 智能报告生成
 status: in_progress
 last_updated: "2026-04-08T00:00:00Z"
-last_activity: 2026-04-08 — Completed quick task 260408-uf8: 大规模去重+话题聚类+智能摘要生成
+last_activity: 2026-04-09 — Completed quick task 260409-3a7: 修复 report.py 3个高优先级asyncio问题 + centroids索引bug
 progress:
   total_phases: 4
   completed_phases: 4
@@ -24,7 +24,7 @@ progress:
 Phase: 23 (Report Generation) — Complete
 Plan: 23-PLAN.md
 Status: Implementation complete
-Last activity: 2026-04-08 — Completed quick task 260409-20c: 优化 report pipeline：每簇分类而非每篇分类，降低 LLM 调用次数
+Last activity: 2026-04-09 — Completed quick task 260409-3a7: 修复 report.py 3个高优先级asyncio问题 + centroids索引bug
 
 ## Current Milestone: v1.11 — LLM 智能报告生成
 
@@ -60,8 +60,10 @@ Last activity: 2026-04-08 — Completed quick task 260409-20c: 优化 report pip
 | 260408-l0b | 完整使用LangChain — LCEL chains接入report生成 | 2026-04-08 | 4630503 | [260408-l0b-langchain-lcel-chains-report](./quick/260408-l0b-langchain-lcel-chains-report/) |
 | 260408-lp2 | AI架构师+新闻记者视角report质量优化10项修复 | 2026-04-08 | 8a8c8d0 | [260408-lp2-ai-report-10](./quick/260408-lp2-ai-report-10/) |
 | 260409-20c | 优化 report pipeline：每簇分类而非每篇分类，降低 LLM 调用次数 | 2026-04-08 | a84ec4f | [260409-20c-report-pipeline-llm](./quick/260409-20c-report-pipeline-llm/) |
+| 260409-3a7 | 修复 report.py 3个高优先级asyncio问题 + centroids索引bug | 2026-04-09 | 5cc1084 | [260409-3a7-ai-report-ai](./quick/260409-3a7-ai-report-ai/) |
 | 260408-mks | report增加翻译流程，--language指定最终报告语言 | 2026-04-08 | 8731675 | [260408-mks-report-language](./quick/260408-mks-report-language/) |
 | 260408-o21 | 实现 report v2 模板数据结构 | 2026-04-08 | 998db43 | [260408-o21-report-v2](./quick/260408-o21-report-v2/) |
 | 260408-p1q | loop 50次迭代测试report命令 | 2026-04-08 | 998db43 | — |
 | 260408-sfv | report自动保存markdown到~/.local/share/feedship/reports/ | 2026-04-08 | 70cc58f | [260408-sfv-report-markdown](./quick/260408-sfv-report-markdown/) |
 | 260408-uf8 | 大规模去重+话题聚类+智能摘要生成 | 2026-04-08 | 4b49dfe | [260408-uf8-dedup-cluster](./quick/260408-uf8-dedup-cluster/) |
+| 260409-3a7 | 修复 report.py 3个高优先级asyncio问题 + centroids索引bug | 2026-04-09 | 5cc1084 | [260409-3a7-ai-report-ai](./quick/260409-3a7-ai-report-ai/) |
