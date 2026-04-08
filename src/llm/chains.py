@@ -2,19 +2,84 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+from langchain_core.messages import BaseMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import Runnable
 
-from src.llm.core import LLMConfig
+from src.llm.core import LLMClient, get_llm_client
 
 
-# Lazy-loaded model - avoid importing litellm at module level
-def _get_model():
-    from litellm import ainvoke
+class AsyncLLMWrapper(Runnable):
+    """LCEL Runnable that delegates to LLMClient.complete().
 
-    config = LLMConfig.from_settings()
-    model_name = f"{config.provider}/{config.model}"
-    return lambda prompt, **kwargs: ainvoke(model_name, prompt, **kwargs)
+    Provides provider fallback + rate-limiting for LCEL chains.
+    """
+
+    def __init__(self, llm_client: LLMClient | None = None) -> None:
+        self._client = llm_client
+
+    @property
+    def client(self) -> LLMClient:
+        if self._client is None:
+            self._client = get_llm_client()
+        return self._client
+
+    async def _ainvoke_raw(self, input: Any) -> str:
+        """Invoke with raw string input (for use with StrOutputParser)."""
+        if isinstance(input, dict):
+            # Try to extract text from dict input (LCEL passes prompt values as dicts)
+            # When used as: prompt | model | parser, the prompt outputs a string
+            # But some chains pass dicts, so handle both cases
+            text = input.get("text", input.get("prompt", str(input)))
+        elif isinstance(input, BaseMessage):
+            text = input.content
+        else:
+            text = str(input)
+        return await self.client.complete(text)
+
+    async def ainvoke(
+        self,
+        input: Any,
+        **kwargs: Any,
+    ) -> str:
+        """Async invoke — compatible with LCEL chain."""
+        return await self._ainvoke_raw(input)
+
+    def invoke(self, input: Any, **kwargs: Any) -> str:
+        """Sync invoke — delegates to async version via thread pool."""
+        import asyncio
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(asyncio.run, self._ainvoke_raw(input))
+            return future.result()
+
+    async def abatch(
+        self,
+        inputs: list[Any],
+        **kwargs: Any,
+    ) -> list[str]:
+        """Async batch invoke."""
+        return [await self._ainvoke_raw(i) for i in inputs]
+
+    def batch(self, inputs: list[Any], **kwargs: Any) -> list[str]:
+        """Sync batch invoke."""
+        return [self.invoke(i) for i in inputs]
+
+
+# Singleton wrapper instance
+_async_llm_wrapper: AsyncLLMWrapper | None = None
+
+
+def _get_llm_wrapper() -> AsyncLLMWrapper:
+    """Get or create the singleton AsyncLLMWrapper."""
+    global _async_llm_wrapper
+    if _async_llm_wrapper is None:
+        _async_llm_wrapper = AsyncLLMWrapper()
+    return _async_llm_wrapper
 
 
 # Article classification chain using LCEL
@@ -39,8 +104,7 @@ CLASSIFY_PROMPT = ChatPromptTemplate.from_messages(
 
 def get_classify_chain():
     """Returns LCEL chain for article classification."""
-    model = _get_model()
-    return CLASSIFY_PROMPT | model | StrOutputParser()
+    return CLASSIFY_PROMPT | _get_llm_wrapper() | StrOutputParser()
 
 
 # Layer summary generation chain
@@ -65,8 +129,7 @@ Summary:""",
 
 def get_layer_summary_chain():
     """Returns LCEL chain for layer summary generation."""
-    model = _get_model()
-    return LAYER_SUMMARY_PROMPT | model | StrOutputParser()
+    return LAYER_SUMMARY_PROMPT | _get_llm_wrapper() | StrOutputParser()
 
 
 # Report quality evaluation chain
@@ -91,5 +154,4 @@ Score only the number 0.0-1.0, nothing else. Consider: coherence, relevance, dep
 
 def get_evaluate_chain():
     """Returns LCEL chain for report quality evaluation."""
-    model = _get_model()
-    return EVALUATE_PROMPT | model | StrOutputParser()
+    return EVALUATE_PROMPT | _get_llm_wrapper() | StrOutputParser()

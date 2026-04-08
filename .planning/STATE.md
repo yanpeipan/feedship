@@ -56,3 +56,4 @@ Last activity: 2026-04-08 — Phase 23 Report Generation complete
 | 260407-tbk | 为 feedship fetch --url 添加端到端测试 | 2026-04-07 | c5a80e0 | [260407-tbk-feedship-fetch-url](./quick/260407-tbk-feedship-fetch-url/) |
 | 260407-m4s | 实现修改feed功能：调整权重，修改分组，补充meta等等 | 2026-04-07 | 2c90033 | [260407-m4s-feed-meta](./quick/260407-m4s-feed-meta/) |
 | 260408-1rz | LLM重构+LangChain+Report自包含+质量优化 | 2026-04-07 | 2563e77 | [260408-1rz-llm-langchain-report](./quick/260408-1rz-llm-langchain-report/) |
+| 260408-jgw | 100次迭代报告质量评估+增强evaluator | 2026-04-08 | 637109b | [260408-jgw-100](./quick/260408-jgw-100/) |

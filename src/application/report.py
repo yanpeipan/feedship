@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from src.application.summarize import summarize_article_content
-from src.llm.core import llm_complete
+from src.llm.chains import get_classify_chain, get_layer_summary_chain
 from src.storage import get_article_with_llm, list_articles_for_llm, update_article_llm
 
 logger = logging.getLogger(__name__)
@@ -32,27 +32,10 @@ async def classify_article_layer(text: str, title: str = "") -> str:
 
     Returns one of: AI应用, AI模型, AI基础设施, 芯片, 能源
     """
-    prompt = f"""Classify this article into ONE of the following categories:
-
-- AI应用 (Application): AI products, tools, and services used by end users
-- AI模型 (Model): AI model releases, benchmarks, research papers, training methods
-- AI基础设施 (Infrastructure): Cloud platforms, MLOps tools, deployment, APIs
-- 芯片 (Chip): AI hardware, GPUs, custom silicon, semiconductor news
-- 能源 (Energy): AI energy consumption, data center power, carbon, renewable energy
-
-Article Title: {title}
-Article Content (first 300 words):
-{{content}}
-
-Return ONLY the category name, nothing else. Choose the SINGLE most appropriate category."""
-
     sample = " ".join(text.split()[:300])
     try:
-        result = await llm_complete(
-            prompt.format(content=sample),
-            max_tokens=15,
-            temperature=0.1,
-        )
+        chain = get_classify_chain()
+        result = await chain.ainvoke({"title": title, "content": sample})
         # Match against known categories
         for cat in FIVE_LAYER_CATEGORIES:
             if cat in result:
@@ -87,20 +70,9 @@ async def generate_cluster_summary(articles: list[dict], layer: str) -> str:
         for a in articles[:10]  # Max 10 articles in prompt
     )
 
-    prompt = f"""You are writing a concise summary for a news report section.
-
-The following articles are about: {layer}
-
-Articles:
-{article_list}
-
-Write 2-3 paragraphs summarizing the key trends and insights from these articles.
-Focus on the most important developments. Use professional Chinese.
-
-Summary:"""
-
     try:
-        return await llm_complete(prompt, max_tokens=300, temperature=0.3)
+        chain = get_layer_summary_chain()
+        return await chain.ainvoke({"layer": layer, "article_list": article_list})
     except Exception as e:
         logger.warning("Failed to generate cluster summary: %s", e)
         return "（暂无总结）"
