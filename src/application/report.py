@@ -442,25 +442,42 @@ def _translate_title_sync(title: str, target_lang: str) -> str:
         return _title_translate_cache[cache_key]
 
     import asyncio
-    import concurrent.futures
 
-    async def _translate():
-        chain = get_translate_chain()
-        return await chain.ainvoke({"text": title, "target_lang": target_lang})
-
-    def _run():
-        loop = asyncio.new_event_loop()
-        try:
-            return asyncio.run(_translate())
-        finally:
-            loop.close()
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(_run)
-        translated = future.result()
+    # Use existing event loop instead of creating new one (Fix #5)
+    loop = asyncio.get_event_loop()
+    translated = loop.run_until_complete(
+        get_translate_chain().ainvoke({"text": title, "target_lang": target_lang})
+    )
 
     _title_translate_cache[cache_key] = translated
     return translated
+
+
+async def _translate_titles_batch_async(
+    titles: list[str], target_lang: str
+) -> dict[str, str]:
+    """Pre-translate all titles in batch to avoid per-title event loop creation (Fix #5).
+
+    Returns a dict mapping original title -> translated title.
+    """
+    if target_lang == "zh" or not titles:
+        return {}
+    chain = get_translate_chain()
+    semaphore = asyncio.Semaphore(5)  # max 5 concurrent LLM calls
+
+    async def translate_one(title: str) -> tuple[str, str]:
+        async with semaphore:
+            result = await chain.ainvoke({"text": title, "target_lang": target_lang})
+            return (title, result)
+
+    results = await asyncio.gather(
+        *[translate_one(t) for t in titles], return_exceptions=True
+    )
+    return {
+        title: translated
+        for title, translated in results
+        if not isinstance(translated, Exception)
+    }
 
 
 def _format_article_title(title: str, target_lang: str) -> str:
@@ -657,6 +674,9 @@ async def _cluster_articles_async(
     results: dict[str, list] = {cat: [] for cat in LAYER_KEYS}
     summarized_on_demand: int = 0
 
+    # Collect pending DB writes to execute after gather (Fix #3)
+    pending_writes_v1: list[tuple] = []
+
     async def process_one(article: dict) -> tuple[str, dict]:
         # Use article fields directly from pre-fetched list (no redundant DB query)
         full = article
@@ -676,14 +696,8 @@ async def _cluster_articles_async(
                     full["summary"] = summary
                     full["quality_score"] = quality
                     summarized_on_demand += 1
-                    # Persist to database
-                    update_article_llm(
-                        article["id"],
-                        summary=summary,
-                        quality_score=quality,
-                        keywords=[],
-                        tags=[],
-                    )
+                    # Collect write params for post-gather batch (Fix #3: no sync DB inside gather)
+                    pending_writes_v1.append((article["id"], summary, quality, [], []))
                 except Exception as e:
                     logger.warning(
                         "On-demand summarize failed for %s: %s", article["id"], e
@@ -717,6 +731,10 @@ async def _cluster_articles_async(
             layer, article_dict = item
             if layer in results:
                 results[layer].append(article_dict)
+
+    # Execute pending DB writes sequentially after gather (Fix #3)
+    for params in pending_writes_v1:
+        update_article_llm(*params)
 
     # Generate summaries for each layer
     layer_summaries: dict[str, str] = {}
@@ -753,6 +771,9 @@ async def _cluster_articles_v2_async(
     """
     articles = pre_fetched_articles
 
+    # Collect pending DB writes to execute after gather (Fix #3)
+    pending_writes_v2: list[tuple] = []
+
     async def process_one(article: dict) -> dict:
         """Process article: on-demand summarize if needed. No layer classification."""
         full = article
@@ -770,13 +791,8 @@ async def _cluster_articles_v2_async(
                     )
                     full["summary"] = summary
                     full["quality_score"] = quality
-                    update_article_llm(
-                        article["id"],
-                        summary=summary,
-                        quality_score=quality,
-                        keywords=[],
-                        tags=[],
-                    )
+                    # Collect write params for post-gather batch (Fix #3: no sync DB inside gather)
+                    pending_writes_v2.append((article["id"], summary, quality, [], []))
                 except Exception as e:
                     logger.warning(
                         "On-demand summarize failed for %s: %s", article["id"], e
@@ -811,6 +827,12 @@ async def _cluster_articles_v2_async(
                 continue
             processed = item
             all_processed.append(processed)
+
+    # Execute pending DB writes sequentially after gather (Fix #3)
+    for params in pending_writes_v2:
+        update_article_llm(*params)
+
+    # Three-level deduplication FIRST (before any clustering)
 
     # Three-level deduplication FIRST (before any clustering)
     all_processed = deduplicate_articles(all_processed)
@@ -914,6 +936,40 @@ def render_report_v2(
     Returns:
         Rendered markdown string.
     """
+    # Pre-translate all titles before template rendering (Fix #5)
+    if target_lang != "zh":
+        all_titles: list[str] = []
+        # Collect from layers -> topics -> sources
+        for layer_data in data.get("layers", []):
+            for topic in layer_data.get("topics", []):
+                for article in topic.get("sources", []):
+                    title = article.get("title", "")
+                    if title and _is_chinese(title):
+                        all_titles.append(title)
+        # Collect from signals
+        for sig_type in ["leverage", "business"]:
+            for article in data.get("signals", {}).get(sig_type, []):
+                title = article.get("title", "")
+                if title and _is_chinese(title):
+                    all_titles.append(title)
+        # Collect from creation
+        for creation_data in data.get("creation", []):
+            for topic in creation_data.get("topics", []):
+                for article in topic.get("sources", []):
+                    title = article.get("title", "")
+                    if title and _is_chinese(title):
+                        all_titles.append(title)
+
+        if all_titles:
+            # Deduplicate titles to avoid redundant LLM calls
+            unique_titles = list(dict.fromkeys(all_titles))
+            pre_translated = asyncio.run(
+                _translate_titles_batch_async(unique_titles, target_lang)
+            )
+            # Populate cache for template filters
+            for orig, translated in pre_translated.items():
+                _title_translate_cache[(orig, target_lang)] = translated
+
     try:
         from jinja2 import Environment, FileSystemLoader
     except ImportError:
@@ -960,6 +1016,22 @@ def render_report(
     Returns:
         Rendered markdown string.
     """
+    # Pre-translate all titles before template rendering (Fix #5)
+    if target_lang != "zh":
+        all_titles: list[str] = []
+        for layer_articles in data.get("articles_by_layer", {}).values():
+            for article in layer_articles:
+                title = article.get("title", "")
+                if title and _is_chinese(title):
+                    all_titles.append(title)
+        if all_titles:
+            unique_titles = list(dict.fromkeys(all_titles))
+            pre_translated = asyncio.run(
+                _translate_titles_batch_async(unique_titles, target_lang)
+            )
+            for orig, translated in pre_translated.items():
+                _title_translate_cache[(orig, target_lang)] = translated
+
     try:
         from jinja2 import Environment, FileSystemLoader, Template
     except ImportError:
@@ -1005,21 +1077,60 @@ def _create_default_template() -> None:
 
 
 async def _translate_report_async(report_text: str, target_lang: str) -> str:
-    """Internal async translation implementation."""
+    """Internal async translation implementation with batched LLM calls (Fix #4).
+
+    Batches 10 lines per LLM call instead of O(n) calls for a 200-line report.
+    """
     if target_lang == "zh":
         return report_text
 
     chain = get_translate_chain()
     lines = report_text.splitlines()
     translated_lines = []
+    batch_size = 10
 
-    for line in lines:
-        # Preserve article bullet points (lines containing link pattern)
-        if "]((" in line or "](http" in line or "](https" in line:
-            translated_lines.append(line)
-        else:
-            result = await chain.ainvoke({"text": line, "target_lang": target_lang})
-            translated_lines.append(result)
+    i = 0
+    while i < len(lines):
+        batch = lines[i : i + batch_size]
+        non_link_lines: list[tuple[int, str]] = []
+
+        # Separate link lines from content lines
+        for j, line in enumerate(batch):
+            if "]((" in line or "](http" in line or "](https" in line:
+                # Link line: skip translation, preserve as-is
+                translated_lines.append(line)
+            else:
+                non_link_lines.append((j, line))
+
+        # Translate non-link lines in batch
+        if non_link_lines:
+            # Format as numbered list for LLM
+            prompt_lines = [f"{idx + 1}. {line}" for idx, line in non_link_lines]
+            prompt = "\n".join(prompt_lines)
+
+            try:
+                result = await chain.ainvoke(
+                    {
+                        "text": f"Translate the following lines to {target_lang}. Keep line numbers as reference:\n{prompt}",
+                        "target_lang": target_lang,
+                    }
+                )
+                # Parse result — extract translated lines by stripping numbered prefix
+                result_lines = result.strip().split("\n")
+                for rline in result_lines:
+                    rline = rline.strip()
+                    if rline and rline[0].isdigit() and ". " in rline:
+                        rline = rline.split(". ", 1)[1]
+                    translated_lines.append(rline)
+            except Exception as e:
+                logger.warning(
+                    "Batch translation failed, falling back to original: %s", e
+                )
+                # Fallback: append original lines
+                for _, line in non_link_lines:
+                    translated_lines.append(line)
+
+        i += batch_size
 
     return "\n".join(translated_lines)
 
