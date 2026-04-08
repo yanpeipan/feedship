@@ -142,7 +142,6 @@ async def _cluster_articles_into_topics(
     Each topic dict has keys: title, sources (list of article dicts),
     sources_count, insight (empty str, filled later by caller).
     """
-    import math
 
     from sklearn.cluster import KMeans
     from sklearn.metrics.pairwise import cosine_similarity
@@ -181,8 +180,8 @@ async def _cluster_articles_into_topics(
     n = len(articles_with_emb)
 
     if n >= 5 and emb_matrix:
-        # Step 2 — dynamic k selection: k = max(5, min(sqrt(n/2), 50))
-        k = max(5, min(int(math.sqrt(n / 2)), 50))
+        # Step 2 — dynamic k selection: k = max(10, n // 5)
+        k = max(10, n // 5)
         k = min(k, n)  # can't have more clusters than articles
 
         kmeans = KMeans(n_clusters=k, random_state=42, n_init=3)
@@ -202,7 +201,7 @@ async def _cluster_articles_into_topics(
             for i, group in enumerate(clusters):
                 if i in skip:
                     continue
-                if len(group) <= 2 and len(clusters) > 1:
+                if len(group) <= 3 and len(clusters) > 1:
                     # Find nearest neighbour cluster by centroid cosine similarity
                     if emb_matrix and len(emb_matrix) == len(articles_with_emb):
                         # Recompute cluster centroids
@@ -315,7 +314,7 @@ async def _cluster_articles_into_topics(
             for i, t1 in enumerate(topics):
                 if i in skip:
                     continue
-                if t1["sources_count"] <= 2:
+                if t1["sources_count"] <= 3:
                     best_score = 0.2
                     best_j = -1
                     for j, t2 in enumerate(topics):
@@ -503,6 +502,48 @@ async def classify_article_layer(text: str, title: str = "") -> str:
         return "AI应用"  # Default fallback
     except Exception as e:
         logger.warning("Failed to classify article layer: %s", e)
+        return "AI应用"
+
+
+async def classify_cluster_layer(articles: list[dict], target_lang: str = "zh") -> str:
+    """Classify a cluster of articles into one of the AI five-layer cake categories.
+
+    Instead of calling LLM per article, combines all article texts and classifies once.
+
+    Args:
+        articles: List of article dicts with 'title' and 'summary' keys.
+        target_lang: Target language code (zh, en, ja, ko).
+
+    Returns:
+        One of: AI应用, AI模型, AI基础设施, 芯片, 能源
+    """
+    if not articles:
+        return "AI应用"
+
+    # Build combined text from first 15 articles (avoid prompt bloat)
+    texts = []
+    for a in articles[:15]:
+        title = a.get("title", "")
+        summary = a.get("summary", "") or ""
+        texts.append(f"{title}: {summary[:200]}")
+    cluster_text = "\n".join(texts)
+
+    sample = " ".join(cluster_text.split()[:500])
+    try:
+        chain = get_classify_chain()
+        result = await chain.ainvoke(
+            {"title": "Cluster Classification", "content": sample}
+        )
+        for cat in LAYER_KEYS:
+            if cat in result:
+                return cat
+            for c in LAYER_KEYS:
+                if c.split("(")[0].strip() in result:
+                    return c
+        logger.warning("Could not classify cluster layer from: %s", result.strip())
+        return "AI应用"
+    except Exception as e:
+        logger.warning("Failed to classify cluster layer: %s", e)
         return "AI应用"
 
 
@@ -705,15 +746,15 @@ async def _cluster_articles_v2_async(
     auto_summarize: bool,
     target_lang: str,
 ) -> dict[str, Any]:
-    """Async implementation of v2 clustering with topic grouping."""
+    """Async implementation of v2 clustering with topic grouping.
+
+    NEW FLOW: process all (no LLM layer classify) -> deduplicate ->
+    cluster all -> classify per cluster -> group by layer -> Section B/C
+    """
     articles = pre_fetched_articles
-    articles_by_layer: dict[str, list[dict]] = {cat: [] for cat in LAYER_KEYS}
 
-    # Also collect all articles flat (for signals / creation classification)
-    all_processed: list[dict] = []
-
-    async def process_one(article: dict) -> tuple[str, dict, dict]:
-        # Use article fields directly from pre-fetched list (no redundant DB query)
+    async def process_one(article: dict) -> dict:
+        """Process article: on-demand summarize if needed. No layer classification."""
         full = article
         summary = full.get("summary") or ""
         title = full.get("title", "")
@@ -741,9 +782,6 @@ async def _cluster_articles_v2_async(
                         "On-demand summarize failed for %s: %s", article["id"], e
                     )
 
-        text = summary or full.get("content") or full.get("description") or ""
-        layer = await classify_article_layer(text, title)
-
         processed = {
             "id": article["id"],
             "title": title,
@@ -752,52 +790,60 @@ async def _cluster_articles_v2_async(
             "quality_score": full.get("quality_score"),
             "published_at": full.get("published_at"),
             "feed_id": feed_id,
-            "layer": layer,
         }
-        return layer, processed, processed
+        return processed
 
+    # Process all articles (no LLM layer classification yet)
+    all_processed: list[dict] = []
     semaphore = asyncio.Semaphore(10)
 
-    async def bounded_process(a: dict) -> tuple[str, dict, dict]:
+    async def bounded_process(a: dict) -> dict:
         async with semaphore:
             return await process_one(a)
 
     if articles:
-        classified = await asyncio.gather(
+        results = await asyncio.gather(
             *[bounded_process(a) for a in articles],
             return_exceptions=True,
         )
-        for item in classified:
+        for item in results:
             if isinstance(item, Exception):
                 continue
-            layer, processed, _ = item
-            if layer in articles_by_layer:
-                articles_by_layer[layer].append(processed)
+            processed = item
             all_processed.append(processed)
 
-    # Three-level deduplication before clustering
+    # Three-level deduplication FIRST (before any clustering)
     all_processed = deduplicate_articles(all_processed)
-    for layer_name in LAYER_KEYS:
-        articles_by_layer[layer_name] = deduplicate_articles(
-            articles_by_layer.get(layer_name, [])
-        )
 
-    # Cluster articles into topics within each layer
+    # Cluster ALL deduplicated articles together (not per-layer)
+    all_topics = await _cluster_articles_into_topics(all_processed, target_lang)
+
+    # Classify each cluster into a layer (1 LLM call per cluster)
+    for topic in all_topics:
+        topic["layer"] = await classify_cluster_layer(topic["sources"], target_lang)
+
+    # Group topics by layer for template rendering
+    articles_by_layer: dict[str, list[dict]] = {cat: [] for cat in LAYER_KEYS}
+    for topic in all_topics:
+        layer = topic.get("layer", "AI应用")
+        if layer in articles_by_layer:
+            articles_by_layer[layer].append(topic)
+
     layers_data: list[dict] = []
     for layer_name in LAYER_KEYS:
-        arts = articles_by_layer.get(layer_name, [])
-        topics = await _cluster_articles_into_topics(arts, target_lang)
         layers_data.append(
             {
                 "name": layer_name,
-                "topics": topics,
+                "topics": articles_by_layer.get(layer_name, []),
             }
         )
 
-    # Section B — signals
+    # Section B/C — signal classification uses clustered articles
+    # Build flat list of all clustered articles for signal matching
+    clustered_articles = [a for topic in all_topics for a in topic["sources"]]
     leverage_topics: list[dict] = []
     business_topics: list[dict] = []
-    for article in all_processed:
+    for article in clustered_articles:
         if _classify_signal_leverage(article):
             leverage_topics.append(article)
         elif _classify_signal_business(article):
@@ -805,9 +851,8 @@ async def _cluster_articles_v2_async(
 
     # Section C — creation
     creation_sections: list[dict] = []
-    creation_arts = [a for a in all_processed if _classify_creation(a)]
+    creation_arts = [a for a in clustered_articles if _classify_creation(a)]
     if creation_arts:
-        # Cluster creation articles into a single "创作选题" section
         creation_topics = await _cluster_articles_into_topics(
             creation_arts, target_lang
         )
