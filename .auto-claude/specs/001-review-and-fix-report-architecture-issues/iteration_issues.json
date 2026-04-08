@@ -7,8 +7,164 @@
     "src/application/dedup.py",
     "src/storage/vector.py"
   ],
-  "summary": "AI Architect code review of Phase 1 identified 5 issues across report.py and evaluator.py. Phase 1 subtask-1-2 review of chains.py identified 6 additional issues: 2 MEDIUM (AsyncLLMWrapper.invoke() crash in nested async context, hardcoded max_tokens=300 too low for summary chains), 3 LOW (missing return type annotations, contradictory character limits in TOPIC_TITLE_PROMPT, StrOutputParser lacks JSON validation for evaluator chain). DB write safety pattern is CORRECTLY implemented.",
-  "total_issues": 11,
+  "summary": "AI Architect code review of Phase 1 identified issues across report.py, chains.py, evaluator.py, dedup.py, and vector.py. All findings are consolidated here with severity ranking. DB write safety pattern is CORRECTLY implemented.",
+  "total_issues": 16,
+
+  "severity_ranking": [
+    {
+      "rank": 1,
+      "id": "report-001",
+      "severity": "HIGH",
+      "file": "src/application/report.py:1154-1163",
+      "title": "translate_report: asyncio.new_event_loop() creates unused/leaked loop inside ThreadPoolExecutor"
+    },
+    {
+      "rank": 2,
+      "id": "evaluator-001",
+      "severity": "HIGH",
+      "file": "src/llm/evaluator.py:71-80 (chains.py:163-178)",
+      "title": "evaluate_report: score parsing divides by 100 but EVALUATE_PROMPT asks for 0.0-1.0 range — corrupts all quality scoring"
+    },
+    {
+      "rank": 3,
+      "id": "report-004",
+      "severity": "MEDIUM",
+      "file": "src/application/report.py:248-259",
+      "title": "_cluster_articles_into_topics: merged cluster articles appear DUPLICATED in topics list (v1 and v2)"
+    },
+    {
+      "rank": 4,
+      "id": "chains-001",
+      "severity": "MEDIUM",
+      "file": "src/llm/chains.py:52-59",
+      "title": "AsyncLLMWrapper.invoke() uses asyncio.run() — crashes if called from a running event loop"
+    },
+    {
+      "rank": 5,
+      "id": "chains-002",
+      "severity": "MEDIUM",
+      "file": "src/llm/chains.py:30-41",
+      "title": "AsyncLLMWrapper._ainvoke_raw() hardcoded max_tokens=300 too low for summary/translation chains"
+    },
+    {
+      "rank": 6,
+      "id": "report-002",
+      "severity": "MEDIUM",
+      "file": "src/application/report.py:436-453",
+      "title": "_translate_title_sync: asyncio.get_event_loop().run_until_complete() pattern is unsafe in async contexts"
+    },
+    {
+      "rank": 7,
+      "id": "cli-001",
+      "severity": "LOW",
+      "file": "src/cli/report.py:151",
+      "title": "from pathlib import Path at line 151 violates PEP 8 — all imports should be at top of module"
+    },
+    {
+      "rank": 8,
+      "id": "cli-002",
+      "severity": "LOW",
+      "file": "src/cli/report.py:107",
+      "title": "sys.exit(1) in template error branch bypasses outer try-except handler"
+    },
+    {
+      "rank": 9,
+      "id": "cli-003",
+      "severity": "LOW",
+      "file": "src/cli/report.py:43",
+      "title": "ctx: click.Context parameter declared with @click.pass_context but never used"
+    },
+    {
+      "rank": 10,
+      "id": "dedup-001",
+      "severity": "LOW",
+      "file": "src/application/dedup.py:85",
+      "title": "_level2_minhash_dedup: signature_map dict populated but never read (dead store)"
+    },
+    {
+      "rank": 11,
+      "id": "dedup-003",
+      "severity": "LOW",
+      "file": "src/storage/vector.py:158-160",
+      "title": "preload_embedding_model: redundant import logging at function scope — module-level import already exists"
+    },
+    {
+      "rank": 12,
+      "id": "vector-001",
+      "severity": "LOW",
+      "file": "src/storage/vector.py:170",
+      "title": "get_chroma_collection() lacks return type annotation — inconsistent with project conventions"
+    },
+    {
+      "rank": 13,
+      "id": "vector-002",
+      "severity": "LOW",
+      "file": "src/storage/vector.py:43-60",
+      "title": "_check_memory_guard() name is semantically misleading — return True means 'memory OK' not 'guard triggered'"
+    },
+    {
+      "rank": 14,
+      "id": "chains-003",
+      "severity": "LOW",
+      "file": "src/llm/chains.py:106-108,134-136,157-159,182-184,202-204",
+      "title": "All 5 chain getter functions lack return type annotations"
+    },
+    {
+      "rank": 15,
+      "id": "chains-004",
+      "severity": "LOW",
+      "file": "src/llm/chains.py:139-154",
+      "title": "TOPIC_TITLE_PROMPT: system message and human message give contradictory character limits (10-20 vs max 20)"
+    },
+    {
+      "rank": 16,
+      "id": "chains-005",
+      "severity": "LOW",
+      "file": "src/llm/chains.py:162-184",
+      "title": "get_evaluate_chain(): prompt instructs 'Return ONLY valid JSON' but StrOutputParser has no JSON validation"
+    }
+  ],
+
+  "info_findings": [
+    {
+      "id": "report-003-revisit",
+      "severity": "INFO",
+      "file": "src/application/dedup.py:192-204",
+      "title": "report-003 IndexError claim is a FALSE POSITIVE — current dedup.py code is correct (emb_idx only increments for with-embedding articles, bounds always respected). Bug requires duplicate article IDs in input list — unlikely in practice."
+    },
+    {
+      "id": "dedup-002",
+      "severity": "INFO",
+      "file": "src/application/dedup.py:159-163",
+      "title": "id_to_embedding dict IS used (not dead code as initially misidentified). Two dict lookups per iteration is minor inefficiency but not a correctness bug."
+    },
+    {
+      "id": "vector-003",
+      "severity": "INFO",
+      "file": "src/storage/vector.py:43-60",
+      "title": "_check_memory_guard AND condition may be too permissive in edge cases (large RAM machines with moderate available memory). Impact is low — worst case is embedding proceeds with slightly less headroom than intended."
+    },
+    {
+      "id": "report-005",
+      "severity": "INFO",
+      "file": "src/application/report.py:215-226",
+      "title": "O(n²) centroid computation due to repeated list.index() calls — LOW impact for typical article counts (<200). Not worth fixing unless clustering is run at scale."
+    }
+  ],
+
+  "correct_patterns": {
+    "db_write_safety": "CORRECT — Both v1 (_cluster_articles_async) and v2 (_cluster_articles_v2_async) correctly collect pending_writes list during gather() and execute update_article_llm() sequentially AFTER gather completes. No synchronous SQLite calls inside asyncio.gather().",
+    "batch_async": "CORRECT — _translate_titles_batch_async uses proper batch async pattern with asyncio.gather and Semaphore(5).",
+    "semaphore_concurrency": "CORRECT — Semaphore(5) in translate operations, Semaphore(10) in process_one.",
+    "gather_exceptions": "CORRECT — asyncio.gather with return_exceptions=True used throughout.",
+    "evaluator_fallback": "CORRECT — evaluator.py has JSONDecodeError fallback that returns undifferentiated scores."
+  },
+
+  "incorrect_patterns": {
+    "translate_report": "asyncio.new_event_loop() dead code (report-001) — loop created but never used",
+    "_translate_title_sync": "get_event_loop().run_until_complete() pattern risky (report-002) — triggers DeprecationWarning in Python 3.10+",
+    "render_functions": "asyncio.run() at lines 966/1029 — safe in current call path but fragile if refactored"
+  },
   "issues": [
     {
       "id": "report-001",
@@ -147,41 +303,6 @@
       "auto_fixable": true
     }
   ],
-  "db_write_safety": {
-    "status": "CORRECT",
-    "note": "Both v1 (_cluster_articles_async) and v2 (_cluster_articles_v2_async) correctly collect pending_writes list during gather() and execute update_article_llm() sequentially AFTER gather completes. No synchronous SQLite calls inside asyncio.gather(). This pattern is correctly implemented per Fix #3 in the spec."
-  },
-  "async_pattern_status": {
-    "summary": "PARTIALLY CORRECT — 3 issues found",
-    "correct_patterns": [
-      "DB writes collected after gather (Fix #3) — CORRECT",
-      "Semaphore concurrency control — CORRECT (Semaphore(5) in translate, Semaphore(10) in process_one)",
-      "asyncio.gather with return_exceptions=True — CORRECT",
-      "_translate_titles_batch_async: proper batch async pattern — CORRECT"
-    ],
-    "incorrect_patterns": [
-      "translate_report: asyncio.new_event_loop() dead code (Issue report-001)",
-      "_translate_title_sync: get_event_loop().run_until_complete() pattern risky (Issue report-002)",
-      "render_report_v2 / render_report: asyncio.run() at lines 966/1029 (safe in current call path, but fragile)"
-    ]
-  },
-  "clustering_logic": {
-    "status": "HAS_BUGS",
-    "issues": [
-      "Duplicate articles in merged clusters (Issue report-004) — HIGH",
-      "O(n²) centroid computation (Issue report-005) — LOW"
-    ]
-  },
-  "top_3_issues_for_phase_2": [
-    "report-001: asyncio.new_event_loop() dead code in translate_report",
-    "report-004: duplicate articles in merged topic clusters",
-    "evaluator-001: evaluate_report score /100 divides 0.0-1.0 LLM output to ~0.008"
-  ],
-  "top_chains_issues": [
-    "evaluator-001 (HIGH): evaluate_report score parsing divides by 100 but EVALUATE_PROMPT asks for 0.0-1.0 — corrupts AI News Analyst feedback",
-    "chains-001 (MEDIUM): AsyncLLMWrapper.invoke() uses asyncio.run() — crashes in nested async context",
-    "chains-002 (MEDIUM): hardcoded max_tokens=300 too low for get_layer_summary_chain() and get_translate_chain() — silently truncates output"
-  ],
   "cli_dedup_issues": [
     {
       "id": "report-003-revisit",
@@ -304,6 +425,5 @@
     }
   ],
   "subtask_1_3_summary": "Reviewed src/cli/report.py and src/application/dedup.py. Found: (1) INFO: report-003 IndexError claim is a false positive — current dedup.py code is correct (emb_idx only increments for with-embedding articles, bounds are respected). (2) LOW cli-001: Path import at bottom of report.py violates PEP 8. (3) LOW cli-002: sys.exit(1) in template error branch bypasses outer exception handler. (4) LOW cli-003: unused ctx parameter. (5) LOW dedup-001: unused signature_map in _level2_minhash_dedup. (6) INFO dedup-002: id_to_embedding is NOT dead code (misidentified). (7) LOW dedup-003: redundant import logging in preload_embedding_model. (8) LOW vector-001: get_chroma_collection missing return type. (9) LOW vector-002: _check_memory_guard name is semantically inverted. (10) INFO vector-003: _check_memory_guard AND condition too permissive (edge case). No HIGH or MEDIUM severity new issues found.",
-  "total_issues": 16,
   "reviewed_at": "2026-04-09"
 }
