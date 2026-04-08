@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from src.application.dedup import deduplicate_articles
 from src.application.summarize import summarize_article_content
 from src.llm.chains import (
     get_classify_chain,
@@ -16,6 +17,7 @@ from src.llm.chains import (
     get_translate_chain,
 )
 from src.storage import list_articles_for_llm, update_article_llm
+from src.storage.vector import get_chroma_collection
 
 logger = logging.getLogger(__name__)
 
@@ -131,94 +133,224 @@ async def _cluster_articles_into_topics(
 ) -> list[dict]:
     """Group articles into topics by theme within a layer.
 
-    Clustering strategy:
-      1. Group by feed_id (same source = same topic).
-      2. Merge small clusters (<=2 articles) with nearest neighbour by
-         title similarity (keyword overlap >= 0.2).
-      3. Generate a short topic title via get_topic_title_chain.
+    Clustering strategy (embedding-based, replacing keyword overlap):
+      1. Fetch ChromaDB embeddings for all articles.
+      2. K-Means clustering with dynamic k = max(5, min(sqrt(n/2), 50)).
+      3. Merge small clusters (<=2) with nearest neighbour by cosine similarity.
+      4. Generate a short topic title via get_topic_title_chain.
 
     Each topic dict has keys: title, sources (list of article dicts),
     sources_count, insight (empty str, filled later by caller).
     """
+    import math
+
+    from sklearn.cluster import KMeans
+    from sklearn.metrics.pairwise import cosine_similarity
+
     if not articles:
         return []
 
-    # Step 1 — group by feed_id
-    feed_groups: dict[str, list[dict]] = {}
-    for a in articles:
-        fid = a.get("feed_id") or a.get("feed_id") or "unknown"
-        feed_groups.setdefault(fid, []).append(a)
+    # Step 1 — fetch ChromaDB embeddings
+    ids = [a["id"] for a in articles]
 
-    topics: list[dict] = []
-    for _fid, arts in feed_groups.items():
-        topics.append(
-            {
-                "title": "",  # filled below
-                "sources": arts,
-                "sources_count": len(arts),
-                "insight": "",
-            }
+    try:
+        collection = get_chroma_collection()
+        existing = collection.get(ids=ids, include=["embeddings"])
+        chroma_ids = existing.get("ids", [])
+        embeddings_list: list[list[float] | None] = existing.get("embeddings", [])
+        id_to_embedding: dict[str, list[float]] = {}
+        for i, cid in enumerate(chroma_ids):
+            emb = embeddings_list[i] if i < len(embeddings_list) else None
+            if cid is not None and emb is not None:
+                id_to_embedding[cid] = emb
+    except Exception as e:
+        logger.warning(
+            "ChromaDB fetch for clustering failed: %s. Falling back to feed_id grouping.",
+            e,
         )
+        id_to_embedding = {}
 
-    # Step 2 — merge small clusters with nearest neighbour
-    merged = True
-    while merged:
-        merged = False
-        new_topics: list[dict] = []
-        skip = set()
-        for i, t1 in enumerate(topics):
-            if i in skip:
-                continue
-            if t1["sources_count"] <= 2:
-                # find nearest neighbour
-                best_score = 0.2  # minimum threshold
-                best_j = -1
-                for j, t2 in enumerate(topics):
-                    if j == i or j in skip:
-                        continue
-                    titles_i = " ".join(a.get("title", "") for a in t1["sources"])
-                    titles_j = " ".join(a.get("title", "") for a in t2["sources"])
-                    score = _keyword_overlap(titles_i, titles_j)
-                    if score > best_score:
-                        best_score = score
-                        best_j = j
-                if best_j >= 0:
-                    # merge t1 into t2
-                    t2 = topics[best_j]
-                    t2["sources"].extend(t1["sources"])
-                    t2["sources_count"] = len(t2["sources"])
-                    skip.add(i)
-                    skip.add(best_j)
-                    new_topics.append(t2)
-                    merged = True
+    articles_with_emb: list[dict] = []
+    emb_matrix: list[list[float]] = []
+    for a in articles:
+        e = id_to_embedding.get(a["id"])
+        if e is not None:
+            articles_with_emb.append(a)
+            emb_matrix.append(e)
+
+    n = len(articles_with_emb)
+
+    if n >= 5 and emb_matrix:
+        # Step 2 — dynamic k selection: k = max(5, min(sqrt(n/2), 50))
+        k = max(5, min(int(math.sqrt(n / 2)), 50))
+        k = min(k, n)  # can't have more clusters than articles
+
+        kmeans = KMeans(n_clusters=k, random_state=42, n_init=3)
+        cluster_labels = kmeans.fit_predict(emb_matrix)
+
+        # Build initial cluster groups
+        clusters: list[list[dict]] = [[] for _ in range(k)]
+        for i, a in enumerate(articles_with_emb):
+            clusters[cluster_labels[i]].append(a)
+
+        # Step 3 — merge small clusters (<=2) with nearest neighbour
+        changed = True
+        while changed:
+            changed = False
+            new_clusters: list[list[dict]] = []
+            skip = set()
+            for i, group in enumerate(clusters):
+                if i in skip:
+                    continue
+                if len(group) <= 2 and len(clusters) > 1:
+                    # Find nearest neighbour cluster by centroid cosine similarity
+                    if emb_matrix and len(emb_matrix) == len(articles_with_emb):
+                        # Recompute cluster centroids
+                        centroids: list[list[float]] = []
+                        for g in clusters:
+                            if not g:
+                                centroids.append(
+                                    [0.0] * len(emb_matrix[0]) if emb_matrix else []
+                                )
+                            else:
+                                indices = [
+                                    articles_with_emb.index(a)
+                                    for a in g
+                                    if a in articles_with_emb
+                                ]
+                                if indices:
+                                    vecs = [emb_matrix[idx] for idx in indices]
+                                    centroid = [
+                                        sum(v[j] for v in vecs) / len(vecs)
+                                        for j in range(len(vecs[0]))
+                                    ]
+                                    centroids.append(centroid)
+                                else:
+                                    centroids.append(
+                                        [0.0] * len(emb_matrix[0]) if emb_matrix else []
+                                    )
+
+                    best_score = -1.0
+                    best_j = -1
+                    for j, other in enumerate(clusters):
+                        if j == i or j in skip:
+                            continue
+                        if not centroids[i] or not centroids[other]:
+                            continue
+                        try:
+                            sim = cosine_similarity([centroids[i]], [centroids[j]])[0][
+                                0
+                            ]
+                            if sim > best_score:
+                                best_score = sim
+                                best_j = j
+                        except Exception:
+                            pass
+                    if best_j >= 0:
+                        clusters[best_j].extend(group)
+                        skip.add(i)
+                        skip.add(best_j)
+                        new_clusters.append(clusters[best_j])
+                        changed = True
+                    else:
+                        new_clusters.append(group)
                 else:
-                    new_topics.append(t1)
+                    new_clusters.append(group)
+            if changed:
+                clusters = [c for i, c in enumerate(clusters) if i not in skip]
             else:
-                new_topics.append(t1)
-        if merged:
-            # remove duplicates that were merged multiple times
-            seen = set()
-            filtered = []
-            for t in new_topics:
-                key = id(t)
-                if key not in seen:
-                    seen.add(key)
-                    filtered.append(t)
-            topics = filtered
-            merged = True  # loop again in case new small clusters formed
-
-    # Deduplicate final list
-    final: list[dict] = []
-    seen_ids: set[int] = set()
-    for t in topics:
-        for a in t["sources"]:
-            aid = id(a)
-            if aid not in seen_ids:
-                seen_ids.add(aid)
-                final.append(t)
                 break
 
-    # Step 3 — generate topic titles via LLM
+        topics: list[dict] = [
+            {
+                "title": "",
+                "sources": g,
+                "sources_count": len(g),
+                "insight": "",
+            }
+            for g in clusters
+            if g
+        ]
+
+        # Articles without embeddings: group by feed_id fallback
+        articles_no_emb = [a for a in articles if a["id"] not in id_to_embedding]
+        if articles_no_emb:
+            feed_groups: dict[str, list[dict]] = {}
+            for a in articles_no_emb:
+                fid = a.get("feed_id") or "unknown"
+                feed_groups.setdefault(fid, []).append(a)
+            for arts in feed_groups.values():
+                topics.append(
+                    {
+                        "title": "",
+                        "sources": arts,
+                        "sources_count": len(arts),
+                        "insight": "",
+                    }
+                )
+    else:
+        # Fallback: feed_id grouping + keyword overlap (original behaviour)
+        feed_groups: dict[str, list[dict]] = {}
+        for a in articles:
+            fid = a.get("feed_id") or "unknown"
+            feed_groups.setdefault(fid, []).append(a)
+
+        topics: list[dict] = []
+        for _fid, arts in feed_groups.items():
+            topics.append(
+                {
+                    "title": "",
+                    "sources": arts,
+                    "sources_count": len(arts),
+                    "insight": "",
+                }
+            )
+
+        # Merge small clusters
+        merged = True
+        while merged:
+            merged = False
+            new_topics: list[dict] = []
+            skip = set()
+            for i, t1 in enumerate(topics):
+                if i in skip:
+                    continue
+                if t1["sources_count"] <= 2:
+                    best_score = 0.2
+                    best_j = -1
+                    for j, t2 in enumerate(topics):
+                        if j == i or j in skip:
+                            continue
+                        titles_i = " ".join(a.get("title", "") for a in t1["sources"])
+                        titles_j = " ".join(a.get("title", "") for a in t2["sources"])
+                        score = _keyword_overlap(titles_i, titles_j)
+                        if score > best_score:
+                            best_score = score
+                            best_j = j
+                    if best_j >= 0:
+                        t2 = topics[best_j]
+                        t2["sources"].extend(t1["sources"])
+                        t2["sources_count"] = len(t2["sources"])
+                        skip.add(i)
+                        skip.add(best_j)
+                        new_topics.append(t2)
+                        merged = True
+                    else:
+                        new_topics.append(t1)
+                else:
+                    new_topics.append(t1)
+            if merged:
+                seen = set()
+                filtered = []
+                for t in new_topics:
+                    key = id(t)
+                    if key not in seen:
+                        seen.add(key)
+                        filtered.append(t)
+                topics = filtered
+                merged = True
+
+    # Step 4 — generate topic titles via LLM
     semaphore = asyncio.Semaphore(5)
 
     async def title_for(topic: dict) -> dict:
@@ -237,7 +369,6 @@ async def _cluster_articles_into_topics(
                 topic["title"] = title.strip()
             except Exception as e:
                 logger.warning("Topic title generation failed: %s", e)
-                # Fallback: use first article title
                 topic["title"] = (
                     topic["sources"][0].get("title", "Misc")[:20]
                     if topic["sources"]
@@ -246,7 +377,7 @@ async def _cluster_articles_into_topics(
         return topic
 
     titled = await asyncio.gather(
-        *[title_for(t) for t in final], return_exceptions=True
+        *[title_for(t) for t in topics], return_exceptions=True
     )
     result: list[dict] = []
     for t in titled:
@@ -643,6 +774,13 @@ async def _cluster_articles_v2_async(
             if layer in articles_by_layer:
                 articles_by_layer[layer].append(processed)
             all_processed.append(processed)
+
+    # Three-level deduplication before clustering
+    all_processed = deduplicate_articles(all_processed)
+    for layer_name in LAYER_KEYS:
+        articles_by_layer[layer_name] = deduplicate_articles(
+            articles_by_layer.get(layer_name, [])
+        )
 
     # Cluster articles into topics within each layer
     layers_data: list[dict] = []

@@ -30,6 +30,9 @@ _ARTICLES_EXTRA_COLUMNS = {
     "quality_score": "REAL",
     "keywords": "TEXT",  # JSON array
     "summarized_at": "TEXT",  # ISO timestamp
+    # Dedup fields (v1.12)
+    "content_hash": "TEXT",  # SHA256 of title + first 500 chars
+    "minhash_signature": "BLOB",  # Pickled MinHash signature
 }
 
 
@@ -95,6 +98,7 @@ class DatabaseInitializer:
                 "CREATE INDEX IF NOT EXISTS idx_articles_link ON articles(link)",
                 "CREATE INDEX IF NOT EXISTS idx_articles_guid ON articles(guid)",
                 "CREATE INDEX IF NOT EXISTS idx_articles_feed_published ON articles(feed_id, published_at DESC)",
+                "CREATE INDEX IF NOT EXISTS idx_articles_content_hash ON articles(content_hash)",
             ):
                 cursor.execute(idx_sql)
 
