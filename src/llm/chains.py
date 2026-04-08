@@ -92,8 +92,8 @@ CLASSIFY_PROMPT = ChatPromptTemplate.from_messages(
 - AI应用 (Application): AI products, tools, and services used by end users
 - AI模型 (Model): AI model releases, benchmarks, research papers, training methods
 - AI基础设施 (Infrastructure): Cloud platforms, MLOps tools, deployment, APIs
-- 芯片 (Chip): AI hardware, GPUs, custom silicon, semiconductor news
-- 能源 (Energy): AI energy consumption, data center power, carbon, renewable energy""",
+- 芯片 (Chip): AI hardware, GPUs, custom silicon, semiconductor news (e.g., NVIDIA Blackwell, Groq, Cerebras, TSMC, AMD GPU)
+- 能源 (Energy): AI energy consumption, data center power, carbon footprint, renewable energy for AI""",
         ),
         (
             "human",
@@ -138,16 +138,17 @@ EVALUATE_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a professional news report editor. Evaluate report quality objectively.",
+            "You are a professional news report editor. Evaluate report quality objectively. Return ONLY valid JSON.",
         ),
         (
             "human",
-            """Evaluate this daily report and score it 0-1 on overall quality.
+            """Evaluate this daily report and score each dimension 0.0-1.0.
 
 Report:
 {report}
 
-Score only the number 0.0-1.0, nothing else. Consider: coherence, relevance, depth, structure.""",
+Return ONLY valid JSON with four scores:
+{{"{"}}"coherence":0.0-1.0, "relevance":0.0-1.0, "depth":0.0-1.0, "structure":0.0-1.0}}""",
         ),
     ]
 )
