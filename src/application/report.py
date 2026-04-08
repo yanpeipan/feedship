@@ -434,23 +434,27 @@ _title_translate_cache: dict[tuple[str, str], str] = {}
 
 
 def _translate_title_sync(title: str, target_lang: str) -> str:
-    """Translate article title to target language (sync, for template use)."""
+    """Translate article title to target language (sync, for template use).
+
+    Titles should be pre-translated by render_report/render_report_v2
+    before template rendering. This function only performs cache lookup
+    to avoid asyncio.run_until_complete() misuse in async context.
+    """
     if target_lang == "zh":
         return title
     cache_key = (title, target_lang)
     if cache_key in _title_translate_cache:
         return _title_translate_cache[cache_key]
 
-    import asyncio
-
-    # Use existing event loop instead of creating new one (Fix #5)
-    loop = asyncio.get_event_loop()
-    translated = loop.run_until_complete(
-        get_translate_chain().ainvoke({"text": title, "target_lang": target_lang})
+    # Cache miss — pre-translation should have populated the cache.
+    # Return original title as fallback to avoid blocking on LLM call.
+    logger.warning(
+        "Title translation cache miss for '%s' -> %s. "
+        "Pre-translation may not have run correctly.",
+        title[:50],
+        target_lang,
     )
-
-    _title_translate_cache[cache_key] = translated
-    return translated
+    return title
 
 
 async def _translate_titles_batch_async(
