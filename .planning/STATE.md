@@ -4,7 +4,7 @@ milestone: v1.11
 milestone_name: LLM 智能报告生成
 status: in_progress
 last_updated: "2026-04-08T00:00:00Z"
-last_activity: 2026-04-08 — Completed quick task 260408-1rz: LLM重构+LangChain+Report自包含+质量优化
+last_activity: 2026-04-08 — Completed quick task 260408-mks: report增加翻译流程，--language指定最终报告语言
 progress:
   total_phases: 4
   completed_phases: 4
@@ -58,3 +58,5 @@ Last activity: 2026-04-08 — Phase 23 Report Generation complete
 | 260408-1rz | LLM重构+LangChain+Report自包含+质量优化 | 2026-04-07 | 2563e77 | [260408-1rz-llm-langchain-report](./quick/260408-1rz-llm-langchain-report/) |
 | 260408-jgw | 100次迭代报告质量评估+增强evaluator | 2026-04-08 | 637109b | [260408-jgw-100](./quick/260408-jgw-100/) |
 | 260408-l0b | 完整使用LangChain — LCEL chains接入report生成 | 2026-04-08 | 4630503 | [260408-l0b-langchain-lcel-chains-report](./quick/260408-l0b-langchain-lcel-chains-report/) |
+| 260408-lp2 | AI架构师+新闻记者视角report质量优化10项修复 | 2026-04-08 | 8a8c8d0 | [260408-lp2-ai-report-10](./quick/260408-lp2-ai-report-10/) |
+| 260408-mks | report增加翻译流程，--language指定最终报告语言 | 2026-04-08 | 8731675 | [260408-mks-report-language](./quick/260408-mks-report-language/) |

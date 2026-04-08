@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -17,14 +18,81 @@ from src.storage import get_article_with_llm, list_articles_for_llm, update_arti
 
 logger = logging.getLogger(__name__)
 
-# Five-layer cake taxonomy
-FIVE_LAYER_CATEGORIES = [
-    "AI应用",  # Application
-    "AI模型",  # Model
-    "AI基础设施",  # Infrastructure
-    "芯片",  # Chip
-    "能源",  # Energy
-]
+# Five-layer cake taxonomy (internal keys are always zh)
+LAYER_KEYS = ["AI应用", "AI模型", "AI基础设施", "芯片", "能源"]
+
+# Localized layer names
+LAYER_NAMES = {
+    "zh": ["AI应用", "AI模型", "AI基础设施", "芯片", "能源"],
+    "en": ["AI Application", "AI Model", "AI Infrastructure", "Chip", "Energy"],
+    "ja": ["AI応用", "AIモデル", "AIインフラ", "チップ", "エネルギー"],
+    "ko": ["AI 응용", "AI 모델", "AI 인프라", "칩", "에너지"],
+}
+
+LANG_NAMES = {"zh": "Chinese", "en": "English", "ja": "Japanese", "ko": "Korean"}
+
+
+def _lang_name(code: str) -> str:
+    """Return human-readable language name for LLM prompts."""
+    return LANG_NAMES.get(code, "Chinese")
+
+
+def _layer_names(lang: str) -> list[str]:
+    """Return layer category names in the specified language."""
+    return LAYER_NAMES.get(lang, LAYER_NAMES["zh"])
+
+
+def _is_chinese(text: str) -> bool:
+    """Detect if text contains Chinese characters."""
+    return bool(re.search(r"[\u4e00-\u9fff]", text))
+
+
+# In-memory cache for title translations to avoid repeated LLM calls
+_title_translate_cache: dict[tuple[str, str], str] = {}
+
+
+def _translate_title_sync(title: str, target_lang: str) -> str:
+    """Translate article title to target language (sync, for template use)."""
+    if target_lang == "zh":
+        return title
+    cache_key = (title, target_lang)
+    if cache_key in _title_translate_cache:
+        return _title_translate_cache[cache_key]
+
+    import asyncio
+    import concurrent.futures
+
+    async def _translate():
+        chain = get_translate_chain()
+        return await chain.ainvoke({"text": title, "target_lang": target_lang})
+
+    def _run():
+        loop = asyncio.new_event_loop()
+        try:
+            return asyncio.run(_translate())
+        finally:
+            loop.close()
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(_run)
+        translated = future.result()
+
+    _title_translate_cache[cache_key] = translated
+    return translated
+
+
+def _format_article_title(title: str, target_lang: str) -> str:
+    """Format article title with translation if needed.
+
+    Returns:
+        - title (if target_lang == zh or title is not Chinese)
+        - title（translated）if title is Chinese and target_lang != zh
+    """
+    if target_lang == "zh" or not _is_chinese(title):
+        return title
+    translated = _translate_title_sync(title, target_lang)
+    return f"{title}（{translated}）"
+
 
 # Template directory
 DEFAULT_TEMPLATE_DIR = Path("~/.config/feedship/templates").expanduser()
@@ -41,11 +109,11 @@ async def classify_article_layer(text: str, title: str = "") -> str:
         chain = get_classify_chain()
         result = await chain.ainvoke({"title": title, "content": sample})
         # Match against known categories
-        for cat in FIVE_LAYER_CATEGORIES:
+        for cat in LAYER_KEYS:
             if cat in result:
                 return cat
         # Fallback: return first match or default
-        for cat in FIVE_LAYER_CATEGORIES:
+        for cat in LAYER_KEYS:
             if cat.split("(")[0].strip() in result:
                 return cat
         logger.warning("Could not classify article layer from: %s", result.strip())
@@ -55,12 +123,15 @@ async def classify_article_layer(text: str, title: str = "") -> str:
         return "AI应用"
 
 
-async def generate_cluster_summary(articles: list[dict], layer: str) -> str:
+async def generate_cluster_summary(
+    articles: list[dict], layer: str, target_lang: str = "zh"
+) -> str:
     """Generate a 2-3 paragraph summary for a cluster of articles.
 
     Args:
         articles: List of article dicts with title, summary, link, quality_score.
         layer: The layer category name.
+        target_lang: Target language code (zh, en, ja, ko).
 
     Returns:
         A paragraph summarizing the articles in this cluster.
@@ -79,7 +150,13 @@ async def generate_cluster_summary(articles: list[dict], layer: str) -> str:
     for attempt, delay in enumerate(delays):
         try:
             chain = get_layer_summary_chain()
-            return await chain.ainvoke({"layer": layer, "article_list": article_list})
+            return await chain.ainvoke(
+                {
+                    "layer": layer,
+                    "article_list": article_list,
+                    "target_lang": _lang_name(target_lang),
+                }
+            )
         except Exception as e:
             if attempt < len(delays) - 1:
                 logger.warning(
@@ -96,8 +173,14 @@ async def generate_cluster_summary(articles: list[dict], layer: str) -> str:
                     e,
                 )
 
-    # After 3 failures, return fallback instead of empty
-    return "（本周暂无重大进展）"
+    # After 3 failures, return language-aware fallback
+    fallbacks = {
+        "zh": "（本周暂无重大进展）",
+        "en": "(No significant developments this week)",
+        "ja": "（今週の重大な展開なし）",
+        "ko": "（이번 주 중요한 발전 없음）",
+    }
+    return fallbacks.get(target_lang, fallbacks["zh"])
 
 
 def cluster_articles_for_report(
@@ -105,6 +188,7 @@ def cluster_articles_for_report(
     until: str,
     limit: int = 200,
     auto_summarize: bool = True,
+    target_lang: str = "zh",
 ) -> dict[str, Any]:
     """Fetch and cluster articles for a report date range.
 
@@ -113,6 +197,7 @@ def cluster_articles_for_report(
         until: End date YYYY-MM-DD
         limit: Max articles to process
         auto_summarize: If True, summarize unsummarized articles on-demand
+        target_lang: Target language code (zh, en, ja, ko).
 
     Returns:
         dict with keys: articles_by_layer (dict of layer -> list),
@@ -128,7 +213,9 @@ def cluster_articles_for_report(
         unsummarized_only=False,
     )
 
-    return asyncio.run(_cluster_articles_async(articles, since, until, auto_summarize))
+    return asyncio.run(
+        _cluster_articles_async(articles, since, until, auto_summarize, target_lang)
+    )
 
 
 async def _cluster_articles_async(
@@ -136,13 +223,14 @@ async def _cluster_articles_async(
     since: str,
     until: str,
     auto_summarize: bool = True,
+    target_lang: str = "zh",
 ) -> dict[str, Any]:
     """Async helper to cluster articles by layer."""
     # Use pre-fetched articles directly (from cluster_articles_for_report)
     articles = pre_fetched_articles
 
     # Classify each article into a layer
-    results: dict[str, list] = {cat: [] for cat in FIVE_LAYER_CATEGORIES}
+    results: dict[str, list] = {cat: [] for cat in LAYER_KEYS}
     summarized_on_demand: int = 0
 
     async def process_one(article: dict) -> tuple[str, dict]:
@@ -214,7 +302,9 @@ async def _cluster_articles_async(
     layer_summaries: dict[str, str] = {}
     for layer, arts in results.items():
         if arts:
-            layer_summaries[layer] = await generate_cluster_summary(arts, layer)
+            layer_summaries[layer] = await generate_cluster_summary(
+                arts, layer, target_lang
+            )
 
     return {
         "articles_by_layer": results,
@@ -227,12 +317,14 @@ async def _cluster_articles_async(
 def render_report(
     data: dict[str, Any],
     template_name: str = DEFAULT_TEMPLATE_NAME,
+    target_lang: str = "zh",
 ) -> str:
     """Render a report using Jinja2 template.
 
     Args:
         data: Report data from cluster_articles_for_report()
         template_name: Template name (without extension)
+        target_lang: Target language code (zh, en, ja, ko).
 
     Returns:
         Rendered markdown string.
@@ -255,6 +347,9 @@ def render_report(
             loader=FileSystemLoader(template_path.parent),
             autoescape=False,
         )
+        env.filters["format_title"] = lambda title: _format_article_title(
+            title, target_lang
+        )
         template = env.get_template(template_path.name)
     else:
         # Fallback to built-in template
@@ -264,7 +359,8 @@ def render_report(
         articles_by_layer=data["articles_by_layer"],
         layer_summaries=data["layer_summaries"],
         date_range=data["date_range"],
-        categories=FIVE_LAYER_CATEGORIES,
+        categories=_layer_names(target_lang),
+        target_lang=target_lang,
     )
 
 
@@ -329,18 +425,18 @@ def translate_report(report_text: str, target_lang: str) -> str:
 _DEFAULT_TEMPLATE_MARKDOWN = """\
 # AI 日报 — {{ date_range.since }} ~ {{ date_range.until }}
 
-## A. AI五层蛋糕
-
-{% for layer in ["AI应用", "AI模型", "AI基础设施", "芯片", "能源"] %}
+{% set layer_keys = ["AI应用", "AI模型", "AI基础设施", "芯片", "能源"] %}
+{% for layer_name in categories %}
+{% set layer = layer_keys[loop.index0] %}
 {% set articles = articles_by_layer.get(layer, []) %}
 {% set summary = layer_summaries.get(layer, "") %}
 {% if articles and summary and summary|trim %}
-### {{ loop.index }}. {{ layer }}
+### {{ loop.index }}. {{ layer_name }}
 
 {{ summary }}
 
 {% for article in articles[:10] %}
-- [{{ article.title }}]({{ article.link }}) (q={{ "%.2f"|format(article.quality_score or 0) }})
+- [{{ article.title | format_title }}]({{ article.link }}) (q={{ "%.2f"|format(article.quality_score or 0) }})
 {% endfor %}
 
 {% endif %}

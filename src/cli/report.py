@@ -11,7 +11,6 @@ from rich.console import Console
 from src.application.report import (
     cluster_articles_for_report,
     render_report,
-    translate_report,
 )
 from src.cli import cli
 from src.cli.ui import print_json, print_json_error
@@ -79,6 +78,7 @@ def report(
                 until=until,
                 limit=limit,
                 auto_summarize=auto_summarize,
+                target_lang=language,
             )
 
         total_articles = sum(len(arts) for arts in data["articles_by_layer"].values())
@@ -110,7 +110,9 @@ def report(
 
         # Render report
         try:
-            report_text = render_report(data, template_name=template)
+            report_text = render_report(
+                data, template_name=template, target_lang=language
+            )
         except Exception as e:
             if json_output:
                 print_json_error(f"Failed to render template: {e}", "template_error")
@@ -143,10 +145,6 @@ def report(
             return
 
         # Plain text output
-        # Translate report if needed (skip for zh)
-        if language != "zh":
-            report_text = translate_report(report_text, language)
-
         if output:
             Path(output).write_text(report_text)
             console.print(f"[green]Report saved to {output}[/green]")

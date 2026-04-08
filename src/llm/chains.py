@@ -111,7 +111,10 @@ def get_classify_chain():
 # Layer summary generation chain
 LAYER_SUMMARY_PROMPT = ChatPromptTemplate.from_messages(
     [
-        ("system", "You are writing a concise summary for a news report section."),
+        (
+            "system",
+            "You are writing a concise summary for a news report section. Write in {target_lang}.",
+        ),
         (
             "human",
             """The following articles are about: {layer}
@@ -120,7 +123,7 @@ Articles:
 {article_list}
 
 Write 2-3 paragraphs summarizing the key trends and insights from these articles.
-Focus on the most important developments. Use professional Chinese.
+Focus on the most important developments. Use professional {target_lang}.
 
 Summary:""",
         ),
