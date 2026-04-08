@@ -25,6 +25,7 @@ class FeedshipSettings(BaseSettings):
     timezone: str = Field(default="Asia/Shanghai")
     bm25_factor: float = Field(default=0.5)
     feed_default_weight: float = Field(default=0.3)
+    reports_dir: str | None = Field(default=None)
 
     # Complex nested config stored as dict (rate limiting, tavily, nitter, webpage_sites, llm)
     rate_limit: dict = Field(default_factory=dict)
@@ -134,3 +135,11 @@ def get_default_feed_weight() -> float:
 def get_bm25_factor() -> float:
     """Return the BM25 sigmoid normalization factor (default 0.5)."""
     return _get_settings().bm25_factor
+
+
+def get_reports_dir() -> Path:
+    """Return the reports directory from config, or a sensible default."""
+    reports_dir = _get_settings().reports_dir
+    if reports_dir:
+        return Path(reports_dir)
+    return Path(platformdirs.user_data_dir("feedship", appauthor=False)) / "reports"

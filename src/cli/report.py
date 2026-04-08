@@ -6,9 +6,9 @@ import logging
 import sys
 
 import click
-import platformdirs
 from rich.console import Console
 
+from src.application.config import get_reports_dir
 from src.application.report import (
     cluster_articles_for_report,
     cluster_articles_for_report_v2,
@@ -177,11 +177,8 @@ def report(
         if output:
             output_path = Path(output)
         else:
-            # Auto-save to ~/.local/share/feedship/reports/{since}_{until}_{template}.md
-            reports_dir = (
-                Path(platformdirs.user_data_dir("feedship", appauthor=False))
-                / "reports"
-            )
+            # Auto-save to configured reports_dir (default: ~/.local/share/feedship/reports/)
+            reports_dir = get_reports_dir()
             reports_dir.mkdir(parents=True, exist_ok=True)
             filename = f"{since}_{until}_{template}.md"
             output_path = reports_dir / filename
