@@ -1105,6 +1105,7 @@ def list_articles_for_llm(
             f"""
             SELECT a.id, a.feed_id, f.name as feed_name, f.weight as feed_weight,
                    a.title, a.link, a.published_at, a.description, a.content,
+                   a.summary, a.quality_score, a.keywords, a.tags, a.summarized_at,
                    f.url as feed_url
             FROM articles a
             JOIN feeds f ON a.feed_id = f.id
@@ -1133,6 +1134,11 @@ def list_articles_for_llm(
                 "published_at": row["published_at"],
                 "description": row["description"],
                 "content": row["content"],
+                "summary": row.get("summary"),
+                "quality_score": row.get("quality_score"),
+                "keywords": row.get("keywords"),
+                "tags": row.get("tags"),
+                "summarized_at": row.get("summarized_at"),
                 "feed_url": row["feed_url"],
                 "freshness": freshness,
             }

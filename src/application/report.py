@@ -15,7 +15,7 @@ from src.llm.chains import (
     get_topic_title_chain,
     get_translate_chain,
 )
-from src.storage import get_article_with_llm, list_articles_for_llm, update_article_llm
+from src.storage import list_articles_for_llm, update_article_llm
 
 logger = logging.getLogger(__name__)
 
@@ -488,12 +488,8 @@ async def _cluster_articles_async(
     summarized_on_demand: int = 0
 
     async def process_one(article: dict) -> tuple[str, dict]:
-        aid = article["id"]
-        try:
-            full = get_article_with_llm(aid)
-        except Exception:
-            full = article
-
+        # Use article fields directly from pre-fetched list (no redundant DB query)
+        full = article
         summary = full.get("summary") or ""
         title = full.get("title", "")
         feed_weight = full.get("feed_weight", 0)
@@ -510,23 +506,23 @@ async def _cluster_articles_async(
                     full["summary"] = summary
                     full["quality_score"] = quality
                     summarized_on_demand += 1
-                    # Update local summary for text classification below
-                    full["summary"] = summary
                     # Persist to database
                     update_article_llm(
-                        aid,
+                        article["id"],
                         summary=summary,
                         quality_score=quality,
                         keywords=[],
                         tags=[],
                     )
                 except Exception as e:
-                    logger.warning("On-demand summarize failed for %s: %s", aid, e)
+                    logger.warning(
+                        "On-demand summarize failed for %s: %s", article["id"], e
+                    )
 
         text = summary or full.get("content") or full.get("description") or ""
         layer = await classify_article_layer(text, title)
         return layer, {
-            "id": aid,
+            "id": article["id"],
             "title": title,
             "link": full.get("link", ""),
             "summary": full.get("summary", ""),
@@ -588,12 +584,8 @@ async def _cluster_articles_v2_async(
     all_processed: list[dict] = []
 
     async def process_one(article: dict) -> tuple[str, dict, dict]:
-        aid = article["id"]
-        try:
-            full = get_article_with_llm(aid)
-        except Exception:
-            full = article
-
+        # Use article fields directly from pre-fetched list (no redundant DB query)
+        full = article
         summary = full.get("summary") or ""
         title = full.get("title", "")
         feed_weight = full.get("feed_weight", 0)
@@ -609,20 +601,22 @@ async def _cluster_articles_v2_async(
                     full["summary"] = summary
                     full["quality_score"] = quality
                     update_article_llm(
-                        aid,
+                        article["id"],
                         summary=summary,
                         quality_score=quality,
                         keywords=[],
                         tags=[],
                     )
                 except Exception as e:
-                    logger.warning("On-demand summarize failed for %s: %s", aid, e)
+                    logger.warning(
+                        "On-demand summarize failed for %s: %s", article["id"], e
+                    )
 
         text = summary or full.get("content") or full.get("description") or ""
         layer = await classify_article_layer(text, title)
 
         processed = {
-            "id": aid,
+            "id": article["id"],
             "title": title,
             "link": full.get("link", ""),
             "summary": full.get("summary", ""),
