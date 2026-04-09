@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.11
-milestone_name: LLM 智能报告生成
-status: in_progress
-last_updated: "2026-04-08T00:00:00Z"
-last_activity: 2026-04-09 — Completed quick task 260409-r5y: 最终日报不完整，没有翻译（翻译修复）
+milestone_name: milestone
+status: completed
+last_updated: "2026-04-09T13:23:01.104Z"
+last_activity: "2026-04-09 — Completed quick task 260409-sv2: 合并topic_title和classify_cluster_layer为一次LLM调用"
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 4
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 4
   percent: 100
 ---
 
@@ -31,6 +31,7 @@ Last activity: 2026-04-09 — Completed quick task 260409-3a7: 修复 report.py 
 **Goal:** 引入 LLM，为订阅源生成带结构化模板的 AI 日报
 
 **Target features:**
+
 - `feedship summarize --url/--id/--group --force`
 - `feedship report --template xxx --since --until`
 - Quality scoring (0-1)
@@ -70,3 +71,4 @@ Last activity: 2026-04-09 — Completed quick task 260409-3a7: 修复 report.py 
 | 260409-pou | 运行report命令、解决异常、评估新闻质量 | 2026-04-09 | e1c7da5 | [260409-pou-report](./quick/260409-pou-report/) |
 | 260409-qbr | 修复日报质量问题（链接、聚合、翻译诊断） | 2026-04-09 | — | [260409-qbr-fix-report](./quick/260409-qbr-fix-report/) |
 | 260409-r5y | 最终日报不完整，没有翻译 | 2026-04-09 | 2e5103f | [260409-r5y-ultimate-report-incomplete-no-translation](./quick/260409-r5y-ultimate-report-incomplete-no-translation/) |
+| 260409-sv2 | 合并topic_title和classify_cluster_layer为一次LLM调用 | 2026-04-09 | 9f24fc1 | [260409-sv2](./quick/260409-sv2/) |

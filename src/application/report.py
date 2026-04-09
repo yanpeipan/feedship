@@ -740,7 +740,10 @@ async def _cluster_articles_async(
         }
         return processed
 
-    # Process all articles (no LLM layer classification yet)
+    # Three-level deduplication FIRST (before any LLM summarize calls)
+    articles = deduplicate_articles(articles)
+
+    # Process all unique articles (no LLM layer classification yet)
     all_processed: list[dict] = []
     semaphore = asyncio.Semaphore(1)
 
@@ -762,9 +765,6 @@ async def _cluster_articles_async(
     # Execute pending DB writes sequentially after gather (Fix #3)
     for params in pending_writes_v2:
         update_article_llm(*params)
-
-    # Three-level deduplication FIRST (before any clustering)
-    all_processed = deduplicate_articles(all_processed)
 
     # Cluster ALL deduplicated articles together (not per-layer)
     # Each topic already has "layer" set by get_topic_title_and_layer_chain inside
