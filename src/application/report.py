@@ -900,9 +900,7 @@ async def render_report(
         # Deduplicate titles to avoid redundant LLM calls
         unique_titles = list(dict.fromkeys(all_titles))
 
-        pre_translated = asyncio.run(
-            _translate_titles_batch_async(unique_titles, target_lang)
-        )
+        pre_translated = await _translate_titles_batch_async(unique_titles, target_lang)
         # Populate cache for template filters
         for orig, translated in pre_translated.items():
             _title_translate_cache[(orig, target_lang)] = translated
