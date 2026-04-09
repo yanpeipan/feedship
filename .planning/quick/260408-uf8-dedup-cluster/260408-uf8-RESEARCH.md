@@ -212,7 +212,7 @@ def find_near_duplicates(texts: list[str], threshold: float = 0.85) -> list[set[
         m = create_minhash(text)
         minhashes.append(m)
         lsh.insert(f"doc_{i}", m)
-    
+
     # Find duplicates
     duplicates = []
     for i, m in enumerate(minhashes):
@@ -236,7 +236,7 @@ def cluster_articles_by_embedding(embeddings: np.ndarray, n_clusters: int = 50) 
     if embeddings.shape[1] > 384:
         from sklearn.decomposition import TruncatedSVD
         embeddings = TruncatedSVD(n_components=384).fit_transform(embeddings)
-    
+
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=3)
     return kmeans.fit_predict(embeddings)
 

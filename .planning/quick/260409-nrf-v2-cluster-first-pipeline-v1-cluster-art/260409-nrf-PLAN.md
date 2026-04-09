@@ -21,7 +21,7 @@ must_haves:
 **action:**
 删除以下 v1 函数和相关内容：
 - `cluster_articles_for_report` (sync wrapper)
-- `_cluster_articles_async` 
+- `_cluster_articles_async`
 - `render_report` (async)
 - `_translate_report_async`
 - 相关的 LAYER_KEYS 分类逻辑

@@ -16,6 +16,7 @@ from src.llm.chains import (
     get_topic_title_chain,
     get_translate_chain,
 )
+from src.llm.core import LLMError
 from src.storage import list_articles_for_llm, update_article_llm
 from src.storage.vector import get_chroma_collection
 
@@ -378,7 +379,11 @@ async def _cluster_articles_into_topics(
                         "target_lang": _lang_name(target_lang),
                     }
                 )
-                topic["title"] = title.strip()
+                topic["title"] = title.strip() or (
+                    topic["sources"][0].get("title", "Misc")[:20]
+                    if topic["sources"]
+                    else "Misc"
+                )
             except Exception as e:
                 logger.warning("Topic title generation failed: %s", e)
                 topic["title"] = (
@@ -596,6 +601,8 @@ async def classify_cluster_layer(articles: list[dict], target_lang: str = "zh") 
                 {"title": "Cluster Classification", "content": sample}
             )
             clean_result = re.sub(r"<[^>]+>", "", result).strip()
+            if not clean_result:
+                raise LLMError("Empty classification result after stripping tags")
             for cat in LAYER_KEYS:
                 if cat in clean_result:
                     return cat

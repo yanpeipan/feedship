@@ -47,10 +47,10 @@ CLASSIFY_PROMPT → AsyncLLMWrapper → StrOutputParser()
 2. **Blank lines in output:** The report shows:
    ```
    ### 1. AI应用
-   
-   
-   
-   
+
+
+
+
    - [Article1]...
    ```
    The 4-5 blank lines between header and article list indicate the summary is empty/missing. This is visually jarring and unprofessional.

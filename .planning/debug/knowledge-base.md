@@ -27,4 +27,3 @@ Resolved debug sessions. Used by `gsd-debugger` to surface known-pattern hypothe
 - **Fix:** Changed has_more condition from `len(items) > limit` to `len(items) >= limit` in src/cli/ui.py
 - **Files changed:** src/cli/ui.py
 ---
-
