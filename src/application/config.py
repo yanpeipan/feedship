@@ -109,7 +109,7 @@ def _create_default_config(config_path: Path) -> None:
             "model": "gpt-4o-mini",
             "ollama_base_url": "http://localhost:11434",
             "fallback_chain": ["openai", "azure", "anthropic"],
-            "max_concurrency": 5,
+            "max_concurrency": 2,
             "timeout_seconds": 60,
             "max_tokens_per_call": 8000,
             "daily_cap": 1000,

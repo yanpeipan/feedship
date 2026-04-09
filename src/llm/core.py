@@ -305,6 +305,12 @@ class LLMClient:
                     acompletion(**kwargs),
                     timeout=self.config.timeout_seconds,
                 )
+                # Handle MiniMax overload returning choices: None
+                if (
+                    response.get("choices") is None
+                    or len(response.get("choices", [])) == 0
+                ):
+                    raise LLMError(f"Provider {provider} returned empty choices")
                 return response["choices"][0]["message"]["content"]
             except asyncio.TimeoutError:
                 raise LLMError(

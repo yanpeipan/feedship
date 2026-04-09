@@ -363,7 +363,7 @@ async def _cluster_articles_into_topics(
                 merged = True
 
     # Step 4 — generate topic titles via LLM
-    semaphore = asyncio.Semaphore(5)
+    semaphore = asyncio.Semaphore(1)
 
     async def title_for(topic: dict) -> dict:
         async with semaphore:
@@ -491,7 +491,7 @@ async def _translate_titles_batch_async(
     if target_lang == "zh" or not titles:
         return {}
     chain = get_translate_chain()
-    semaphore = asyncio.Semaphore(5)  # max 5 concurrent LLM calls
+    semaphore = asyncio.Semaphore(1)  # max 2 concurrent LLM calls
 
     async def translate_one(title: str) -> tuple[str, str]:
         async with semaphore:
@@ -532,22 +532,34 @@ async def classify_article_layer(text: str, title: str = "") -> str:
     Returns one of: AI应用, AI模型, AI基础设施, 芯片, 能源
     """
     sample = " ".join(text.split()[:300])
-    try:
-        chain = get_classify_chain()
-        result = await chain.ainvoke({"title": title, "content": sample})
-        # Match against known categories
-        for cat in LAYER_KEYS:
-            if cat in result:
-                return cat
-        # Fallback: return first match or default
-        for cat in LAYER_KEYS:
-            if cat.split("(")[0].strip() in result:
-                return cat
-        logger.warning("Could not classify article layer from: %s", result.strip())
-        return "AI应用"  # Default fallback
-    except Exception as e:
-        logger.warning("Failed to classify article layer: %s", e)
-        return "AI应用"
+    delays = [2, 4, 8]
+    for attempt, delay in enumerate(delays):
+        try:
+            chain = get_classify_chain()
+            result = await chain.ainvoke({"title": title, "content": sample})
+            # Match against known categories
+            for cat in LAYER_KEYS:
+                if cat in result:
+                    return cat
+            # Fallback: return first match or default
+            for cat in LAYER_KEYS:
+                if cat.split("(")[0].strip() in result:
+                    return cat
+            logger.warning("Could not classify article layer from: %s", result.strip())
+            return "AI应用"  # Default fallback
+        except Exception as e:
+            if attempt < len(delays) - 1:
+                logger.warning(
+                    "classify_article_layer attempt %d failed: %s. Retrying in %ds...",
+                    attempt + 1,
+                    e,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+            else:
+                logger.warning("Failed to classify article layer: %s", e)
+                return "AI应用"
+    return "AI应用"
 
 
 async def classify_cluster_layer(articles: list[dict], target_lang: str = "zh") -> str:
@@ -574,22 +586,34 @@ async def classify_cluster_layer(articles: list[dict], target_lang: str = "zh") 
     cluster_text = "\n".join(texts)
 
     sample = " ".join(cluster_text.split()[:500])
-    try:
-        chain = get_classify_chain()
-        result = await chain.ainvoke(
-            {"title": "Cluster Classification", "content": sample}
-        )
-        for cat in LAYER_KEYS:
-            if cat in result:
-                return cat
-            for c in LAYER_KEYS:
-                if c.split("(")[0].strip() in result:
-                    return c
-        logger.warning("Could not classify cluster layer from: %s", result.strip())
-        return "AI应用"
-    except Exception as e:
-        logger.warning("Failed to classify cluster layer: %s", e)
-        return "AI应用"
+    delays = [2, 4, 8]
+    for attempt, delay in enumerate(delays):
+        try:
+            chain = get_classify_chain()
+            result = await chain.ainvoke(
+                {"title": "Cluster Classification", "content": sample}
+            )
+            for cat in LAYER_KEYS:
+                if cat in result:
+                    return cat
+                for c in LAYER_KEYS:
+                    if c.split("(")[0].strip() in result:
+                        return c
+            logger.warning("Could not classify cluster layer from: %s", result.strip())
+            return "AI应用"
+        except Exception as e:
+            if attempt < len(delays) - 1:
+                logger.warning(
+                    "classify_cluster_layer attempt %d failed: %s. Retrying in %ds...",
+                    attempt + 1,
+                    e,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+            else:
+                logger.warning("Failed to classify cluster layer: %s", e)
+                return "AI应用"
+    return "AI应用"
 
 
 async def generate_cluster_summary(
@@ -742,7 +766,7 @@ async def _cluster_articles_async(
             "published_at": full.get("published_at"),
         }
 
-    semaphore = asyncio.Semaphore(10)
+    semaphore = asyncio.Semaphore(1)
 
     async def bounded_process(a: dict) -> tuple[str, dict]:
         async with semaphore:
@@ -839,7 +863,7 @@ async def _cluster_articles_v2_async(
 
     # Process all articles (no LLM layer classification yet)
     all_processed: list[dict] = []
-    semaphore = asyncio.Semaphore(10)
+    semaphore = asyncio.Semaphore(1)
 
     async def bounded_process(a: dict) -> dict:
         async with semaphore:
