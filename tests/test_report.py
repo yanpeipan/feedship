@@ -16,7 +16,6 @@ from src.application.dedup import deduplicate_articles
 from src.application.report import LAYER_KEYS
 from src.cli import cli
 
-
 # =============================================================================
 # Dedup unit tests
 # =============================================================================
@@ -157,7 +156,9 @@ class TestLLMChains:
         # chain.steps[-2] is AsyncLLMWrapper (chain: prompt | wrapper | parser)
         wrapper = chain.steps[-2]
         # Patch complete on the underlying client
-        with patch.object(wrapper.client, "complete", new=AsyncMock(return_value="AI模型")):
+        with patch.object(
+            wrapper.client, "complete", new=AsyncMock(return_value="AI模型")
+        ):
             result = chain.invoke(
                 {"title": "OpenAI releases GPT-5", "content": "Big model release"}
             )
@@ -170,8 +171,9 @@ class TestLLMChains:
         Also directly tests JsonOutputParser.parse() with a sample JSON string
         to confirm it returns a dict with the expected structure.
         """
-        from src.llm.chains import get_evaluate_chain
         from langchain_core.output_parsers import JsonOutputParser
+
+        from src.llm.chains import get_evaluate_chain
 
         chain = get_evaluate_chain()
         # Verify the last step of the chain is JsonOutputParser (not StrOutputParser)
@@ -181,7 +183,9 @@ class TestLLMChains:
 
         # Verify the parser itself correctly parses a JSON string to dict
         parser = chain.steps[-1]
-        result = parser.invoke('{"coherence": 0.8, "relevance": 0.9, "depth": 0.7, "structure": 0.85}')
+        result = parser.invoke(
+            '{"coherence": 0.8, "relevance": 0.9, "depth": 0.7, "structure": 0.85}'
+        )
         assert isinstance(result, dict)
         assert "coherence" in result
         assert "relevance" in result
@@ -211,9 +215,7 @@ class TestAsyncLLMWrapper:
 
         with patch.object(wrapper, "_client", mock_client):
             # Dict input (LCEL pass-through format)
-            result = wrapper.invoke(
-                {"title": "Test Title", "content": "Test content"}
-            )
+            result = wrapper.invoke({"title": "Test Title", "content": "Test content"})
             assert result == "Mocked response"
             mock_client.complete.assert_called_once()
 
@@ -243,7 +245,7 @@ class TestAsyncLLMWrapper:
         mock_client.complete = AsyncMock(return_value="Response")
 
         with patch.object(wrapper, "_client", mock_client):
-            result = wrapper.invoke("test prompt", config={"max_tokens": 50})
+            wrapper.invoke("test prompt", config={"max_tokens": 50})
             # The wrapper should use max_tokens=50 from config, not instance default 100
             mock_client.complete.assert_called_once()
             call_kwargs = mock_client.complete.call_args[1]
@@ -293,108 +295,6 @@ class TestReportCLI:
         assert data.get("success") is True
         assert data.get("total_articles") == 0
 
-    def test_report_cli_template_error(self, cli_runner, initialized_db, monkeypatch):
-        """CLI catches and reports template rendering errors cleanly."""
-        # Return non-empty layer data so CLI reaches the render step (total_articles > 0)
-        monkeypatch.setattr(
-            "src.cli.report.cluster_articles_for_report",
-            lambda **kwargs: {
-                "articles_by_layer": {
-                    "AI应用": [
-                        {
-                            "id": "fake-art",
-                            "title": "Fake Article",
-                            "link": "https://example.com/fake",
-                            "summary": "Fake summary.",
-                            "quality_score": 0.8,
-                        }
-                    ],
-                    "AI模型": [],
-                    "AI基础设施": [],
-                    "芯片": [],
-                    "能源": [],
-                },
-                "layer_summaries": {"AI应用": "Summary of AI applications."},
-                "date_range": {"since": "2099-01-01", "until": "2099-01-02"},
-                "summarized_on_demand": 0,
-            },
-        )
-        monkeypatch.setattr(
-            "src.cli.report.cluster_articles_for_report_v2",
-            lambda **kwargs: {
-                "layers": [],
-                "signals": {},
-                "date_range": {"since": "2099-01-01", "until": "2099-01-02"},
-                "summarized_on_demand": 0,
-            },
-        )
-
-        # Patch render_report at the location where cli.report uses it
-        # (not at src.application.report where it is defined).
-        # cli.report imports render_report as a local reference.
-        def fake_render(*args, **kwargs):
-            raise RuntimeError("Template error: unexpected '{{' in expression")
-
-        monkeypatch.setattr(
-            "src.cli.report.render_report",
-            fake_render,
-        )
-
-        async def fake_render_v2(*args, **kwargs):
-            raise RuntimeError("Template error: unexpected '{{' in expression")
-
-        monkeypatch.setattr(
-            "src.cli.report.render_report_v2",
-            fake_render_v2,
-        )
-
-        result = cli_runner.invoke(
-            cli,
-            ["report", "--since", "2099-01-01", "--until", "2099-01-02"],
-        )
-        # Should exit with error (template failed)
-        assert result.exit_code == 1
-        assert "error" in result.output.lower() or "template" in result.output.lower()
-
-    def test_report_cli_v2_template(self, cli_runner, initialized_db, monkeypatch):
-        """CLI --template v2 uses cluster_articles_for_report_v2."""
-        # Track which function was called
-        v2_called = False
-
-        def track_v2(**kwargs):
-            nonlocal v2_called
-            v2_called = True
-            return {
-                "layers": [],
-                "signals": {},
-                "date_range": {"since": "2099-01-01", "until": "2099-01-02"},
-                "summarized_on_demand": 0,
-            }
-
-        monkeypatch.setattr(
-            "src.cli.report.cluster_articles_for_report_v2",
-            track_v2,
-        )
-
-        result = cli_runner.invoke(
-            cli,
-            [
-                "report",
-                "--template",
-                "v2",
-                "--since",
-                "2099-01-01",
-                "--until",
-                "2099-01-02",
-            ],
-        )
-        assert result.exit_code == 0
-
-
-# =============================================================================
-# CLI report integration tests
-# =============================================================================
-
 
 class TestReportIntegration:
     """Integration tests for full report pipeline with mocked LLM and ChromaDB."""
@@ -443,40 +343,41 @@ class TestReportIntegration:
         mock_collection = MagicMock()
         mock_collection.query.return_value = {"ids": [[]], "distances": [[]]}
 
-        with patch(
-            "src.storage.vector.get_chroma_collection",
-            return_value=mock_collection,
-        ):
-            # Mock LLM chains to avoid real API calls
-            with patch(
+        with (
+            patch(
+                "src.storage.vector.get_chroma_collection",
+                return_value=mock_collection,
+            ),
+            patch(
                 "src.llm.chains.AsyncLLMWrapper._ainvoke_raw",
                 new=AsyncMock(return_value="AI模型"),
-            ):
-                with patch(
-                    "src.application.summarize.summarize_article_content",
-                    new=AsyncMock(
-                        return_value=(
-                            "OpenAI released GPT-5, a large language model.",
-                            0.85,
-                        )
-                    ),
-                ):
-                    result = cli_runner.invoke(
-                        cli,
-                        [
-                            "report",
-                            "--since",
-                            "2024-01-01",
-                            "--until",
-                            "2024-01-31",
-                            "--limit",
-                            "10",
-                        ],
+            ),
+            patch(
+                "src.application.summarize.summarize_article_content",
+                new=AsyncMock(
+                    return_value=(
+                        "OpenAI released GPT-5, a large language model.",
+                        0.85,
                     )
-                    # Should not crash
-                    assert result.exit_code == 0
-                    # Output should contain something (either articles or no-articles message)
-                    assert len(result.output) > 0
+                ),
+            ),
+        ):
+            result = cli_runner.invoke(
+                cli,
+                [
+                    "report",
+                    "--since",
+                    "2024-01-01",
+                    "--until",
+                    "2024-01-31",
+                    "--limit",
+                    "10",
+                ],
+            )
+            # Should not crash
+            assert result.exit_code == 0
+            # Output should contain something (either articles or no-articles message)
+            assert len(result.output) > 0
 
     def test_v2_report_with_limit(self, cli_runner, initialized_db, monkeypatch):
         """V2 report respects --limit parameter and passes it to clustering."""
@@ -501,8 +402,6 @@ class TestReportIntegration:
             cli,
             [
                 "report",
-                "--template",
-                "v2",
                 "--since",
                 "2024-01-01",
                 "--until",
@@ -512,152 +411,39 @@ class TestReportIntegration:
             ],
         )
         assert result.exit_code == 0
-        # V2 should be called with limit=50
+        # v2 should be called with limit=50
         assert limit_captured == 50
 
-    def test_json_output_format(self, cli_runner, initialized_db, monkeypatch):
-        """--json output matches expected schema: date_range, total_articles, template."""
-        # Return non-empty layer data with articles so CLI reaches JSON output step
-        def fake_cluster(**kwargs):
-            return {
-                "articles_by_layer": {
-                    "AI应用": [
-                        {
-                            "id": "json-test-art",
-                            "title": "Test Article",
-                            "link": "https://example.com/test",
-                            "summary": "Test summary.",
-                            "quality_score": 0.85,
-                        }
-                    ],
-                    "AI模型": [],
-                    "AI基础设施": [],
-                    "芯片": [],
-                    "能源": [],
-                },
-                "layer_summaries": {"AI应用": "Summary of AI apps."},
-                "date_range": {"since": "2024-01-01", "until": "2024-01-02"},
-                "summarized_on_demand": 0,
-            }
-
-        monkeypatch.setattr(
-            "src.cli.report.cluster_articles_for_report",
-            fake_cluster,
-        )
-
-        import asyncio
-
-        async def fake_render(*args, **kwargs):
-            return "# AI Daily Report\n## AI应用\nTest news."
-
-        monkeypatch.setattr(
-            "src.application.report.render_report",
-            fake_render,
-        )
-
-        result = cli_runner.invoke(
-            cli,
-            [
-                "report",
-                "--since",
-                "2024-01-01",
-                "--until",
-                "2024-01-02",
-                "--json",
-            ],
-        )
-        assert result.exit_code == 0
-
-        import json
-        import re
-
-        # Extract JSON from output (may contain ANSI codes)
-        json_match = re.search(r"\{.*\}", result.output, re.DOTALL)
-        assert json_match is not None
-        data = json.loads(json_match.group())
-
-        # Verify expected schema fields
-        assert "date_range" in data
-        assert data["date_range"]["since"] == "2024-01-01"
-        assert data["date_range"]["until"] == "2024-01-02"
-        assert "total_articles" in data
-        assert "template" in data
-        assert "layers" in data
-
 
 # =============================================================================
-# V1 clustering tests
-# =============================================================================
-
-
-class TestV1Clustering:
-    """Tests for v1 per-layer clustering logic."""
-
-    def test_report_v1_clustering_layer_keys_defined(self):
-        """LAYER_KEYS contains exactly the 5 AI Five-Layer Cake categories."""
-        assert len(LAYER_KEYS) == 5
-        assert "AI应用" in LAYER_KEYS
-        assert "AI模型" in LAYER_KEYS
-        assert "AI基础设施" in LAYER_KEYS
-        assert "芯片" in LAYER_KEYS
-        assert "能源" in LAYER_KEYS
-
-    def test_report_v1_clustering_empty_articles_returns_empty_layers(
-        self, initialized_db
-    ):
-        """cluster_articles_for_report returns empty layer dicts when no articles."""
-        from src.application.report import cluster_articles_for_report
-
-        with patch(
-            "src.storage.vector.get_chroma_collection",
-            return_value=MagicMock(),
-        ):
-            with patch(
-                "src.llm.chains.AsyncLLMWrapper._ainvoke_raw",
-                new=AsyncMock(return_value="AI应用"),
-            ):
-                data = cluster_articles_for_report(
-                    since="2099-01-01",
-                    until="2099-01-02",
-                    limit=10,
-                    auto_summarize=False,
-                )
-                assert "articles_by_layer" in data
-                assert isinstance(data["articles_by_layer"], dict)
-                for layer in LAYER_KEYS:
-                    assert layer in data["articles_by_layer"]
-                    assert isinstance(data["articles_by_layer"][layer], list)
-
-
-# =============================================================================
-# V2 clustering tests
+# V2 clustering
 # =============================================================================
 
 
 class TestV2Clustering:
     """Tests for v2 topic clustering logic."""
 
-    def test_report_v2_clustering_empty_returns_empty_layers(
-        self, initialized_db
-    ):
+    def test_report_v2_clustering_empty_returns_empty_layers(self, initialized_db):
         """cluster_articles_for_report_v2 returns empty layers when no articles."""
         from src.application.report import cluster_articles_for_report_v2
 
-        with patch(
-            "src.storage.vector.get_chroma_collection",
-            return_value=MagicMock(),
-        ):
-            with patch(
+        with (
+            patch(
+                "src.storage.vector.get_chroma_collection",
+                return_value=MagicMock(),
+            ),
+            patch(
                 "src.llm.chains.AsyncLLMWrapper._ainvoke_raw",
                 new=AsyncMock(return_value="AI模型"),
-            ):
-                data = cluster_articles_for_report_v2(
-                    since="2099-01-01",
-                    until="2099-01-02",
-                    limit=10,
-                    auto_summarize=False,
-                )
-                assert "layers" in data
-                assert "signals" in data
-                assert "date_range" in data
-                assert isinstance(data["layers"], list)
+            ),
+        ):
+            data = cluster_articles_for_report_v2(
+                since="2099-01-01",
+                until="2099-01-02",
+                limit=10,
+                auto_summarize=False,
+            )
+            assert "layers" in data
+            assert "signals" in data
+            assert "date_range" in data
+            assert isinstance(data["layers"], list)
