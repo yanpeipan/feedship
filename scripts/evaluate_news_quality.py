@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import sys
 from datetime import datetime
@@ -246,22 +245,28 @@ AI芯片市场竞争持续，多款新产品发布。本周重点关注推理芯
 # Main evaluation logic
 # ---------------------------------------------------------------------------
 
+
 def _get_spec_dir() -> Path:
     """Find the spec directory for this task."""
     # Navigate from scripts/ up to find the spec directory
     script_dir = Path(__file__).parent.resolve()
     # scripts/ is at the repo root level
-    spec_dir = script_dir.parent / ".auto-claude" / "specs" / "001-review-and-fix-report-architecture-issues"
+    spec_dir = (
+        script_dir.parent
+        / ".auto-claude"
+        / "specs"
+        / "001-review-and-fix-report-architecture-issues"
+    )
     if spec_dir.exists():
         return spec_dir
     # Fallback: try relative to cwd
     cwd = Path.cwd()
-    fallback = cwd / ".auto-claude" / "specs" / "001-review-and-fix-report-architecture-issues"
+    fallback = (
+        cwd / ".auto-claude" / "specs" / "001-review-and-fix-report-architecture-issues"
+    )
     if fallback.exists():
         return fallback
-    raise FileNotFoundError(
-        f"Spec directory not found. Tried: {spec_dir}, {fallback}"
-    )
+    raise FileNotFoundError(f"Spec directory not found. Tried: {spec_dir}, {fallback}")
 
 
 def evaluate_report_structural(report_text: str) -> dict[str, Any]:
@@ -326,7 +331,9 @@ def read_report_from_cli() -> str | None:
         path = Path(args.report_file)
         if path.exists():
             return path.read_text(encoding="utf-8")
-        logger.warning("Report file not found: %s. Using default sample.", args.report_file)
+        logger.warning(
+            "Report file not found: %s. Using default sample.", args.report_file
+        )
     return None
 
 
@@ -335,7 +342,7 @@ def load_existing_scores(scores_path: Path) -> dict[str, Any]:
     if scores_path.exists():
         try:
             return json.loads(scores_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.warning("Could not load existing scores: %s", e)
     return {"iterations": [], "current_iteration": 0}
 
@@ -384,11 +391,16 @@ def main() -> int:
     # Log results
     logger.info(
         "Quality scores: overall=%.3f coherence=%.3f relevance=%.3f depth=%.3f structure=%.3f",
-        qs["overall"], qs["coherence"], qs["relevance"], qs["depth"], qs["structure"],
+        qs["overall"],
+        qs["coherence"],
+        qs["relevance"],
+        qs["depth"],
+        qs["structure"],
     )
     logger.info(
         "Structural metrics: completeness=%.3f chinese_correctness=%.3f",
-        completeness, chinese_correctness,
+        completeness,
+        chinese_correctness,
     )
     logger.info("Layer breakdown: %s", layer_breakdown)
 
@@ -423,16 +435,16 @@ def main() -> int:
     print("\n=== AI News Analyst Evaluation Results ===")
     print(f"Iteration: {next_iteration}")
     print(f"Timestamp: {timestamp}")
-    print(f"\nQuality Scores (0.0-1.0):")
+    print("\nQuality Scores (0.0-1.0):")
     print(f"  Overall:     {qs['overall']:.3f}")
     print(f"  Coherence:   {qs['coherence']:.3f}")
     print(f"  Relevance:   {qs['relevance']:.3f}")
     print(f"  Depth:       {qs['depth']:.3f}")
     print(f"  Structure:   {qs['structure']:.3f}")
-    print(f"\nStructural Metrics:")
+    print("\nStructural Metrics:")
     print(f"  Completeness:        {completeness:.3f}")
     print(f"  Chinese Correctness: {chinese_correctness:.3f}")
-    print(f"\nLayer Breakdown:")
+    print("\nLayer Breakdown:")
     for layer, has_content in layer_breakdown.items():
         status = "✓" if has_content else "✗"
         print(f"  {status} {layer}")

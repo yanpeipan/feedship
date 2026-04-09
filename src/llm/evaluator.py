@@ -298,15 +298,15 @@ def run_improvement_loop(
     """
     import asyncio
 
-    from src.application.report import cluster_articles_for_report_v2, render_report_v2
+    from src.application.report import cluster_articles_for_report, render_report
 
     results = []
     for i in range(1, iterations + 1):
         # Generate report
-        data = cluster_articles_for_report_v2(
+        data = cluster_articles_for_report(
             since=since, until=until, limit=100, auto_summarize=auto_summarize
         )
-        report_text = asyncio.run(render_report_v2(data))
+        report_text = asyncio.run(render_report(data))
 
         # Evaluate quality (enhanced - includes completeness and Chinese correctness)
         enhanced = asyncio.run(evaluate_report_enhanced(report_text))

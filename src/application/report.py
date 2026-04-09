@@ -449,7 +449,7 @@ _title_translate_cache: dict[tuple[str, str], str] = {}
 def _translate_title_sync(title: str, target_lang: str) -> str:
     """Translate article title to target language (sync, for template use).
 
-    Titles should be pre-translated by render_report_v2
+    Titles should be pre-translated by render_report
     before template rendering. This function only performs cache lookup
     to avoid asyncio.run_until_complete() misuse in async context.
     """
@@ -676,7 +676,7 @@ async def generate_cluster_summary(
     return fallbacks.get(target_lang, fallbacks["zh"])
 
 
-async def _cluster_articles_v2_async(
+async def _cluster_articles_async(
     pre_fetched_articles: list,
     since: str,
     until: str,
@@ -813,7 +813,7 @@ async def _cluster_articles_v2_async(
     }
 
 
-def cluster_articles_for_report_v2(
+def cluster_articles_for_report(
     since: str,
     until: str,
     limit: int = 200,
@@ -834,11 +834,11 @@ def cluster_articles_for_report_v2(
         unsummarized_only=False,
     )
     return asyncio.run(
-        _cluster_articles_v2_async(articles, since, until, auto_summarize, target_lang)
+        _cluster_articles_async(articles, since, until, auto_summarize, target_lang)
     )
 
 
-async def render_report_v2(
+async def render_report(
     data: dict[str, Any],
     template_name: str = "v2",
     target_lang: str = "zh",
@@ -846,7 +846,7 @@ async def render_report_v2(
     """Render a v2 report using Jinja2 template.
 
     Args:
-        data: Report data from cluster_articles_for_report_v2()
+        data: Report data from cluster_articles_for_report()
         template_name: Template name (without extension)
         target_lang: Target language code (zh, en, ja, ko).
 

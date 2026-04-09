@@ -12,8 +12,8 @@ from rich.console import Console
 
 from src.application.config import get_reports_dir
 from src.application.report import (
-    cluster_articles_for_report_v2,
-    render_report_v2,
+    cluster_articles_for_report,
+    render_report,
 )
 from src.cli import cli
 from src.cli.ui import print_json, print_json_error
@@ -66,9 +66,9 @@ def report(
         feedship report --since 2026-04-01 --until 2026-04-07 --json
     """
     try:
-        # Cluster articles (v2 only)
+        # Cluster articles
         with console.status("[cyan]Fetching and clustering articles..."):
-            data = cluster_articles_for_report_v2(
+            data = cluster_articles_for_report(
                 since=since,
                 until=until,
                 limit=limit,
@@ -109,7 +109,7 @@ def report(
         # Render report
         try:
             report_text = asyncio.run(
-                render_report_v2(data, template_name="default", target_lang=language)
+                render_report(data, template_name="default", target_lang=language)
             )
         except Exception as e:
             if json_output:

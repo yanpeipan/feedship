@@ -394,7 +394,7 @@ class TestReportIntegration:
             }
 
         monkeypatch.setattr(
-            "src.cli.report.cluster_articles_for_report_v2",
+            "src.cli.report.cluster_articles_for_report",
             capture_limit,
         )
 
@@ -424,8 +424,8 @@ class TestV2Clustering:
     """Tests for v2 topic clustering logic."""
 
     def test_report_v2_clustering_empty_returns_empty_layers(self, initialized_db):
-        """cluster_articles_for_report_v2 returns empty layers when no articles."""
-        from src.application.report import cluster_articles_for_report_v2
+        """cluster_articles_for_report returns empty layers when no articles."""
+        from src.application.report import cluster_articles_for_report
 
         with (
             patch(
@@ -437,7 +437,7 @@ class TestV2Clustering:
                 new=AsyncMock(return_value="AI模型"),
             ),
         ):
-            data = cluster_articles_for_report_v2(
+            data = cluster_articles_for_report(
                 since="2099-01-01",
                 until="2099-01-02",
                 limit=10,
