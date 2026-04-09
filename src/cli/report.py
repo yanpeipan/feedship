@@ -126,15 +126,17 @@ def report(
                 f"[cyan]Summarized {summarized_on_demand} articles on-demand[/cyan]"
             )
 
-        # Render report
+        # Render report (async functions must be awaited)
         try:
+            import asyncio
+
             if template == "v2":
-                report_text = render_report_v2(
-                    data, template_name="v2", target_lang=language
+                report_text = asyncio.run(
+                    render_report_v2(data, template_name="v2", target_lang=language)
                 )
             else:
-                report_text = render_report(
-                    data, template_name=template, target_lang=language
+                report_text = asyncio.run(
+                    render_report(data, template_name=template, target_lang=language)
                 )
         except Exception as e:
             if json_output:
