@@ -260,6 +260,19 @@ async def _cluster_articles_into_topics(
             else:
                 break
 
+        # Deduplicate new_clusters to fix report-004: after merging, clusters[best_j]
+        # and group are the SAME list object. Both get appended to new_clusters,
+        # causing duplicate topic entries. Deduplicate by object id (same pattern as
+        # the v1 fallback branch at lines 341-350).
+        seen: set[int] = set()
+        deduped_clusters: list[list[dict]] = []
+        for c in new_clusters:
+            key = id(c)
+            if key not in seen:
+                seen.add(key)
+                deduped_clusters.append(c)
+        new_clusters = deduped_clusters
+
         topics: list[dict] = [
             {
                 "title": "",
@@ -434,12 +447,27 @@ _title_translate_cache: dict[tuple[str, str], str] = {}
 
 
 def _translate_title_sync(title: str, target_lang: str) -> str:
-    """Translate article title to target language (sync, for template use)."""
+    """Translate article title to target language (sync, for template use).
+
+    Titles should be pre-translated by render_report/render_report_v2
+    before template rendering. This function only performs cache lookup
+    to avoid asyncio.run_until_complete() misuse in async context.
+    """
+
     if target_lang == "zh":
         return title
     cache_key = (title, target_lang)
     if cache_key in _title_translate_cache:
         return _title_translate_cache[cache_key]
+
+    # Cache miss — pre-translation should have populated the cache.
+    # Return original title as fallback to avoid blocking on LLM call.
+    logger.warning(
+        "Title translation cache miss for '%s' -> %s. "
+        "Pre-translation may not have run correctly.",
+        title[:50],
+        target_lang,
+    )
 
     import asyncio
 
@@ -833,8 +861,6 @@ async def _cluster_articles_v2_async(
         update_article_llm(*params)
 
     # Three-level deduplication FIRST (before any clustering)
-
-    # Three-level deduplication FIRST (before any clustering)
     all_processed = deduplicate_articles(all_processed)
 
     # Cluster ALL deduplicated articles together (not per-layer)
@@ -921,7 +947,7 @@ def cluster_articles_for_report_v2(
     )
 
 
-def render_report_v2(
+async def render_report_v2(
     data: dict[str, Any],
     template_name: str = "v2",
     target_lang: str = "zh",
@@ -936,6 +962,7 @@ def render_report_v2(
     Returns:
         Rendered markdown string.
     """
+
     # Pre-translate all titles before template rendering (Fix #5)
     if target_lang != "zh":
         all_titles: list[str] = []
@@ -963,6 +990,7 @@ def render_report_v2(
         if all_titles:
             # Deduplicate titles to avoid redundant LLM calls
             unique_titles = list(dict.fromkeys(all_titles))
+
             pre_translated = asyncio.run(
                 _translate_titles_batch_async(unique_titles, target_lang)
             )
@@ -1001,12 +1029,12 @@ def render_report_v2(
     )
 
 
-def render_report(
+async def render_report(
     data: dict[str, Any],
     template_name: str = DEFAULT_TEMPLATE_NAME,
     target_lang: str = "zh",
 ) -> str:
-    """Render a report using Jinja2 template.
+    """Render a report using Jinja2 template (async, Fix #3).
 
     Args:
         data: Report data from cluster_articles_for_report()
@@ -1026,8 +1054,8 @@ def render_report(
                     all_titles.append(title)
         if all_titles:
             unique_titles = list(dict.fromkeys(all_titles))
-            pre_translated = asyncio.run(
-                _translate_titles_batch_async(unique_titles, target_lang)
+            pre_translated = await _translate_titles_batch_async(
+                unique_titles, target_lang
             )
             for orig, translated in pre_translated.items():
                 _title_translate_cache[(orig, target_lang)] = translated
@@ -1135,8 +1163,9 @@ async def _translate_report_async(report_text: str, target_lang: str) -> str:
     return "\n".join(translated_lines)
 
 
-def translate_report(report_text: str, target_lang: str) -> str:
-    """Translate report text to target language.
+async def translate_report_async(report_text: str, target_lang: str) -> str:
+    """Async translate report text to target language (Fix #3).
+
 
     Args:
         report_text: The rendered report text.
@@ -1148,19 +1177,7 @@ def translate_report(report_text: str, target_lang: str) -> str:
     if target_lang == "zh":
         return report_text
 
-    import asyncio
-    import concurrent.futures
-
-    def _run():
-        loop = asyncio.new_event_loop()
-        try:
-            return asyncio.run(_translate_report_async(report_text, target_lang))
-        finally:
-            loop.close()
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(_run)
-        return future.result()
+    return await _translate_report_async(report_text, target_lang)
 
 
 # Built-in default template (used when file not found)

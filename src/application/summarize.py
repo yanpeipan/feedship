@@ -26,7 +26,7 @@ from src.storage.vector import (
 logger = logging.getLogger(__name__)
 
 
-async def summarize_article_content(
+async def summarize_article_content_dep(
     content: str,
     title: str,
 ) -> tuple[str, bool, float, list[str]]:
@@ -107,11 +107,16 @@ async def process_article_llm(
         )
 
     # Run LLM tasks in parallel for efficiency
+
+    summary_task = summarize_text(content, title)
+    quality_task = score_quality(content, title)
+    keywords_task = extract_keywords(content)
+
     print(f"[DEBUG] content length: {len(content)}, title: {title[:30]}")
-    summary, was_truncated, quality_score, keywords = await summarize_article_content(
-        content, title
-    )
+    summary, was_truncated = await summary_task
     print(f"[DEBUG] summary result: {repr(summary[:50]) if summary else 'EMPTY'}")
+    quality_score = await quality_task
+    keywords = await keywords_task
 
     # Persist to SQLite
     update_result = update_article_llm(
@@ -207,3 +212,62 @@ async def process_article_llm_batch(
         else:
             output.append(result)
     return output
+
+
+async def summarize_article_content(
+    url: str,
+    title: str,
+    content: str,
+    target_lang: str,
+) -> tuple[str, str | None, float, list[str]]:
+    """Summarize article content for on-demand report generation.
+
+    Runs LLM summarization, quality scoring, and keyword extraction on raw
+    article content (without requiring a stored article_id). Optionally
+    translates the summary to the target language.
+
+    Args:
+        url: Article URL (used for logging only).
+        title: Article title.
+        content: Article body text.
+        target_lang: Target language code (e.g., "zh", "en").
+
+    Returns:
+        Tuple of (summary, content_or_None, quality_score, keywords).
+        - summary: Translated LLM summary (or original if target_lang=="en")
+        - content_or_None: Always None (reserved for future use)
+        - quality_score: Quality score 0.0-1.0
+        - keywords: List of extracted keywords
+    """
+    import asyncio
+
+    if not content:
+        return "", None, 0.0, []
+
+    semaphore = asyncio.Semaphore(5)
+
+    async def run_llm() -> tuple[str, float, list[str]]:
+        async with semaphore:
+            summary_task = summarize_text(content, title)
+            quality_task = score_quality(content, title)
+            keywords_task = extract_keywords(content)
+            summary, _ = await summary_task
+            quality = await quality_task
+            keywords = await keywords_task
+            return summary, quality, keywords
+
+    summary, quality, keywords = await run_llm()
+
+    # Translate if target language is not English
+    if target_lang and target_lang.lower() != "en":
+        try:
+            from src.llm.chains import get_translate_chain
+
+            translated = await get_translate_chain().ainvoke(
+                {"text": summary, "target_lang": target_lang}
+            )
+            summary = translated
+        except Exception as e:
+            logger.warning("Translation failed for article %s: %s", url, e)
+
+    return summary, None, quality, keywords

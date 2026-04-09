@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -68,14 +69,24 @@ async def evaluate_report(report_text: str) -> QualityScore:
 
     try:
         result = await chain.ainvoke({"report": report_text[:2000]})
-        # Try to parse as JSON — scores are now expected as 0.0-1.0 floats directly
-        scores = json.loads(result)
+        # JsonOutputParser returns a dict directly (chains-005 fix: JsonOutputParser instead of StrOutputParser).
+        # EVALUATE_PROMPT instructs LLM to return 0.0-1.0 scores, so values arrive as-is — no /100 needed.
+        # Defensive: if LLM returns 0-100 range by mistake, normalize.
+        scores = result if isinstance(result, dict) else json.loads(result)
+
+        def _normalize(v: float) -> float:
+            return v / 100.0 if v > 1.0 else v
+
         return QualityScore(
-            overall=sum(scores.values()) / 4,
-            coherence=float(scores.get("coherence", 0)),
-            relevance=float(scores.get("relevance", 0)),
-            depth=float(scores.get("depth", 0)),
-            structure=float(scores.get("structure", 0)),
+            overall=sum(
+                _normalize(scores.get(k, 0))
+                for k in ["coherence", "relevance", "depth", "structure"]
+            )
+            / 4,
+            coherence=_normalize(scores.get("coherence", 0)),
+            relevance=_normalize(scores.get("relevance", 0)),
+            depth=_normalize(scores.get("depth", 0)),
+            structure=_normalize(scores.get("structure", 0)),
         )
     except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
         logger.warning(
@@ -267,3 +278,102 @@ def log_improvement(record: ImprovementRecord) -> None:
             indent=2,
         )
     logger.info("Logged improvement iteration %d to %s", record.iteration, log_file)
+
+
+def run_improvement_loop(
+    since: str,
+    until: str,
+    iterations: int = 100,
+    auto_summarize: bool = True,
+) -> dict[str, Any]:
+    """Run N automated improvement iterations on report quality.
+
+    Each iteration:
+    1. Generate report
+    2. Evaluate quality (enhanced - includes completeness and Chinese correctness)
+    3. Log results
+    4. Apply incremental improvements for next iteration
+
+    Returns summary dict with all iteration scores.
+    """
+    import asyncio
+
+    from src.application.report import cluster_articles_for_report, render_report
+
+    results = []
+    for i in range(1, iterations + 1):
+        # Generate report
+        data = cluster_articles_for_report(
+            since=since, until=until, limit=100, auto_summarize=auto_summarize
+        )
+        report_text = asyncio.run(render_report(data))
+
+        # Evaluate quality (enhanced - includes completeness and Chinese correctness)
+        enhanced = asyncio.run(evaluate_report_enhanced(report_text))
+        score = enhanced.quality_score
+        completeness = enhanced.completeness
+        chinese_correctness = enhanced.chinese_correctness
+        layer_breakdown = enhanced.layer_breakdown
+
+        # Generate issues and adjustments
+        issues = [
+            f"{dim}={getattr(score, dim):.2f}"
+            for dim in ["coherence", "relevance", "depth", "structure"]
+            if getattr(score, dim) < 0.6
+        ]
+        # Add completeness issues
+        if completeness < 1.0:
+            missing_layers = [
+                layer
+                for layer, has_content in layer_breakdown.items()
+                if not has_content
+            ]
+            issues.append(
+                f"completeness={completeness:.2f} (missing: {missing_layers})"
+            )
+        # Add Chinese correctness issues
+        if chinese_correctness < 1.0:
+            issues.append(f"chinese_correctness={chinese_correctness:.2f}")
+        adjustments = suggest_improvements(score)
+
+        # Log
+        record = ImprovementRecord(
+            iteration=i,
+            date_range=f"{since}~{until}",
+            quality_score=score,
+            completeness=completeness,
+            chinese_correctness=chinese_correctness,
+            layer_breakdown=layer_breakdown,
+            issues=issues,
+            prompt_adjustments=adjustments,
+            report_sample=report_text[:500],
+        )
+        log_improvement(record)
+        results.append(
+            {
+                "iteration": i,
+                "score": score.overall,
+                "completeness": completeness,
+                "chinese_correctness": chinese_correctness,
+                "issues": issues,
+            }
+        )
+
+        if i % 10 == 0:
+            logger.info("Completed %d/%d iterations", i, iterations)
+
+    return {
+        "iterations": iterations,
+        "results": results,
+        "avg_quality": sum(r["score"] for r in results) / len(results)
+        if results
+        else 0,
+        "avg_completeness": sum(r.get("completeness", 0) for r in results)
+        / len(results)
+        if results
+        else 0,
+        "avg_chinese_correctness": sum(r.get("chinese_correctness", 0) for r in results)
+        / len(results)
+        if results
+        else 0,
+    }

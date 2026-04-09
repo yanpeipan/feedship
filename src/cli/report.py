@@ -100,7 +100,6 @@ def report(
                 total_articles = sum(
                     len(arts) for arts in data["articles_by_layer"].values()
                 )
-
         summarized_on_demand = data.get("summarized_on_demand", 0)
 
         if total_articles == 0:

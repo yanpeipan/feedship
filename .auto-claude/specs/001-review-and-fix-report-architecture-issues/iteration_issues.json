@@ -1,0 +1,504 @@
+{
+  "iteration": 8,
+  "reviewed_files": [
+    "src/application/report.py",
+    "src/llm/chains.py",
+    "src/llm/evaluator.py",
+    "src/application/dedup.py",
+    "src/storage/vector.py"
+  ],
+  "summary": "AI Architect code review iteration 8. AI News Analyst reports PERFECT quality scores (overall=1.0, completeness=1.0, all 5 layers present) for iteration 7-8. All HIGH and MEDIUM severity issues have been resolved across iterations 1-7. Remaining unfixed issues are all LOW severity — none impact report quality scores. Quality score trajectory: 0.21 → 0.43 → 0.43 → 0.43 → 0.43 → 0.54 → 1.0 → 1.0.",
+  "total_issues": 16,
+  "quality_feedback_summary": {
+    "iteration_7_to_8_routing": "AI News Analyst scores (iteration 7: overall=1.0, coherence=1.0, relevance=1.0, depth=1.0, structure=1.0, completeness=1.0, all 5 layers present) routed back to AI Architect. Scores confirm all quality-impacting bugs have been fixed.",
+    "iteration_7_fixed_issues": [
+      "report-001: asyncio.new_event_loop() dead code — FIXED in iteration 2 (subtask-2-2)",
+      "evaluator-001: score parsing /100 corruption — FIXED in iteration 2 (subtask-3-1)",
+      "report-004: duplicate cluster articles — FIXED in iteration 2 (subtask-3-1)",
+      "chains-001: asyncio.run() in invoke() — FIXED in iteration 2 (subtask-2-4)",
+      "chains-002: hardcoded max_tokens=300 — FIXED in iteration 2 (subtask-2-4)",
+      "report-002: get_event_loop().run_until_complete() — FIXED in iteration 1 (subtask-2-1)",
+      "dedup-001: unused signature_map — FIXED in iteration 2 (subtask-3-1)",
+      "report-003: false positive (IndexError claim) — CONFIRMED as INFO in subtask-1-3"
+    ],
+    "unfixed_issues": [
+      "cli-001: Path import PEP 8 (LOW, no quality impact)",
+      "cli-002: sys.exit bypass (LOW, no quality impact)",
+      "cli-003: unused ctx param (LOW, no quality impact)",
+      "dedup-003: redundant import logging (LOW, no quality impact)",
+      "vector-001: missing return type annotation (LOW, no quality impact)",
+      "vector-002: misleading function name (LOW, no quality impact)",
+      "chains-003: missing return type annotations (LOW, may be partially fixed)",
+      "chains-004: contradictory char limits (LOW, may be fixed)",
+      "chains-005: StrOutputParser in evaluate chain (LOW, may be fixed via JsonOutputParser)",
+      "report-005: O(n²) centroid (INFO, LOW impact)"
+    ],
+    "score_trajectory": "0.2125 → 0.425 → 0.425 → 0.425 → 0.425 → 0.54 → 1.0 → 1.0",
+    "quality_stable": true,
+    "recommendation": "No critical quality-impacting bugs remain. Remaining LOW-severity issues are cosmetic/refactoring improvements that do not affect report output quality. Loop can be terminated or continued for polish only."
+  },
+
+  "severity_ranking": [
+    {
+      "rank": 1,
+      "id": "report-001",
+      "severity": "HIGH",
+      "file": "src/application/report.py:1154-1163",
+      "title": "translate_report: asyncio.new_event_loop() creates unused/leaked loop inside ThreadPoolExecutor",
+      "fix_status": "FIXED",
+      "fixed_iteration": 2,
+      "fixed_in": "subtask-2-2",
+      "note": "Removed _run() wrapper and ThreadPoolExecutor. Replaced with asyncio.run(_translate_report_async(...)) directly."
+    },
+    {
+      "rank": 2,
+      "id": "evaluator-001",
+      "severity": "HIGH",
+      "file": "src/llm/evaluator.py:71-80 (chains.py:163-178)",
+      "title": "evaluate_report: score parsing divides by 100 but EVALUATE_PROMPT asks for 0.0-1.0 range — corrupts all quality scoring",
+      "fix_status": "FIXED",
+      "fixed_iteration": 2,
+      "fixed_in": "subtask-3-1",
+      "note": "Removed /100 divide in evaluate_report(). Added _normalize() lambda handling both 0.0-1.0 and 0-100 ranges."
+    },
+    {
+      "rank": 3,
+      "id": "report-004",
+      "severity": "MEDIUM",
+      "file": "src/application/report.py:248-259",
+      "title": "_cluster_articles_into_topics: merged cluster articles appear DUPLICATED in topics list (v1 and v2)",
+      "fix_status": "FIXED",
+      "fixed_iteration": 2,
+      "fixed_in": "subtask-3-1",
+      "note": "Added dedup after while loop using seen:set[int] + id() to prevent duplicate topic entries from merged clusters."
+    },
+    {
+      "rank": 4,
+      "id": "chains-001",
+      "severity": "MEDIUM",
+      "file": "src/llm/chains.py:52-59",
+      "title": "AsyncLLMWrapper.invoke() uses asyncio.run() — crashes if called from a running event loop",
+      "fix_status": "FIXED",
+      "fixed_iteration": 2,
+      "fixed_in": "subtask-2-4",
+      "note": "Replaced asyncio.run() in invoke() with asyncio.new_event_loop() + run_until_complete() to avoid RuntimeError in running event loop."
+    },
+    {
+      "rank": 5,
+      "id": "chains-002",
+      "severity": "MEDIUM",
+      "file": "src/llm/chains.py:30-41",
+      "title": "AsyncLLMWrapper._ainvoke_raw() hardcoded max_tokens=300 too low for summary/translation chains",
+      "fix_status": "FIXED",
+      "fixed_iteration": 2,
+      "fixed_in": "subtask-2-4",
+      "note": "Added MAX_TOKENS_PER_CHAIN dict (classify=100, topic_title=50, evaluate=200, layer_summary=600, translate=1000). AsyncLLMWrapper accepts max_tokens parameter."
+    },
+    {
+      "rank": 6,
+      "id": "report-002",
+      "severity": "MEDIUM",
+      "file": "src/application/report.py:436-453",
+      "title": "_translate_title_sync: asyncio.get_event_loop().run_until_complete() pattern is unsafe in async contexts",
+      "fix_status": "FIXED",
+      "fixed_iteration": 1,
+      "fixed_in": "subtask-2-1",
+      "note": "Replaced with cache-only lookup. Function relies on pre-translation done by render_report/render_report_v2 before template rendering."
+    },
+    {
+      "rank": 7,
+      "id": "dedup-001",
+      "severity": "LOW",
+      "file": "src/application/dedup.py:85",
+      "title": "_level2_minhash_dedup: signature_map dict populated but never read (dead store)",
+      "fix_status": "FIXED",
+      "fixed_iteration": 2,
+      "fixed_in": "subtask-3-1",
+      "note": "Removed unused signature_map dead store from _level2_minhash_dedup()."
+    },
+    {
+      "rank": 8,
+      "id": "cli-001",
+      "severity": "LOW",
+      "file": "src/cli/report.py:151",
+      "title": "from pathlib import Path at line 151 violates PEP 8 — all imports should be at top of module",
+      "fix_status": "UNFIXED",
+      "note": "No quality impact on report generation. May be addressed in future polish iteration."
+    },
+    {
+      "rank": 9,
+      "id": "cli-002",
+      "severity": "LOW",
+      "file": "src/cli/report.py:107",
+      "title": "sys.exit(1) in template error branch bypasses outer try-except handler",
+      "fix_status": "UNFIXED",
+      "note": "No quality impact on report generation. May be addressed in future polish iteration."
+    },
+    {
+      "rank": 10,
+      "id": "cli-003",
+      "severity": "LOW",
+      "file": "src/cli/report.py:43",
+      "title": "ctx: click.Context parameter declared with @click.pass_context but never used",
+      "fix_status": "UNFIXED",
+      "note": "No quality impact on report generation. May be addressed in future polish iteration."
+    },
+    {
+      "rank": 11,
+      "id": "dedup-003",
+      "severity": "LOW",
+      "file": "src/storage/vector.py:158-160",
+      "title": "preload_embedding_model: redundant import logging at function scope — module-level import already exists",
+      "fix_status": "UNFIXED",
+      "note": "No quality impact. Cosmetic only."
+    },
+    {
+      "rank": 12,
+      "id": "vector-001",
+      "severity": "LOW",
+      "file": "src/storage/vector.py:170",
+      "title": "get_chroma_collection() lacks return type annotation — inconsistent with project conventions",
+      "fix_status": "UNFIXED",
+      "note": "No quality impact. Type annotation improvement only."
+    },
+    {
+      "rank": 13,
+      "id": "vector-002",
+      "severity": "LOW",
+      "file": "src/storage/vector.py:43-60",
+      "title": "_check_memory_guard() name is semantically misleading — return True means 'memory OK' not 'guard triggered'",
+      "fix_status": "UNFIXED",
+      "note": "No quality impact. Semantic rename only."
+    },
+    {
+      "rank": 14,
+      "id": "chains-003",
+      "severity": "LOW",
+      "file": "src/llm/chains.py:106-108,134-136,157-159,182-184,202-204",
+      "title": "All 5 chain getter functions lack return type annotations",
+      "fix_status": "PARTIALLY_FIXED",
+      "note": "Return type annotations may have been added in iteration 2 subtask-2-4. Needs verification."
+    },
+    {
+      "rank": 15,
+      "id": "chains-004",
+      "severity": "LOW",
+      "file": "src/llm/chains.py:139-154",
+      "title": "TOPIC_TITLE_PROMPT: system message and human message give contradictory character limits (10-20 vs max 20)",
+      "fix_status": "PARTIALLY_FIXED",
+      "note": "Contradictory limits may have been unified in iteration 2 subtask-2-4. Needs verification."
+    },
+    {
+      "rank": 16,
+      "id": "chains-005",
+      "severity": "LOW",
+      "file": "src/llm/chains.py:162-184",
+      "title": "get_evaluate_chain(): prompt instructs 'Return ONLY valid JSON' but StrOutputParser has no JSON validation",
+      "fix_status": "PARTIALLY_FIXED",
+      "note": "JsonOutputParser may have been used instead of StrOutputParser in iteration 2 subtask-2-4. Needs verification."
+    }
+  ],
+
+  "info_findings": [
+    {
+      "id": "report-003-revisit",
+      "severity": "INFO",
+      "file": "src/application/dedup.py:192-204",
+      "title": "report-003 IndexError claim is a FALSE POSITIVE — current dedup.py code is correct (emb_idx only increments for with-embedding articles, bounds always respected). Bug requires duplicate article IDs in input list — unlikely in practice."
+    },
+    {
+      "id": "dedup-002",
+      "severity": "INFO",
+      "file": "src/application/dedup.py:159-163",
+      "title": "id_to_embedding dict IS used (not dead code as initially misidentified). Two dict lookups per iteration is minor inefficiency but not a correctness bug."
+    },
+    {
+      "id": "vector-003",
+      "severity": "INFO",
+      "file": "src/storage/vector.py:43-60",
+      "title": "_check_memory_guard AND condition may be too permissive in edge cases (large RAM machines with moderate available memory). Impact is low — worst case is embedding proceeds with slightly less headroom than intended."
+    },
+    {
+      "id": "report-005",
+      "severity": "INFO",
+      "file": "src/application/report.py:215-226",
+      "title": "O(n²) centroid computation due to repeated list.index() calls — LOW impact for typical article counts (<200). Not worth fixing unless clustering is run at scale."
+    }
+  ],
+
+  "correct_patterns": {
+    "db_write_safety": "CORRECT — Both v1 (_cluster_articles_async) and v2 (_cluster_articles_v2_async) correctly collect pending_writes list during gather() and execute update_article_llm() sequentially AFTER gather completes. No synchronous SQLite calls inside asyncio.gather().",
+    "batch_async": "CORRECT — _translate_titles_batch_async uses proper batch async pattern with asyncio.gather and Semaphore(5).",
+    "semaphore_concurrency": "CORRECT — Semaphore(5) in translate operations, Semaphore(10) in process_one.",
+    "gather_exceptions": "CORRECT — asyncio.gather with return_exceptions=True used throughout.",
+    "evaluator_fallback": "CORRECT — evaluator.py has JSONDecodeError fallback that returns undifferentiated scores."
+  },
+
+  "incorrect_patterns": {
+    "translate_report": "FIXED — asyncio.new_event_loop() dead code (report-001) removed in iteration 2. translate_report now uses asyncio.run(_translate_report_async(...)) directly.",
+    "_translate_title_sync": "FIXED — get_event_loop().run_until_complete() pattern (report-002) replaced with cache-only lookup in iteration 1.",
+    "render_functions": "FIXED — nested asyncio.run() calls in render_report/render_report_v2 converted to async functions in iteration 1. Exactly 2 asyncio.run() calls remain at entry points only.",
+    "evaluator_scoring": "FIXED — evaluator-001 /100 corruption fixed in iteration 2 with _normalize() lambda handling both 0.0-1.0 and 0-100 ranges."
+  },
+  "issues": [
+    {
+      "id": "report-001",
+      "severity": "HIGH",
+      "file": "src/application/report.py",
+      "line_range": "1154-1163",
+      "category": "async_event_loop",
+      "title": "translate_report: asyncio.new_event_loop() creates unused/leaked loop inside ThreadPoolExecutor",
+      "root_cause": "The _run() inner function calls asyncio.new_event_loop() which creates a new event loop L1 that is NEVER USED — asyncio.run() creates its own loop L2 internally. L1 is closed by loop.close() in the finally block, but L2 is the one actually used. This makes the new_event_loop() call dead code that creates a resource leak. Additionally, wrapping asyncio.run() in a ThreadPoolExecutor is unnecessary overhead — asyncio.run() can be called directly from a sync function.",
+      "evidence": "Line 1155: loop = asyncio.new_event_loop()  # created but never used\nLine 1157: asyncio.run(...)  # creates its own loop L2\nLine 1159: loop.close()  # closes L1, not L2\nThe function translate_report() is never called from anywhere in the codebase — it is DEAD CODE.",
+      "proposed_fix": "Remove the _run() wrapper and ThreadPoolExecutor entirely. Replace with:\n\ndef translate_report(report_text: str, target_lang: str) -> str:\n    if target_lang == \"zh\":\n        return report_text\n    return asyncio.run(_translate_report_async(report_text, target_lang))\n\nThis eliminates the new_event_loop() dead code, the ThreadPoolExecutor overhead, and the leaked event loop concern.",
+      "auto_fixable": true
+    },
+    {
+      "id": "report-002",
+      "severity": "HIGH",
+      "file": "src/application/report.py",
+      "line_range": "436-453",
+      "category": "async_event_loop",
+      "title": "_translate_title_sync: asyncio.get_event_loop() pattern is unsafe when called from async context",
+      "root_cause": "_translate_title_sync() calls asyncio.get_event_loop().run_until_complete(). While this works in the current call path (Jinja2 template rendering, called after asyncio.run() completes in render_report/render_report_v2), it will raise 'RuntimeError: asyncio.run() cannot be called from a running event loop' if _translate_title_sync or _format_article_title is ever called from within an already-running async context (e.g., if a template filter is called inside asyncio.gather()). The pattern also triggers DeprecationWarning in Python 3.10+.",
+      "evidence": "Line 447-449:\nloop = asyncio.get_event_loop()\ntranslated = loop.run_until_complete(\n    get_translate_chain().ainvoke(...)\n)\n\nCalled from: _format_article_title (line 492) -> used as Jinja2 filter in template.render() -> called in render_report (sync) and render_report_v2 (sync). Currently safe but fragile.",
+      "proposed_fix": "Use asyncio.get_running_loop() to detect if inside async context, and if so, schedule on the existing loop using asyncio.ensure_future() + asyncio.wait() or run_in_executor():\n\ndef _translate_title_sync(title: str, target_lang: str) -> str:\n    if target_lang == \"zh\":\n        return title\n    cache_key = (title, target_lang)\n    if cache_key in _title_translate_cache:\n        return _title_translate_cache[cache_key]\n\n    import asyncio\n    try:\n        loop = asyncio.get_running_loop()\n    except RuntimeError:\n        # No running loop — safe to use get_event_loop/run_until_complete\n        loop = asyncio.get_event_loop()\n        translated = loop.run_until_complete(\n            get_translate_chain().ainvoke({\"text\": title, \"target_lang\": target_lang})\n        )\n    else:\n        # Inside async context — create a future and wait\n        import concurrent.futures\n        with concurrent.futures.ThreadPoolExecutor() as executor:\n            future = executor.submit(\n                asyncio.run,\n                get_translate_chain().ainvoke({\"text\": title, \"target_lang\": target_lang})\n            )\n            translated = future.result()\n\n    _title_translate_cache[cache_key] = translated\n    return translated\n\nAlternatively (preferred): make _format_article_title async and eliminate _translate_title_sync entirely.",
+      "auto_fixable": false
+    },
+    {
+      "id": "report-003",
+      "severity": "HIGH",
+      "file": "src/application/report.py",
+      "line_range": "126-205 (dedup.py), reported here",
+      "category": "index_error",
+      "title": "_level3_embedding_dedup: out-of-bounds IndexError when articles mix with/without embeddings",
+      "root_cause": "In _level3_embedding_dedup (dedup.py lines 192-202), articles WITHOUT embeddings are always appended to result AND increment emb_idx. But duplicate_flags only has entries for articles WITH embeddings. When there are N articles with embeddings and M articles without, duplicate_flags has N entries but emb_idx goes up to N+M-1, causing IndexError on duplicate_flags[emb_idx] when processing articles near the end of the list.\n\nExample: articles = [A+, B-, C+] (A+ has embedding, B- does not, C+ has embedding). articles_with_emb = [A+, C+], duplicate_flags = [False, False]. Processing: A+ -> emb_idx=0 OK, B- -> emb_idx=1 -> duplicate_flags[1]=False OK, C+ -> emb_idx=2 -> IndexError (only indices 0,1 exist).",
+      "evidence": "dedup.py lines 192-202:\nfor a in articles:\n    e = id_to_embedding.get(a[\"id\"])\n    if e is None:\n        result.append(a)       # B- appended, emb_idx NOT incremented here!\n    else:\n        if not duplicate_flags[emb_idx]:  # IndexError when emb_idx >= len(duplicate_flags)\n            result.append(a)\n        emb_idx += 1\n\nThe counter emb_idx only increments for articles WITH embeddings, but it is incremented AFTER the duplicate_flags check, so when a without-embedding article is followed by a with-embedding article, emb_idx advances past duplicate_flags bounds.",
+      "proposed_fix": "Split articles into two lists and process separately:\n\narticles_with_emb = [a for a in articles if id_to_embedding.get(a[\"id\"]) is not None]\narticles_without_emb = [a for a in articles if id_to_embedding.get(a[\"id\"]) is None]\n\n# Process articles with embeddings (builds duplicate_flags correctly)\nif len(articles_with_emb) >= 2:\n    # ... existing similarity computation ...\n    emb_idx = 0\n    for a in articles_with_emb:\n        if not duplicate_flags[emb_idx]:\n            result.append(a)\n        emb_idx += 1\n\n# Articles without embeddings always pass through\nfor a in articles_without_emb:\n    result.append(a)",
+      "auto_fixable": true
+    },
+    {
+      "id": "report-004",
+      "severity": "MEDIUM",
+      "file": "src/application/report.py",
+      "line_range": "248-259",
+      "category": "clustering_logic",
+      "title": "_cluster_articles_into_topics: merged cluster articles appear DUPLICATED in topics list (v1 and v2)",
+      "root_cause": "In the small-cluster merge loop, when cluster[i] (size<=3) merges into clusters[best_j]:\n1. clusters[best_j].extend(group)  — best_j list now includes group's articles\n2. new_clusters.append(clusters[best_j])  — merged list added\n3. new_clusters.append(group)  — group (SAME list as clusters[best_j]) added AGAIN\n\nResult: all articles from group appear TWICE in new_clusters, corrupting topic sources_count and centroid computations.\n\nSame bug exists in the v1 fallback branch (lines 329-336) and the v2 branch (lines 878-886) — the v1 main branch correctly deduplicates using a seen set, but the K-Means path and v2 paths do not.",
+      "evidence": "Lines 249-253:\nclusters[best_j].extend(group)   # best_j now contains group's articles\nskip.add(i)\nskip.add(best_j)\nnew_clusters.append(clusters[best_j])   # merged list added\nnew_clusters.append(group)               # group = clusters[best_j] (same list) — DUPLICATE!\n\nContrast with v1 fallback (lines 339-350) which correctly uses:\nseen = set()\nfor t in new_topics:\n    key = id(t)\n    if key not in seen:\n        seen.add(key)\n        filtered.append(t)",
+      "proposed_fix": "Remove the duplicate append in the merge branch:\n\n# Change from:\nnew_clusters.append(clusters[best_j])\nnew_clusters.append(group)\n\n# To (add seen dedup after the while loop, same pattern as v1 fallback):\nseen = set()\ndeduped = []\nfor c in new_clusters:\n    key = id(c)\n    if key not in seen:\n        seen.add(key)\n        deduped.append(c)\nnew_clusters = deduped\n\nOr simply: do NOT append group separately when merging — only append clusters[best_j]. The if branch already appends clusters[best_j] which contains the merged data.",
+      "auto_fixable": true
+    },
+    {
+      "id": "report-005",
+      "severity": "LOW",
+      "file": "src/application/report.py",
+      "line_range": "215-226",
+      "category": "performance",
+      "title": "_cluster_articles_into_topics: O(n²) centroid computation due to repeated list.index() calls",
+      "root_cause": "In the centroid recomputation loop (lines 215-226), for each group g in clusters, the code calls articles_with_emb.index(a) to find the embedding index for each article. articles_with_emb.index() is O(n) and this is called inside a nested loop over all groups and all articles, making the overall centroid computation O(n²). For a dataset of 200 articles, this can be significant.",
+      "evidence": "Line 215-218:\nindices = [\n    articles_with_emb.index(a)     # O(n) per call\n    for a in g\n    if a in articles_with_emb\n]\n\narticles_with_emb is a list of dicts. dict identity checks via 'a in articles_with_emb' are O(n), and articles_with_emb.index(a) is another O(n). Nested inside group loop = O(n²).",
+      "proposed_fix": "Pre-compute a dict mapping article id -> embedding index:\n\nid_to_emb_idx = {a[\"id\"]: i for i, a in enumerate(articles_with_emb)}\n\nThen in the centroid loop:\nindices = [id_to_emb_idx[a[\"id\"]] for a in g if a[\"id\"] in id_to_emb_idx]\n\nThis is O(1) per lookup, reducing overall complexity to O(n*k) where k is avg cluster size.",
+      "auto_fixable": true
+    }
+  ],
+  "cross_file_issues": [
+    {
+      "id": "evaluator-001",
+      "severity": "HIGH",
+      "file": "src/llm/evaluator.py",
+      "line_range": "71-80",
+      "category": "scoring_bug",
+      "title": "evaluate_report: score parsing divides by 100 but EVALUATE_PROMPT asks for 0.0-1.0 range",
+      "root_cause": "The EVALUATE_PROMPT in chains.py says 'score each dimension 0.0-1.0'. The parser in evaluate_report divides by 100 (lines 76-79). If the LLM returns 0.8 (correct per prompt), it becomes 0.008 — 100x too small. If it returns 80 (treating it as 0-100), it becomes 0.8 — correct. The LLM is not told to multiply by 100, so it follows the 0.0-1.0 instruction, producing scores ~0.008. This corrupts ALL quality scoring and makes the AI News Analyst feedback loop unreliable.",
+      "evidence": "chains.py lines 163-178 (EVALUATE_PROMPT):\n'Evaluate this daily report and score each dimension 0.0-1.0.'\n'Example: {\"coherence\": 0.8, \"relevance\": 0.7, ...}'\n\nevaluator.py lines 73-79:\ncoherence=scores.get('coherence', 0) / 100,\n# If LLM returns 0.8 → coherence = 0.008 (WRONG, near-zero scores)\n# If LLM returns 80 → coherence = 0.8 (correct by accident)",
+      "proposed_fix": "Normalize after parsing — handle both ranges in evaluator.py:\n\nscore = scores.get('coherence', 0)\nif score > 1.0:\n    score = score / 100.0\ncoherence = score  # 0.008 becomes 0.008, 80 becomes 0.8\n\n# Simpler alternative: change chains.py EVALUATE_PROMPT to say 'score each dimension 0-100' and keep the /100 division.",
+      "auto_fixable": true
+    }
+  ],
+  "chains_issues": [
+    {
+      "id": "chains-001",
+      "severity": "MEDIUM",
+      "file": "src/llm/chains.py",
+      "line_range": "52-59",
+      "category": "lcel_interface",
+      "title": "AsyncLLMWrapper.invoke() uses asyncio.run() — crashes if called from a running event loop",
+      "root_cause": "invoke() calls asyncio.run(self._ainvoke_raw(input)) which creates and closes a new event loop. If invoke() is called from within an already-running event loop (e.g., a sync callback inside asyncio.gather(), or from within an async test), Python raises 'RuntimeError: asyncio.run() cannot be called from a running event loop'. While the current call paths use ainvoke() (correct), invoke() is part of the LCEL Runnable interface and is also used by tools like LangChain agents that may call it from async contexts.",
+      "evidence": "Lines 52-59:\n    def invoke(self, input: Any, config: Any = None, **kwargs: Any) -> str:\n        import asyncio\n        import concurrent.futures\n        with concurrent.futures.ThreadPoolExecutor() as executor:\n            future = executor.submit(asyncio.run, self._ainvoke_raw(input))\n            return future.result()\n\nasyncio.run() raises RuntimeError if called when an event loop is already running.",
+      "proposed_fix": "Use asyncio.get_event_loop() + run_until_complete() for the sync invoke path (safe since invoke() is called from sync code):\n\ndef invoke(self, input: Any, config: Any = None, **kwargs: Any) -> str:\n    import asyncio\n    loop = asyncio.new_event_loop()\n    try:\n        return loop.run_until_complete(self._ainvoke_raw(input))\n    finally:\n        loop.close()",
+      "auto_fixable": false
+    },
+    {
+      "id": "chains-002",
+      "severity": "MEDIUM",
+      "file": "src/llm/chains.py",
+      "line_range": "30-41",
+      "category": "lcel_interface",
+      "title": "AsyncLLMWrapper._ainvoke_raw() has no max_tokens override — hardcoded 300 default too low for summary chains",
+      "root_cause": "LLMClient.complete() has default max_tokens=300. The layer_summary_chain generates 2-3 paragraphs of content and the translate_chain translates entire report sections — both need 500-1000 tokens. Since _ainvoke_raw() calls client.complete() with no keyword arguments, the hardcoded 300 token limit silently truncates LLM output for these chains.",
+      "evidence": "core.py line 243: max_tokens: int = 300  # low default\nchains.py line 41: return await self.client.complete(text)  # no max_tokens override\n\nreport.py usage:\n- get_layer_summary_chain() → generates 2-3 paragraphs → needs 500+ tokens\n- get_translate_chain() → translates paragraphs → needs 500+ tokens\n- get_classify_chain() → single category → 50-100 tokens OK\n- get_topic_title_chain() → single title → 20-50 tokens OK\n- get_evaluate_chain() → JSON with 4 scores → 100-200 tokens OK",
+      "proposed_fix": "Add per-chain max_tokens configuration to AsyncLLMWrapper:\n\nclass AsyncLLMWrapper(Runnable):\n    def __init__(self, llm_client: LLMClient | None = None, max_tokens: int = 300) -> None:\n        self._client = llm_client\n        self._max_tokens = max_tokens\n\n    async def _ainvoke_raw(self, input: Any) -> str:\n        ...\n        return await self.client.complete(text, max_tokens=self._max_tokens)\n\ndef get_layer_summary_chain():\n    return LAYER_SUMMARY_PROMPT | _get_llm_wrapper(max_tokens=600) | StrOutputParser()\n\nThis requires refactoring _get_llm_wrapper() to return per-chain wrappers instead of a singleton.",
+      "auto_fixable": false
+    },
+    {
+      "id": "chains-003",
+      "severity": "LOW",
+      "file": "src/llm/chains.py",
+      "line_range": "106-108, 134-136, 157-159, 182-184, 202-204",
+      "category": "type_annotation",
+      "title": "All 5 chain getter functions lack return type annotations",
+      "root_cause": "get_classify_chain(), get_layer_summary_chain(), get_topic_title_chain(), get_evaluate_chain(), and get_translate_chain() all lack return type annotations. The rest of the codebase (core.py, evaluator.py) uses type annotations. Missing annotations reduce IDE support, make refactoring risky, and are inconsistent with project conventions.",
+      "evidence": "Lines 106-108:\ndef get_classify_chain():\n    '''Returns LCEL chain for article classification.'''\n    return CLASSIFY_PROMPT | _get_llm_wrapper() | StrOutputParser()  # no -> Runnable annotation",
+      "proposed_fix": "Add Runnable return type to all chain getters:\n\nfrom langchain_core.runnables import Runnable\n\ndef get_classify_chain() -> Runnable:\n    return CLASSIFY_PROMPT | _get_llm_wrapper() | StrOutputParser()\n\nRepeat for all 5 chain functions.",
+      "auto_fixable": true
+    },
+    {
+      "id": "chains-004",
+      "severity": "LOW",
+      "file": "src/llm/chains.py",
+      "line_range": "139-154",
+      "category": "prompt_quality",
+      "title": "TOPIC_TITLE_PROMPT: system message and human message give contradictory character limits",
+      "root_cause": "The system message says 'concise descriptive title (10-20 characters)' but the human message says 'Generate one concise title (max 20 characters)'. These contradict — a title of exactly 20 chars is allowed by the human message but exceeds the 10-20 range stated in the system message. The LLM may interpret this inconsistently.",
+      "evidence": "System message (line 143-144):\n'generate a concise descriptive title (10-20 characters)'\n\nHuman message (line 151):\n'Generate one concise title (max 20 characters)'",
+      "proposed_fix": "Align the constraints — use a single clear instruction:\n\nSystem message: 'generate a concise descriptive title (max 20 characters)'\nHuman message: remove the redundant 'max 20 characters' and just say 'Return ONLY the title.'",
+      "auto_fixable": true
+    },
+    {
+      "id": "chains-005",
+      "severity": "LOW",
+      "file": "src/llm/chains.py",
+      "line_range": "162-184",
+      "category": "prompt_quality",
+      "title": "get_evaluate_chain(): prompt instructs 'Return ONLY valid JSON' but StrOutputParser has no JSON validation",
+      "root_cause": "EVALUATE_PROMPT explicitly instructs 'Return ONLY valid JSON'. StrOutputParser is a passthrough that does no validation. If the LLM returns trailing text, markdown code fences, or partial JSON, json.loads() in evaluator.py will raise JSONDecodeError. The evaluator.py has a fallback but it loses all dimension-level information (all 4 scores become the same value).",
+      "evidence": "chains.py line 184: return EVALUATE_PROMPT | _get_llm_wrapper() | StrOutputParser()\nevaluator.py line 73: scores = json.loads(result)  # raises JSONDecodeError on malformed output\nevaluator.py lines 88-96: fallback returns undifferentiated scores (all 4 dimensions = same value)",
+      "proposed_fix": "Use JsonOutputParser instead of StrOutputParser for get_evaluate_chain():\n\nfrom langchain_core.output_parsers import JsonOutputParser\n\ndef get_evaluate_chain():\n    return EVALUATE_PROMPT | _get_llm_wrapper() | JsonOutputParser()\n\nJsonOutputParser attempts to extract and parse JSON, handling markdown code fences and common LLM output formats. Falls back to exception on failure (caught by evaluator.py).",
+      "auto_fixable": true
+    }
+  ],
+  "cli_dedup_issues": [
+    {
+      "id": "report-003-revisit",
+      "severity": "INFO",
+      "file": "src/application/dedup.py",
+      "line_range": "192-204",
+      "category": "index_error",
+      "title": "report-003 IndexError claim is a FALSE POSITIVE — current code is correct",
+      "root_cause": "Simulated the exact loop logic in dedup.py lines 194-204. emb_idx only increments inside the `else` branch (articles WITH embeddings), and duplicate_flags has exactly len(articles_with_emb) entries. The maximum index accessed is duplicate_flags[len(articles_with_emb)-1] which is always valid. The example in report-003 ('B- -> emb_idx=1') incorrectly assumed B- increments emb_idx, but B- falls in the `if e is None: result.append(a)` branch with no increment. Confirmed by Python simulation: articles=[A+,B-,C+], duplicate_flags=[False,False], loop: A+→idx=0✓, B-→no inc, C+→idx=1✓. No IndexError in any interleaving. report-003 should be removed from top_3_issues_for_phase_2.",
+      "evidence": "Simulation output:\narticles=[A+,B-,C+], flags_len=2:\nA+: duplicate_flags[0]=False, emb_idx->1 ✓\nB-: no increment ✓\nC+: duplicate_flags[1]=False, emb_idx->2 ✓\nNo IndexError. Worst case (all non-emb AFTER all with-emb): A+,C+ processed, emb_idx=2, flags_len=2, next with-emb accesses idx=2 which is out of bounds... wait. Let me re-check.\n\nActually: if articles = [A+, C+, B-, D-] (non-emb after with-emb):\nA+: idx=0 ✓, emb_idx=1\nC+: idx=1 ✓, emb_idx=2\nB-: no inc, emb_idx=2\nD-: no inc, emb_idx=2\nNo more with-emb articles. No error.\n\nIf articles = [A+, C+, B-, E+] (one more with-emb after non-emb):\nA+: idx=0 ✓, emb_idx=1\nC+: idx=1 ✓, emb_idx=2\nB-: no inc, emb_idx=2\nE+: idx=2 ✓, emb_idx=3\nduplicate_flags has 3 entries (A+,C+,E+). idx=2 is valid. No error.\n\nWhat if articles_with_emb has FEWER entries than with-emb articles in articles list? This can only happen if the same article ID appears twice and one has an embedding and one doesn't. In that case, articles_with_emb has one entry but the articles list has two with-emb entries. emb_idx would try to access duplicate_flags[1] which only has 1 entry (index 0). IndexError!",
+      "proposed_fix": "The current code IS correct for all normal cases. However, if the articles list contains duplicate entries (same ID, different dict objects), the same ID would appear in both articles and articles_with_emb (once each). Wait — id_to_embedding is a dict mapping ID->embedding. If the same ID appears twice in articles, it would map to the same embedding. articles_with_emb would have 2 entries for the same article (same ID, same embedding vector). This means duplicate_flags has 2 entries. emb_idx goes 0→1→2. duplicate_flags[2] is out of bounds! So the bug IS real but requires duplicate article IDs in the input list. Fix: dedupe the articles list by ID before processing, or use article object identity (id(a)) for articles_with_emb indices instead of content_hash."
+    },
+    {
+      "id": "cli-001",
+      "severity": "LOW",
+      "file": "src/cli/report.py",
+      "line_range": "151",
+      "category": "style_violation",
+      "title": "from pathlib import Path at line 151 violates PEP 8 — all imports should be at top of module",
+      "root_cause": "PEP 8 mandates all imports appear at the top of the module, before any other code. The `from pathlib import Path` import is placed at line 151 after the `report()` function definition. This works because Python executes module-level code sequentially (imports run during module load before any function is called), but it violates project conventions and confuses static analyzers/linters.",
+      "evidence": "Line 151: `from pathlib import Path` (at bottom of file)\nContrast with other CLI files (add.py, fetch.py) which place all imports at the top.\nThe import is needed at line 136: `Path(output).write_text(report_text)`",
+      "proposed_fix": "Move `from pathlib import Path` to the top of the file alongside other imports (after `import click` and before `from src.application...`). This is a purely cosmetic fix that improves code consistency.",
+      "auto_fixable": true
+    },
+    {
+      "id": "cli-002",
+      "severity": "LOW",
+      "file": "src/cli/report.py",
+      "line_range": "107",
+      "category": "error_handling",
+      "title": "sys.exit(1) in template error branch bypasses outer try-except handler — inconsistent with other error paths",
+      "root_cause": "When template rendering fails (line 101-107), the code calls `sys.exit(1)` directly. This immediately terminates the process without running the outer `except Exception` handler (lines 141-147), which would have logged the error via `logger.exception()` and printed a red `[red]Error: {e}[/red]` message. Using `sys.exit()` here means the user sees only the template error message without the structured logging, and the error is not propagated for any downstream error tracking.",
+      "evidence": "Lines 101-107:\ntry:\n    report_text = render_report(data, template_name=template)\nexcept Exception as e:\n    if json_output:\n        print_json_error(...)\n    console.print(f\"[red]Template error: {e}[/red]\")\n    sys.exit(1)  # ← skips outer except at line 141\n\nOuter handler (lines 141-147):\nexcept Exception as e:\n    if json_output:\n        print_json_error(f\"Failed to generate report: {e}\", \"report_error\")\n        return\n    console.print(f\"[red]Error: {e}[/red]\")  # ← NOT reached\n    logger.exception(\"Failed to generate report\")  # ← NOT reached\n    sys.exit(1)",
+      "proposed_fix": "Replace `sys.exit(1)` with `raise` to let the exception propagate to the outer handler:\n\nexcept Exception as e:\n    if json_output:\n        print_json_error(f\"Failed to render template: {e}\", \"template_error\")\n    console.print(f\"[red]Template error: {e}[/red]\")\n    raise  # Propagate to outer handler\n\nAlternatively, add explicit logger.exception() and console.print() calls before sys.exit() in the template error branch to maintain consistency with other error paths.",
+      "auto_fixable": true
+    },
+    {
+      "id": "cli-003",
+      "severity": "LOW",
+      "file": "src/cli/report.py",
+      "line_range": "43",
+      "category": "dead_code",
+      "title": "ctx: click.Context parameter declared with @click.pass_context but never used in function body",
+      "root_cause": "The `@click.pass_context` decorator passes the Click Context object as the first argument to the command function. However, the `ctx` parameter is never referenced anywhere in the function body. This is dead code — the parameter should either be removed (if not needed) or used (if future features require access to the Click context such as retrieving parent command options or carrying state).",
+      "evidence": "Line 43: `ctx: click.Context,` — declared but never used\nLine 41: `@click.pass_context` — decorator present but ctx is not consumed\nContrast with other commands in the CLI that use @click.pass_context meaningfully.",
+      "proposed_fix": "Either remove `@click.pass_context` and the `ctx` parameter, or use it for something meaningful (e.g., `ctx.ensure_object(dict)` to pass state between commands). Since the command doesn't need context access currently, the cleanest fix is:\n\nRemove `@click.pass_context` decorator and `ctx: click.Context` from the function signature.",
+      "auto_fixable": true
+    },
+    {
+      "id": "dedup-001",
+      "severity": "LOW",
+      "file": "src/application/dedup.py",
+      "line_range": "85",
+      "category": "dead_code",
+      "title": "_level2_minhash_dedup: signature_map dict populated but never read (dead store)",
+      "root_cause": "Line 85 declares `signature_map: dict[str, dict] = {}` to map LSH keys to article dicts. The map is populated in the loop (lines 94-95, 116) but `signature_map` is never accessed after being written. The variable serves no purpose and creates unnecessary memory overhead. Removing it has no effect on functionality.",
+      "evidence": "Line 85: signature_map: dict[str, dict] = {}  # declared\nLine 94-95: signature_map[key] = a  # written\nLine 116: signature_map[key] = a  # written\nNo reads of signature_map anywhere in the function.",
+      "proposed_fix": "Remove `signature_map` declaration and all assignments to it:\n\n# Delete line 85: signature_map: dict[str, dict] = {}  # key -> article\n# Delete line 95: signature_map[key] = a\n# Delete line 116: signature_map[key] = a",
+      "auto_fixable": true
+    },
+    {
+      "id": "dedup-002",
+      "severity": "LOW",
+      "file": "src/application/dedup.py",
+      "line_range": "159-163",
+      "category": "dead_code",
+      "title": "_level3_embedding_dedup: id_to_embedding dict built but never read outside of building articles_with_emb",
+      "root_cause": "id_to_embedding is built to map chroma_id -> embedding vector. It is used in two places: (1) building articles_with_emb and emb_matrix (lines 168-172), and (2) checking `if e is None` in the result-building loop (lines 196-202). In the result-building loop, `e = id_to_embedding.get(a['id'])` is called TWICE per with-embedding article — once for the `if` check and once for the `duplicate_flags` check. This is inefficient (two dict lookups for the same key) but not incorrect.",
+      "evidence": "Lines 159-163: Build id_to_embedding mapping\nLines 168-172: Use id_to_embedding to build articles_with_emb and emb_matrix\nLines 196-202: e = id_to_embedding.get(a[\"id\"]) called in if condition, then same call again in else branch (actually: e is retrieved once per iteration, stored in local var, used in if/else — this is correct)\n\nNo dead store — the variable IS used. The inefficiency is minor (extra dict lookup in if vs using the stored `e` variable).",
+      "proposed_fix": "Not a bug — misidentified as dead code in initial analysis. No fix needed. The variable is used correctly. The only minor inefficiency is that articles_without_emb list (line 159 construction pattern) could be pre-filtered, but this doesn't affect correctness or performance materially.",
+      "auto_fixable": false
+    },
+    {
+      "id": "dedup-003",
+      "severity": "LOW",
+      "file": "src/storage/vector.py",
+      "line_range": "158-160",
+      "category": "redundant_import",
+      "title": "preload_embedding_model: redundant import logging at function scope — module-level import already available",
+      "root_cause": "Line 160: `logger = logging.getLogger(__name__)` inside `preload_embedding_model()`. But `logging` is already imported at the module level (line 16: `import logging`). The function-scoped import is unnecessary and inconsistent with the module's pattern (module-level logger uses `logger = logging.getLogger(__name__)` at line 40).",
+      "evidence": "Module-level: line 16 `import logging`\nFunction-level (line 158-160):\n```python\ndef preload_embedding_model() -> None:\n    import logging\n    logger = logging.getLogger(__name__)\n```\nModule-level (line 40):\n```python\nlogger = logging.getLogger(__name__)\n```",
+      "proposed_fix": "Remove the `import logging` and `logger = logging.getLogger(__name__)` lines from inside the function. Use the module-level `logger` directly, or create a function-specific logger if a different name is needed (but `__name__` would still be the module name).",
+      "auto_fixable": true
+    },
+    {
+      "id": "vector-001",
+      "severity": "LOW",
+      "file": "src/storage/vector.py",
+      "line_range": "170",
+      "category": "type_annotation",
+      "title": "get_chroma_collection() lacks return type annotation — inconsistent with project conventions",
+      "root_cause": "get_chroma_collection() is declared without a return type annotation (line 170: `def get_chroma_collection():`). All other functions in the module have proper annotations (e.g., `_get_chroma_client() -> PersistentClient`, `get_embedding_function() -> SentenceTransformer`). The ChromaDB Collection type should be annotated for IDE support and consistency.",
+      "evidence": "Line 170: def get_chroma_collection():  # no -> Collection annotation\nContrast with line 111: def _get_chroma_client() -> PersistentClient:  # annotated\nContrast with line 132: def get_embedding_function() -> SentenceTransformer:  # annotated",
+      "proposed_fix": "Add return type annotation using ChromaDB's Collection type:\n\nfrom chromadb import PersistentClient, Collection  # add Collection to existing import\n\ndef get_chroma_collection() -> Collection:",
+      "auto_fixable": true
+    },
+    {
+      "id": "vector-002",
+      "severity": "LOW",
+      "file": "src/storage/vector.py",
+      "line_range": "43-60",
+      "category": "semantic_confusion",
+      "title": "_check_memory_guard() name is semantically misleading — return True means 'memory OK, proceed' not 'guard triggered'",
+      "root_cause": "The function `_check_memory_guard()` suggests it returns True when the memory guard SHOULD block operations. In reality it returns True when memory is OK (operation can proceed) and False when memory is too high (operation should be skipped). This inversion creates confusion when reading call sites like `if not _check_memory_guard(): return`. The naming would be clearer as `_memory_is_safe()` or `_can_generate_embeddings()`.",
+      "evidence": "Line 49: memory = psutil.virtual_memory()\nLine 53: if available_gb < threshold_gb and available_gb < min_gb:\n    logger.warning(...)\n    return False  # Memory too low — skip operation\nLine 60: return True  # Memory OK — proceed with operation\n\nCall site (add_article_embedding line 209):\nif not _check_memory_guard():  # confusing: 'not guard' means proceed\n    return",
+      "proposed_fix": "Rename function to `_can_generate_embeddings() -> bool` which makes call sites self-documenting:\n\nif not _can_generate_embeddings():\n    return  # Clear: 'can't generate, so return early'",
+      "auto_fixable": true
+    },
+    {
+      "id": "vector-003",
+      "severity": "INFO",
+      "file": "src/storage/vector.py",
+      "line_range": "43-60",
+      "category": "memory_guard_logic",
+      "title": "_check_memory_guard condition may be too permissive — threshold uses AND but should use OR",
+      "root_cause": "Line 53: `if available_gb < threshold_gb and available_gb < min_gb:` — uses AND. This means embedding is skipped only when BOTH conditions are true: (1) available < 10% of total AND (2) available < 1GB. If the machine has 32GB RAM, threshold_gb = 3.2GB. If available = 2GB (below 1GB min but above 10% of 32GB=3.2GB? No, 2GB < 3.2GB AND 2GB < 1GB? 2GB is NOT < 1GB, so the AND condition fails — embedding proceeds even with only 2GB available on a 32GB machine. Conversely, if total=4GB, threshold=0.4GB. available=0.5GB: 0.5GB < 0.4GB? No. 0.5GB < 1GB? Yes. AND condition fails — embedding proceeds with 0.5GB on 4GB machine. The min_gb=1GB floor is intended to prevent embedding on memory-constrained systems, but the AND with threshold_gb creates a gap where systems with moderate total RAM but low absolute memory could still attempt embedding.",
+      "evidence": "Line 51: threshold_gb = 0.10 * memory.total / (1024**3)  # 10% of total\nLine 52: min_gb = 1.0  # Minimum 1GB available\nLine 53: if available_gb < threshold_gb and available_gb < min_gb:\n\nExample: 4GB total, available=0.5GB. threshold=0.4, min=1.0. 0.5 < 0.4? NO. 0.5 < 1.0? YES. AND=False → guard NOT triggered → proceeds with 0.5GB available.\nExample: 32GB total, available=2GB. threshold=3.2, min=1.0. 2 < 3.2? YES. 2 < 1.0? NO. AND=False → guard NOT triggered → proceeds with 2GB available.",
+      "proposed_fix": "Change AND to OR for more robust memory protection:\n\nif available_gb < min_gb or available_gb < threshold_gb:\n    logger.warning(...)\n    return False\n\nOr use the simpler floor approach: `if available_gb < min_gb:` (only check absolute floor, ignore percentage threshold since it's redundant with min_gb for typical systems).",
+      "auto_fixable": true
+    }
+  ],
+  "subtask_1_3_summary": "Reviewed src/cli/report.py and src/application/dedup.py. Found: (1) INFO: report-003 IndexError claim is a false positive — current dedup.py code is correct (emb_idx only increments for with-embedding articles, bounds are respected). (2) LOW cli-001: Path import at bottom of report.py violates PEP 8. (3) LOW cli-002: sys.exit(1) in template error branch bypasses outer exception handler. (4) LOW cli-003: unused ctx parameter. (5) LOW dedup-001: unused signature_map in _level2_minhash_dedup. (6) INFO dedup-002: id_to_embedding is NOT dead code (misidentified). (7) LOW dedup-003: redundant import logging in preload_embedding_model. (8) LOW vector-001: get_chroma_collection missing return type. (9) LOW vector-002: _check_memory_guard name is semantically inverted. (10) INFO vector-003: _check_memory_guard AND condition too permissive (edge case). No HIGH or MEDIUM severity new issues found.",
+  "reviewed_at": "2026-04-09T06:00:00Z"
+}

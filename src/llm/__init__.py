@@ -3,7 +3,7 @@
 Public API:
     from src.llm import LLMConfig, LLMClient, get_llm_client, llm_complete
     from src.llm import summarize_text, score_quality, extract_keywords
-    from src.llm import evaluate_report
+    from src.llm import evaluate_report, run_improvement_loop
 """
 
 from src.llm.core import (

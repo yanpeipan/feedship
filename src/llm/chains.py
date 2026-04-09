@@ -5,21 +5,39 @@ from __future__ import annotations
 from typing import Any
 
 from langchain_core.messages import BaseMessage
-from langchain_core.output_parsers import StrOutputParser
+from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 
 from src.llm.core import LLMClient, get_llm_client
+
+# Default max tokens for LLM calls (chains can override via config dict)
+DEFAULT_MAX_TOKENS = 300
+
+# Per-chain max tokens overrides
+MAX_TOKENS_PER_CHAIN: dict[str, int] = {
+    "classify": 100,  # single category name
+    "topic_title": 50,  # short title
+    "evaluate": 200,  # JSON with 4 scores
+    "layer_summary": 600,  # 2-3 paragraphs
+    "translate": 1000,  # full section translation
+}
 
 
 class AsyncLLMWrapper(Runnable):
     """LCEL Runnable that delegates to LLMClient.complete().
 
     Provides provider fallback + rate-limiting for LCEL chains.
+    Supports per-chain max_tokens via config dict: {"max_tokens": N, "chain_name": "..."}
     """
 
-    def __init__(self, llm_client: LLMClient | None = None) -> None:
+    def __init__(
+        self,
+        llm_client: LLMClient | None = None,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
+    ) -> None:
         self._client = llm_client
+        self._max_tokens = max_tokens
 
     @property
     def client(self) -> LLMClient:
@@ -27,7 +45,13 @@ class AsyncLLMWrapper(Runnable):
             self._client = get_llm_client()
         return self._client
 
-    async def _ainvoke_raw(self, input: Any) -> str:
+    def _resolve_max_tokens(self, config: Any) -> int:
+        """Resolve max_tokens from config dict or use instance default."""
+        if isinstance(config, dict):
+            return config.get("max_tokens", self._max_tokens)
+        return self._max_tokens
+
+    async def _ainvoke_raw(self, input: Any, config: Any = None) -> str:
         """Invoke with raw string input (for use with StrOutputParser)."""
         if isinstance(input, dict):
             # Try to extract text from dict input (LCEL passes prompt values as dicts)
@@ -38,7 +62,8 @@ class AsyncLLMWrapper(Runnable):
             text = input.content
         else:
             text = str(input)
-        return await self.client.complete(text)
+        max_tokens = self._resolve_max_tokens(config)
+        return await self.client.complete(text, max_tokens=max_tokens)
 
     async def ainvoke(
         self,
@@ -47,40 +72,56 @@ class AsyncLLMWrapper(Runnable):
         **kwargs: Any,
     ) -> str:
         """Async invoke — compatible with LCEL chain."""
-        return await self._ainvoke_raw(input)
+        return await self._ainvoke_raw(input, config)
 
     def invoke(self, input: Any, config: Any = None, **kwargs: Any) -> str:
-        """Sync invoke — delegates to async version via thread pool."""
-        import asyncio
-        import concurrent.futures
+        """Sync invoke — uses new event loop per call to avoid loop-in-loop crashes.
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(asyncio.run, self._ainvoke_raw(input))
-            return future.result()
+        Uses asyncio.new_event_loop() + run_until_complete() instead of asyncio.run()
+        to avoid 'RuntimeError: asyncio.run() cannot be called from a running event loop'.
+        Each call creates and closes its own loop, which is safe for sync contexts.
+        """
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(self._ainvoke_raw(input, config))
+        finally:
+            loop.close()
 
     async def abatch(
         self,
         inputs: list[Any],
+        config: Any = None,
         **kwargs: Any,
     ) -> list[str]:
         """Async batch invoke."""
-        return [await self._ainvoke_raw(i) for i in inputs]
+        return [await self._ainvoke_raw(i, config) for i in inputs]
 
-    def batch(self, inputs: list[Any], **kwargs: Any) -> list[str]:
+    def batch(
+        self,
+        inputs: list[Any],
+        config: Any = None,
+        **kwargs: Any,
+    ) -> list[str]:
         """Sync batch invoke."""
-        return [self.invoke(i) for i in inputs]
+        return [self.invoke(i, config) for i in inputs]
 
 
-# Singleton wrapper instance
-_async_llm_wrapper: AsyncLLMWrapper | None = None
+# Cache of wrappers per max_tokens to avoid per-call instantiation
+_llm_wrapper_cache: dict[int, AsyncLLMWrapper] = {}
 
 
-def _get_llm_wrapper() -> AsyncLLMWrapper:
-    """Get or create the singleton AsyncLLMWrapper."""
-    global _async_llm_wrapper
-    if _async_llm_wrapper is None:
-        _async_llm_wrapper = AsyncLLMWrapper()
-    return _async_llm_wrapper
+def _get_llm_wrapper(max_tokens: int | None = None) -> AsyncLLMWrapper:
+    """Get or create a cached AsyncLLMWrapper for the given max_tokens.
+
+    Using a cache avoids creating a new LLM client per chain call while
+    supporting per-chain max_tokens overrides.
+    """
+    key = max_tokens if max_tokens is not None else DEFAULT_MAX_TOKENS
+    if key not in _llm_wrapper_cache:
+        _llm_wrapper_cache[key] = AsyncLLMWrapper(max_tokens=key)
+    return _llm_wrapper_cache[key]
 
 
 # Article classification chain using LCEL
@@ -103,9 +144,13 @@ CLASSIFY_PROMPT = ChatPromptTemplate.from_messages(
 )
 
 
-def get_classify_chain():
+def get_classify_chain() -> Runnable:
     """Returns LCEL chain for article classification."""
-    return CLASSIFY_PROMPT | _get_llm_wrapper() | StrOutputParser()
+    return (
+        CLASSIFY_PROMPT
+        | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["classify"])
+        | StrOutputParser()
+    )
 
 
 # Layer summary generation chain
@@ -131,9 +176,13 @@ Summary:""",
 )
 
 
-def get_layer_summary_chain():
+def get_layer_summary_chain() -> Runnable:
     """Returns LCEL chain for layer summary generation."""
-    return LAYER_SUMMARY_PROMPT | _get_llm_wrapper() | StrOutputParser()
+    return (
+        LAYER_SUMMARY_PROMPT
+        | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["layer_summary"])
+        | StrOutputParser()
+    )
 
 
 # Topic title generation chain — generates a short title for an article cluster
@@ -141,7 +190,7 @@ TOPIC_TITLE_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a news editor. Given a group of articles on the same topic, generate a concise descriptive title (10-20 characters) that captures the key theme. Write in {target_lang}.",
+            "You are a news editor. Given a group of articles on the same topic, generate a concise descriptive title (max 20 characters) that captures the key theme. Write in {target_lang}.",
         ),
         (
             "human",
@@ -154,9 +203,13 @@ Generate one concise title (max 20 characters) that captures the key theme. Retu
 )
 
 
-def get_topic_title_chain():
+def get_topic_title_chain() -> Runnable:
     """Returns LCEL chain for generating a short title for an article cluster."""
-    return TOPIC_TITLE_PROMPT | _get_llm_wrapper() | StrOutputParser()
+    return (
+        TOPIC_TITLE_PROMPT
+        | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["topic_title"])
+        | StrOutputParser()
+    )
 
 
 # Report quality evaluation chain
@@ -179,9 +232,16 @@ Return ONLY valid JSON with four scores: coherence (0.0-1.0), relevance (0.0-1.0
 )
 
 
-def get_evaluate_chain():
-    """Returns LCEL chain for report quality evaluation."""
-    return EVALUATE_PROMPT | _get_llm_wrapper() | StrOutputParser()
+def get_evaluate_chain() -> Runnable:
+    """Returns LCEL chain for report quality evaluation.
+
+    Uses JsonOutputParser for validated JSON output instead of raw StrOutputParser.
+    """
+    return (
+        EVALUATE_PROMPT
+        | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["evaluate"])
+        | JsonOutputParser()
+    )
 
 
 # Translation chain
@@ -199,6 +259,10 @@ TRANSLATE_PROMPT = ChatPromptTemplate.from_messages(
 )
 
 
-def get_translate_chain():
+def get_translate_chain() -> Runnable:
     """Returns LCEL chain for report translation."""
-    return TRANSLATE_PROMPT | _get_llm_wrapper() | StrOutputParser()
+    return (
+        TRANSLATE_PROMPT
+        | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["translate"])
+        | StrOutputParser()
+    )

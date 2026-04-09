@@ -92,6 +92,7 @@ def _level2_minhash_dedup(articles: list[dict]) -> list[dict]:
             m = pickle.loads(sig_blob)
             key = a.get("content_hash") or id(a)
             lsh.insert(key, m)
+
             signature_map[key] = a
         except Exception as e:
             logger.warning("Failed to load MinHash for article %s: %s", a.get("id"), e)
@@ -113,6 +114,7 @@ def _level2_minhash_dedup(articles: list[dict]) -> list[dict]:
                 result.append(a)
                 # Add to LSH so later articles can dedup against it
                 lsh.insert(key, m)
+
                 signature_map[key] = a
         except Exception as e:
             logger.warning(
