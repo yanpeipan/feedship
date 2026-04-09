@@ -13,7 +13,7 @@ from src.application.summarize import summarize_article_content
 from src.llm.chains import (
     get_classify_chain,
     get_layer_summary_chain,
-    get_topic_title_chain,
+    get_topic_title_and_layer_chain,
     get_translate_chain,
 )
 from src.llm.core import LLMError
@@ -372,25 +372,27 @@ async def _cluster_articles_into_topics(
                 f"- {a.get('title', 'Untitled')}" for a in topic["sources"][:8]
             )
             try:
-                chain = get_topic_title_chain()
-                title = await chain.ainvoke(
+                chain = get_topic_title_and_layer_chain()
+                result = await chain.ainvoke(
                     {
                         "article_list": article_list,
                         "target_lang": _lang_name(target_lang),
                     }
                 )
-                topic["title"] = title.strip() or (
+                topic["title"] = (result.get("title") or "").strip()[:20] or (
                     topic["sources"][0].get("title", "Misc")[:20]
                     if topic["sources"]
                     else "Misc"
                 )
+                topic["layer"] = result.get("layer") or "AI应用"
             except Exception as e:
-                logger.warning("Topic title generation failed: %s", e)
+                logger.warning("Topic title and layer generation failed: %s", e)
                 topic["title"] = (
                     topic["sources"][0].get("title", "Misc")[:20]
                     if topic["sources"]
                     else "Misc"
                 )
+                topic["layer"] = "AI应用"
         return topic
 
     titled = await asyncio.gather(
@@ -765,11 +767,9 @@ async def _cluster_articles_async(
     all_processed = deduplicate_articles(all_processed)
 
     # Cluster ALL deduplicated articles together (not per-layer)
+    # Each topic already has "layer" set by get_topic_title_and_layer_chain inside
+    # _cluster_articles_into_topics, so no separate classification loop is needed.
     all_topics = await _cluster_articles_into_topics(all_processed, target_lang)
-
-    # Classify each cluster into a layer (1 LLM call per cluster)
-    for topic in all_topics:
-        topic["layer"] = await classify_cluster_layer(topic["sources"], target_lang)
 
     # Group topics by layer for template rendering
     articles_by_layer: dict[str, list[dict]] = {cat: [] for cat in LAYER_KEYS}

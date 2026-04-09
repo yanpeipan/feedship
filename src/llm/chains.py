@@ -212,6 +212,37 @@ def get_topic_title_chain() -> Runnable:
     )
 
 
+# Combined topic title + layer classification chain
+TOPIC_TITLE_AND_LAYER_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            'You are a news editor. Given a group of articles on the same topic, (1) generate a concise descriptive title (max 20 characters) that captures the key theme, and (2) classify the topic into one layer of the AI five-layer cake. Return ONLY valid JSON with keys: title (string, max 20 chars) and layer (one of: AI应用, AI模型, AI基础设施, 芯片, 能源). Example: {{"title": "GPT-5发布", "layer": "AI模型"}}',
+        ),
+        (
+            "human",
+            """Articles on this topic:
+{article_list}
+
+Return ONLY valid JSON with title and layer.""",
+        ),
+    ]
+)
+
+
+def get_topic_title_and_layer_chain() -> Runnable:
+    """Returns LCEL chain for generating a short title and layer for an article cluster.
+
+    Combines topic title generation and layer classification into a single LLM call
+    to reduce the number of LLM invocations during clustering.
+    """
+    return (
+        TOPIC_TITLE_AND_LAYER_PROMPT
+        | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["topic_title"])
+        | JsonOutputParser()
+    )
+
+
 # Report quality evaluation chain
 EVALUATE_PROMPT = ChatPromptTemplate.from_messages(
     [
