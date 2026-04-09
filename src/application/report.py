@@ -493,7 +493,7 @@ async def _translate_titles_batch_async(
 
     Returns a dict mapping original title -> translated title.
     """
-    if target_lang == "zh" or not titles:
+    if not titles:
         return {}
     chain = get_translate_chain()
     semaphore = asyncio.Semaphore(1)  # max 2 concurrent LLM calls
