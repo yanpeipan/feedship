@@ -33,10 +33,12 @@ class AsyncLLMWrapper(Runnable):
         llm_client: LLMClient | None = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,
         response_format: dict | None = None,
+        thinking: dict | None = None,
     ) -> None:
         self._client = llm_client
         self._max_tokens = max_tokens
         self._response_format = response_format
+        self._thinking = thinking
 
     @property
     def client(self) -> LLMClient:
@@ -68,6 +70,9 @@ class AsyncLLMWrapper(Runnable):
         if self._response_format:
             extra_body = dict(extra_body)
             extra_body["response_format"] = self._response_format
+        if self._thinking:
+            extra_body = dict(extra_body)
+            extra_body["thinking"] = self._thinking
         return await self.client.complete(
             text, max_tokens=max_tokens, extra_body=extra_body
         )
@@ -115,27 +120,31 @@ class AsyncLLMWrapper(Runnable):
         return [self.invoke(i, config) for i in inputs]
 
 
-# Cache of wrappers per (max_tokens, response_format) to avoid per-call instantiation
-_llm_wrapper_cache: dict[tuple[int, frozenset[tuple[str, Any]]], AsyncLLMWrapper] = {}
+# Cache of wrappers per (max_tokens, response_format, thinking) to avoid per-call instantiation
+_llm_wrapper_cache: dict[tuple[int, frozenset[tuple[str, Any]], frozenset[tuple[str, Any]]], AsyncLLMWrapper] = {}
 
 
 def _get_llm_wrapper(
     max_tokens: int | None = None,
     response_format: dict | None = None,
+    thinking: dict | None = None,
 ) -> AsyncLLMWrapper:
-    """Get or create a cached AsyncLLMWrapper for the given max_tokens and response_format.
+    """Get or create a cached AsyncLLMWrapper.
 
     Using a cache avoids creating a new LLM client per chain call while
-    supporting per-chain max_tokens overrides and JSON mode via response_format.
+    supporting per-chain max_tokens overrides, JSON mode via response_format,
+    and thinking config.
     """
     key = (
         max_tokens if max_tokens is not None else DEFAULT_MAX_TOKENS,
         frozenset(response_format.items()) if response_format else frozenset(),
+        frozenset(thinking.items()) if thinking else frozenset(),
     )
     if key not in _llm_wrapper_cache:
         _llm_wrapper_cache[key] = AsyncLLMWrapper(
             max_tokens=key[0],
             response_format=response_format,
+            thinking=thinking,
         )
     return _llm_wrapper_cache[key]
 
@@ -212,7 +221,9 @@ NER_PROMPT = ChatPromptTemplate.from_messages(
 def get_ner_chain() -> Runnable:
     """Returns LCEL chain for batch NER extraction."""
     return (
-        NER_PROMPT | _get_llm_wrapper(200, {"type": "json_object"}) | JsonOutputParser()
+        NER_PROMPT
+        | _get_llm_wrapper(200, {"type": "json_object"}, {"type": "disabled"})
+        | JsonOutputParser()
     )
 
 
