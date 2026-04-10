@@ -145,7 +145,7 @@ EVALUATE_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a professional news report editor. Evaluate report quality objectively. Return ONLY valid JSON.",
+            "You are a professional news report editor. Evaluate report quality objectively.",
         ),
         (
             "human",
@@ -161,13 +161,10 @@ Return ONLY valid JSON with four scores: coherence (0.0-1.0), relevance (0.0-1.0
 
 
 def get_evaluate_chain() -> Runnable:
-    """Returns LCEL chain for report quality evaluation.
-
-    Uses JsonOutputParser for validated JSON output instead of raw StrOutputParser.
-    """
+    """Returns LCEL chain for report quality evaluation."""
     return (
         EVALUATE_PROMPT
-        | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["evaluate"])
+        | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["evaluate"], {"type": "json_object"})
         | JsonOutputParser()
     )
 
@@ -227,7 +224,6 @@ ENTITY_TOPIC_PROMPT = ChatPromptTemplate.from_messages(
             "You are a news analyst. For the given entity and its articles, "
             "generate: (1) a headline (max 30 chars), (2) the AI five-layer cake layer, "
             "(3) signal tags, (4) a 1-sentence insight. "
-            "Return ONLY valid JSON. "
             "Layers: AI应用, AI模型, AI基础设施, 芯片, 能源.",
         ),
         (
@@ -241,7 +237,11 @@ ENTITY_TOPIC_PROMPT = ChatPromptTemplate.from_messages(
 
 def get_entity_topic_chain() -> Runnable:
     """Returns LCEL chain for entity topic headline + layer + signals."""
-    return ENTITY_TOPIC_PROMPT | _get_llm_wrapper(150) | JsonOutputParser()
+    return (
+        ENTITY_TOPIC_PROMPT
+        | _get_llm_wrapper(150, {"type": "json_object"})
+        | JsonOutputParser()
+    )
 
 
 # TLDR chain — generate 1-sentence TLDR for multiple entities at once
@@ -263,4 +263,8 @@ TLDR_PROMPT = ChatPromptTemplate.from_messages(
 
 def get_tldr_chain() -> Runnable:
     """Returns LCEL chain for batch TLDR generation."""
-    return TLDR_PROMPT | _get_llm_wrapper(300) | JsonOutputParser()
+    return (
+        TLDR_PROMPT
+        | _get_llm_wrapper(300, {"type": "json_object"})
+        | JsonOutputParser()
+    )
