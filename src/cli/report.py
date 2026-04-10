@@ -22,6 +22,28 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 
+async def _render_and_translate_report(data: dict, language: str) -> str:
+    """Render report and translate entire report in one LLM call.
+
+    Titles stay in original language during template rendering.
+    The full report is then translated once via get_translate_chain.
+    """
+    from src.llm.chains import get_translate_chain
+
+    report_text = await render_report(
+        data, template_name="default", target_lang=language
+    )
+
+    # Translate entire report in one LLM call (reduces N title calls to 1)
+    if language != "en":
+        translate_chain = get_translate_chain()
+        report_text = await translate_chain.ainvoke(
+            {"text": report_text, "target_lang": language}
+        )
+
+    return report_text
+
+
 @cli.command("report")
 @click.option("--since", required=True, help="Start date (YYYY-MM-DD)")
 @click.option("--until", required=True, help="End date (YYYY-MM-DD)")
@@ -108,9 +130,7 @@ def report(
 
         # Render report
         try:
-            report_text = asyncio.run(
-                render_report(data, template_name="default", target_lang=language)
-            )
+            report_text = asyncio.run(_render_and_translate_report(data, language))
         except Exception as e:
             if json_output:
                 print_json_error(f"Failed to render template: {e}", "template_error")

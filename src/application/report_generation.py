@@ -450,47 +450,6 @@ async def render_report(
         Rendered markdown string.
     """
 
-    # Pre-translate all titles before template rendering (Fix #5)
-    all_titles: list[str] = []
-    # Collect from layers -> topics -> sources
-    for layer_data in data.get("layers", []):
-        for topic in layer_data.get("topics", []):
-            for article in topic.get("sources", []):
-                title = article.get("title", "")
-                needs_translation = (
-                    target_lang == "zh" and title and not _is_chinese(title)
-                ) or (target_lang != "zh" and title and _is_chinese(title))
-                if needs_translation:
-                    all_titles.append(title)
-    # Collect from signals
-    for sig_type in ["leverage", "business"]:
-        for article in data.get("signals", {}).get(sig_type, []):
-            title = article.get("title", "")
-            needs_translation = (
-                target_lang == "zh" and title and not _is_chinese(title)
-            ) or (target_lang != "zh" and title and _is_chinese(title))
-            if needs_translation:
-                all_titles.append(title)
-    # Collect from creation
-    for creation_data in data.get("creation", []):
-        for topic in creation_data.get("topics", []):
-            for article in topic.get("sources", []):
-                title = article.get("title", "")
-                needs_translation = (
-                    target_lang == "zh" and title and not _is_chinese(title)
-                ) or (target_lang != "zh" and title and _is_chinese(title))
-                if needs_translation:
-                    all_titles.append(title)
-
-    if all_titles:
-        # Deduplicate titles to avoid redundant LLM calls
-        unique_titles = list(dict.fromkeys(all_titles))
-
-        pre_translated = await _translate_titles_batch_async(unique_titles, target_lang)
-        # Populate cache for template filters
-        for orig, translated in pre_translated.items():
-            _title_translate_cache[(orig, target_lang)] = translated
-
     try:
         from jinja2 import Environment, FileSystemLoader
     except ImportError:
