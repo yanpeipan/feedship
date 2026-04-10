@@ -16,7 +16,7 @@ from src.models import Feed, FeedType
 from src.providers import match_first
 from src.storage import list_feeds as storage_list_feeds
 from src.storage import update_feed as storage_update_feed
-from src.storage.sqlite.impl import _get_article_field
+from src.storage.sqlite.articles import _get_article_field
 from src.utils import generate_article_id
 from src.utils.scraping_utils import _circuit_lock, _provider_circuits
 
