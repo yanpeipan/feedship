@@ -16,12 +16,14 @@
       "Edit(/Users/y3/feedship/**)",
       "Glob(/Users/y3/feedship/**)",
       "Grep(/Users/y3/feedship/**)",
-      "Read(/Users/y3/feedship/.auto-claude/ideation/**)",
-      "Write(/Users/y3/feedship/.auto-claude/ideation/**)",
-      "Edit(/Users/y3/feedship/.auto-claude/ideation/**)",
+      "Read(/Users/y3/feedship/.auto-claude/specs/003-test-and-optimize-ai-report-clustering/**)",
+      "Write(/Users/y3/feedship/.auto-claude/specs/003-test-and-optimize-ai-report-clustering/**)",
+      "Edit(/Users/y3/feedship/.auto-claude/specs/003-test-and-optimize-ai-report-clustering/**)",
       "Bash(*)",
       "WebFetch(*)",
-      "WebSearch(*)"
+      "WebSearch(*)",
+      "mcp__context7__resolve-library-id(*)",
+      "mcp__context7__query-docs(*)"
     ]
   }
 }
