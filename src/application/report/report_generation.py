@@ -8,7 +8,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-from src.application.dedup import deduplicate_articles
 from src.application.entity_report import (
     ArticleEnriched,
     EntityClusterer,
@@ -307,9 +306,14 @@ async def _entity_report_async(
     from src.application.report.tldr import TLDRGenerator
 
     try:
-        # Layer 0: Signal Filter
+        # Level 0: Three-level dedup (before SignalFilter)
+        from src.application.dedup import deduplicate_articles
+
+        deduped = deduplicate_articles(pre_fetched_articles)
+
+        # Layer 1: Signal Filter
         signal_filter = SignalFilter()
-        filtered = signal_filter.filter(pre_fetched_articles)
+        filtered = signal_filter.filter(deduped)
 
         # Layer 1: NER + Enrich
         ner = NERExtractor(batch_size=20)
@@ -449,9 +453,8 @@ def cluster_articles_for_report(
         }
         for a in articles
     ]
-    deduped = deduplicate_articles(article_dicts)
     return asyncio.run(
-        _entity_report_async(deduped, since, until, auto_summarize, target_lang)
+        _entity_report_async(article_dicts, since, until, auto_summarize, target_lang)
     )
 
 
