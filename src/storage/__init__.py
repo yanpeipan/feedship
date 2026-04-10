@@ -15,6 +15,7 @@ from src.storage.sqlite.impl import (
     get_db,
     get_db_path,
     get_feed,
+    get_feeds_by_ids,
     init_db,
     list_articles,
     list_articles_for_llm,
