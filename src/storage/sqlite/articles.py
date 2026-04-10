@@ -509,7 +509,8 @@ def list_articles(
             f"""
             SELECT a.id, a.feed_id, f.name as feed_name, f.weight as feed_weight,
                    a.title, a.link, a.guid, a.published_at, a.description, a.content,
-                   a.summary, f.url as feed_url, a.content_hash, a.minhash_signature
+                   a.summary, a.quality_score, f.url as feed_url,
+                   a.content_hash, a.minhash_signature
             FROM articles a
             JOIN feeds f ON a.feed_id = f.id
             WHERE {where_clause}
