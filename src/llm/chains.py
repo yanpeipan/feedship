@@ -63,7 +63,12 @@ class AsyncLLMWrapper(Runnable):
         else:
             text = str(input)
         max_tokens = self._resolve_max_tokens(config)
-        return await self.client.complete(text, max_tokens=max_tokens)
+        extra_body = {}
+        if isinstance(config, dict):
+            extra_body = config.get("extra_body", {})
+        return await self.client.complete(
+            text, max_tokens=max_tokens, extra_body=extra_body
+        )
 
     async def ainvoke(
         self,
@@ -275,7 +280,7 @@ def get_evaluate_chain() -> Runnable:
     )
 
 
-# Translation chain
+# Translation chain — for section summaries, preserves article titles in links
 TRANSLATE_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
@@ -289,12 +294,40 @@ TRANSLATE_PROMPT = ChatPromptTemplate.from_messages(
     ]
 )
 
+# Title translation chain — explicitly translates titles without restriction
+TITLE_TRANSLATE_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are a professional translator. Translate the following article title to {target_lang}. Only output the translated title, nothing else.",
+        ),
+        (
+            "human",
+            "Title to translate:\n{text}",
+        ),
+    ]
+)
+
 
 def get_translate_chain() -> Runnable:
-    """Returns LCEL chain for report translation."""
+    """Returns LCEL chain for report section translation."""
     return (
         TRANSLATE_PROMPT
         | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["translate"])
+        | StrOutputParser()
+    )
+
+
+def get_title_translate_chain() -> Runnable:
+    """Returns LCEL chain for article title translation.
+
+    Disables thinking to get clean title output without reasoning prefixes.
+    """
+    return (
+        TITLE_TRANSLATE_PROMPT
+        | _get_llm_wrapper(50).with_config(
+            extra_body={"thinking": {"type": "disabled"}}
+        )
         | StrOutputParser()
     )
 

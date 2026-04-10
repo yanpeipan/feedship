@@ -12,6 +12,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
+from typing import Any
 
 from litellm import Router
 
@@ -98,6 +99,7 @@ class LLMClient:
         *,
         max_tokens: int = 300,
         temperature: float = 0.3,
+        extra_body: dict | None = None,
     ) -> str:
         """Call LLM via Router.
 
@@ -105,6 +107,7 @@ class LLMClient:
             prompt: The prompt to send
             max_tokens: Max response tokens
             temperature: Sampling temperature
+            extra_body: Extra params passed to litellm acompletion (e.g. thinking config)
 
         Returns:
             LLM response text
@@ -119,12 +122,21 @@ class LLMClient:
         async with self.semaphore:
             self._daily_call_count += 1
             try:
-                response = await llm_router.acompletion(
-                    model=self.config.model,
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                )
+                kwargs: dict[str, Any] = {
+                    "model": self.config.model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                }
+                if extra_body:
+                    # Extract thinking config to pass at top level (not in extra_body)
+                    thinking = extra_body.pop("thinking", None)
+                    if thinking:
+                        kwargs["thinking"] = thinking
+                    # Pass remaining fields in extra_body
+                    if extra_body:
+                        kwargs["extra_body"] = extra_body
+                response = await llm_router.acompletion(**kwargs)
                 choices = response.get("choices")
                 if not choices:
                     raise ProviderUnavailable("Router returned empty choices")

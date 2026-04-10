@@ -9,13 +9,22 @@ from pathlib import Path
 from typing import Any
 
 from src.application.dedup import deduplicate_articles
+from src.application.entity_report import (
+    ArticleEnriched,
+    EntityClusterer,
+    EntityTag,
+    EntityTopic,
+    NERExtractor,
+    ReportData,
+    SignalFilter,
+    TLDRGenerator,
+)
 from src.llm.chains import (
     get_classify_chain,
     get_layer_summary_chain,
     get_topic_title_and_layer_chain,
-    get_translate_chain,
 )
-from src.llm.core import LLMError
+from src.llm.core import LLMError, get_llm_client
 from src.storage import list_articles_for_llm, update_article_llm
 from src.storage.vector import get_chroma_collection
 
@@ -443,6 +452,45 @@ def _classify_creation(article: dict) -> bool:
     return any(kw in text for kw in _CREATION_KEYWORDS)
 
 
+def _clean_translation(text: str) -> str:
+    """Strip thinking/analysis prefix from LLM translation response.
+
+    MiniMax returns thinking blocks that pollute the clean translation.
+    Extract the actual Chinese translation from the answer portion.
+    """
+    import re
+
+    text = text.strip()
+
+    # Try to find "final answer" / "最后答案" marker first (before first Chinese)
+    # This skips the user's prompt that's embedded in the thinking block
+    answer_match = re.search(
+        r'(?:final answer|最后答案|answer|答案)[:：]\s*["\']?([\u4e00-\u9fff]',
+        text,
+        re.IGNORECASE,
+    )
+    if answer_match:
+        # Extract from Chinese char after the answer marker
+        start = answer_match.start(1)
+        result = text[start:].strip().strip('"').strip("'")
+        result = re.sub(r"[.。]+$", "", result)
+        if result:
+            return result
+
+    # Fallback: find first Chinese character and extract from there
+    chinese_start = re.search(r"[\u4e00-\u9fff]", text)
+    if chinese_start:
+        result = text[chinese_start.start() :].strip()
+        result = re.sub(r'["\']+$', "", result)
+        result = re.sub(r"[.。]+$", "", result)
+        if result:
+            return result
+
+    return text.strip().strip('"').strip("'")
+
+    return text.strip().strip('"').strip("'")
+
+
 def _is_chinese(text: str) -> bool:
     """Detect if text contains Chinese characters."""
     return bool(re.search(r"[\u4e00-\u9fff]", text))
@@ -459,32 +507,19 @@ def _translate_title_sync(title: str, target_lang: str) -> str:
     before template rendering. This function only performs cache lookup
     to avoid asyncio.run_until_complete() misuse in async context.
     """
-
-    if target_lang == "zh":
-        return title
     cache_key = (title, target_lang)
     if cache_key in _title_translate_cache:
         return _title_translate_cache[cache_key]
 
     # Cache miss — pre-translation should have populated the cache.
-    # Return original title as fallback to avoid blocking on LLM call.
+    # Return original title as fallback; do NOT call async LLM from sync Jinja2 context.
     logger.warning(
         "Title translation cache miss for '%s' -> %s. "
         "Pre-translation may not have run correctly.",
         title[:50],
         target_lang,
     )
-
-    import asyncio
-
-    # Use existing event loop instead of creating new one (Fix #5)
-    loop = asyncio.get_event_loop()
-    translated = loop.run_until_complete(
-        get_translate_chain().ainvoke({"text": title, "target_lang": target_lang})
-    )
-
-    _title_translate_cache[cache_key] = translated
-    return translated
+    return title
 
 
 async def _translate_titles_batch_async(
@@ -496,35 +531,40 @@ async def _translate_titles_batch_async(
     """
     if not titles:
         return {}
-    chain = get_translate_chain()
-    semaphore = asyncio.Semaphore(1)  # max 2 concurrent LLM calls
+    print(f"_translate_titles_batch_async: {len(titles)} titles")
+    client = get_llm_client()
+    semaphore = asyncio.Semaphore(1)
 
     async def translate_one(title: str) -> tuple[str, str]:
         async with semaphore:
-            result = await chain.ainvoke({"text": title, "target_lang": target_lang})
-            return (title, result)
+            prompt = f"直接翻译成中文，不要解释：{title}"
+            result = await client.complete(prompt, max_tokens=300)
+            cleaned = _clean_translation(result.strip())
+            print(f"  CLEANED: {title[:40]} -> {cleaned[:80]}")
+            return (title, cleaned)
 
     results = await asyncio.gather(
         *[translate_one(t) for t in titles], return_exceptions=True
     )
-    return {
-        title: translated
-        for title, translated in results
-        if not isinstance(translated, Exception)
-    }
+    return {item[0]: item[1] for item in results if not isinstance(item, Exception)}
 
 
 def _format_article_title(title: str, target_lang: str) -> str:
     """Format article title with translation if needed.
 
     Returns:
-        - title (if target_lang == zh or title is not Chinese)
-        - title（translated）if title is Chinese and target_lang != zh
+        - translated title (if title is not Chinese and target_lang != en)
+        - title（translated）if title is Chinese and target_lang == en
+        - title otherwise
     """
-    if target_lang == "zh" or not _is_chinese(title):
-        return title
-    translated = _translate_title_sync(title, target_lang)
-    return f"{title}（{translated}）"
+    if target_lang == "en" and _is_chinese(title):
+        # Show English title when target is English, with Chinese original
+        translated = _translate_title_sync(title, target_lang)
+        return f"{title}（{translated}）"
+    if target_lang != "en" and not _is_chinese(title):
+        # Translate non-Chinese titles (e.g. English -> Chinese)
+        return _translate_title_sync(title, target_lang)
+    return title
 
 
 # Template directory
@@ -1105,18 +1145,6 @@ async def render_report(
         target_lang=target_lang,
     )
 
-
-# Re-export entity clustering classes from entity_report/ subpackage
-from src.application.entity_report import (
-    ArticleEnriched,
-    EntityTag,
-    EntityTopic,
-    ReportData,
-    SignalFilter,
-    NERExtractor,
-    EntityClusterer,
-    TLDRGenerator,
-)
 
 __all__ = [
     "ArticleEnriched",
