@@ -7,6 +7,7 @@ Scoring and ranking logic is encapsulated in this layer.
 from __future__ import annotations
 
 import concurrent.futures
+import logging
 from dataclasses import dataclass
 
 from src.application.combine import combine_scores
@@ -26,6 +27,28 @@ from src.storage import (
 from src.storage.vector import (
     search_articles_semantic as storage_search_articles_semantic,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _check_ml_dependencies() -> bool:
+    """Check whether optional ML dependencies (chromadb, sentence-transformers) are available.
+
+    Returns:
+        True if all ML dependencies are installed.
+
+    Raises:
+        RuntimeError: If any ML dependency is missing, with an install hint.
+    """
+    try:
+        import chromadb  # noqa: F401
+        from sentence_transformers import SentenceTransformer  # noqa: F401
+    except ImportError as e:
+        raise RuntimeError(
+            "Semantic search requires chromadb and sentence-transformers. "
+            "Install with: pip install feedship[ml]"
+        ) from e
+    return True
 
 
 @dataclass
