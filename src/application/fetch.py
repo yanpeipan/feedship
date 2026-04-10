@@ -86,8 +86,8 @@ def _parse_articles(feed: Feed, articles: list) -> list:
     return parsed_articles
 
 
-async def _fetch_one_core(feed: Feed, articles: list) -> int:
-    """Process fetched articles: parse, store, and add embeddings.
+async def _fetch_one_core(feed: Feed, articles: list) -> tuple[int, list, str | None]:
+    """Process fetched articles: parse and store. Do NOT add embeddings.
 
     This is the async core shared by both the async fetch path
     and any future batch processing pipeline.
@@ -97,16 +97,19 @@ async def _fetch_one_core(feed: Feed, articles: list) -> int:
         articles: List of article objects from the provider.
 
     Returns:
-        Number of new articles inserted.
+        Tuple of (new_articles_inserted, embedding_articles, error).
+        embedding_articles is a list of dicts suitable for add_article_embeddings.
+        error is None on success, or an error message string on failure.
     """
     if not articles:
-        return 0
+        return 0, [], None
 
     parsed_articles = _parse_articles(feed, articles)
     if not parsed_articles:
-        return 0
+        return 0, [], None
 
     # Batch upsert all articles in one transaction
+    article_id_map: list[tuple] = []
     try:
         from src.storage.sqlite.impl import upsert_articles_async
 
@@ -116,38 +119,28 @@ async def _fetch_one_core(feed: Feed, articles: list) -> int:
         new_count = len(article_id_map)
     except Exception as e:
         logger.warning("Failed to store articles for feed %s: %s", feed.id, e)
-        return 0
+        return 0, [], f"Failed to store articles: {e}"
 
-    # Batch add embeddings
+    # Build article dicts for batch embedding (without calling add_article_embeddings)
+    embedding_articles: list = []
     if new_count > 0:
-        try:
-            _check_ml_dependencies()
-            from src.storage.vector import add_article_embeddings
+        guid_to_article = {a["guid"]: a for a in parsed_articles}
+        for article_id, guid in article_id_map:
+            a = guid_to_article[guid]
+            embedding_articles.append(
+                {
+                    "article_id": article_id,
+                    "title": a["title"],
+                    "content": a["content"],
+                    "url": a["link"],
+                    "published_at": a["published_at"],
+                    "author": a.get("author") or "",
+                    "tags": a.get("tags") or "",
+                    "category": a.get("category") or "",
+                }
+            )
 
-            # Build article dicts for batch embedding
-            guid_to_article = {a["guid"]: a for a in parsed_articles}
-            embedding_articles = []
-            for article_id, guid in article_id_map:
-                a = guid_to_article[guid]
-                embedding_articles.append(
-                    {
-                        "article_id": article_id,
-                        "title": a["title"],
-                        "content": a["content"],
-                        "url": a["link"],
-                        "published_at": a["published_at"],
-                        "author": a.get("author") or "",
-                        "tags": a.get("tags") or "",
-                        "category": a.get("category") or "",
-                    }
-                )
-            await asyncio.to_thread(add_article_embeddings, embedding_articles)
-            await asyncio.sleep(0)  # Ensure progress bar updates after blocking I/O
-        except Exception as e:
-            logger.warning("Failed to add embeddings for feed %s: %s", feed.id, e)
-            # Don't fail the fetch - embeddings are non-critical
-
-    return new_count
+    return new_count, embedding_articles, None
 
 
 async def fetch_one_async(feed: Feed) -> dict:
@@ -201,8 +194,22 @@ async def fetch_one_async(feed: Feed) -> dict:
 
     articles = result.articles
 
-    # Delegate to the async core
-    new_count = await _fetch_one_core(feed, articles)
+    # Delegate to the async core (returns upsert results, not embeddings)
+    new_count, embedding_articles, error = await _fetch_one_core(feed, articles)
+    if error:
+        return {"new_articles": 0, "error": error}
+
+    # Add embeddings (single-feed path — backward compatibility with direct CLI calls)
+    if embedding_articles:
+        try:
+            _check_ml_dependencies()
+            from src.storage.vector import add_article_embeddings
+
+            await asyncio.to_thread(add_article_embeddings, embedding_articles)
+            await asyncio.sleep(0)  # Ensure progress bar updates after blocking I/O
+        except Exception as e:
+            logger.warning("Failed to add embeddings for feed %s: %s", feed.id, e)
+            # Don't fail the fetch — embeddings are non-critical
 
     return {"new_articles": new_count}
 

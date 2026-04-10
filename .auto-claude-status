@@ -1,10 +1,10 @@
 {
   "active": true,
   "spec": "013-batch-article-embeddings-across-all-feeds-instead-",
-  "state": "planning",
+  "state": "building",
   "subtasks": {
-    "completed": 0,
-    "total": 0,
+    "completed": 1,
+    "total": 6,
     "in_progress": 1,
     "failed": 0
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 2,
+    "number": 3,
     "started_at": "2026-04-11T01:57:42.028039"
   },
-  "last_update": "2026-04-11T02:00:32.635961"
+  "last_update": "2026-04-11T02:04:55.300300"
 }
