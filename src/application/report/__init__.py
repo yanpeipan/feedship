@@ -11,11 +11,7 @@ For CLI entry point functions, import from src.application.report directly
 (e.g. from src.application.report import cluster_articles_for_report).
 """
 
-# Re-export CLI entry points from report.py (the module, not the package).
-# Use importlib to avoid circular import since report.py imports from this package.
-import importlib.machinery
-import os as _os
-
+# Re-export CLI entry points from report_generation module.
 from src.application.report.entity_cluster import EntityClusterer
 from src.application.report.filter import SignalFilter
 from src.application.report.models import (
@@ -32,19 +28,14 @@ from src.application.report.render import (
     render_entity_inline,
     render_entity_report,
 )
+
+# Import entry points from sibling module (no circular import since report.py imports from this package)
+from src.application.report.report_generation import (
+    LAYER_KEYS,
+    cluster_articles_for_report,
+    render_report,
+)
 from src.application.report.tldr import TLDRGenerator
-
-_report_py = _os.path.join(
-    _os.path.dirname(_os.path.dirname(__file__)), "report_generation.py"
-)
-_loader = importlib.machinery.SourceFileLoader(
-    "src.application.report.report", _report_py
-)
-_report_mod = _loader.load_module()
-
-cluster_articles_for_report = _report_mod.cluster_articles_for_report
-render_report = _report_mod.render_report
-LAYER_KEYS = _report_mod.LAYER_KEYS
 
 __all__ = [
     "SignalFilter",

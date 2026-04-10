@@ -298,7 +298,7 @@ def run_improvement_loop(
     """
     import asyncio
 
-    from src.application.report_generation import (
+    from src.application.report.report_generation import (
         cluster_articles_for_report,
         render_report,
     )
