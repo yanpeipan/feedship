@@ -15,3 +15,12 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: pip-audit
+        name: pip-audit
+        entry: sh -c "pip install pip-audit > /dev/null 2>&1 && pip-audit --exit-zero"
+        language: system
+        pass_filenames: false
+        types: [python]
