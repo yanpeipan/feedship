@@ -438,16 +438,15 @@ def search_articles_semantic(
         # Combine with $and
         where_clause = {"$and": [{k: v} for k, v in where_conditions]}
 
-    with _embedding_lock:
-        embedding_fn = get_embedding_function()
-        try:
-            emb = embedding_fn.encode(
-                [query_text], convert_to_numpy=True, normalize_embeddings=True
-            )[0]
-        except Exception as e:
-            logger.error("Encoding failed for semantic query: %s", e)
-            raise
-        embedding_vector = emb.tolist()
+    embedding_fn = get_embedding_function()
+    try:
+        emb = embedding_fn.encode(
+            [query_text], convert_to_numpy=True, normalize_embeddings=True
+        )[0]
+    except Exception as e:
+        logger.error("Encoding failed for semantic query: %s", e)
+        raise
+    embedding_vector = emb.tolist()
 
     # ChromaDB is thread-safe for reads; no lock needed
     collection = get_chroma_collection()
