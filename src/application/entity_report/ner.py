@@ -34,7 +34,9 @@ class NERExtractor:
     def __init__(self, batch_size: int = 10) -> None:
         self.batch_size = batch_size
 
-    def _normalize_batch(self, raw_entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _normalize_batch(
+        self, raw_entities: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Normalize entity names and deduplicate within a batch."""
         seen: set[str] = set()
         normalized = []
@@ -88,7 +90,7 @@ class NERExtractor:
                     results.extend(self._normalize_batch(parsed))
 
                 return results
-            except Exception as e:
+            except Exception:
                 if attempt < len(delays) - 1:
                     await asyncio.sleep(delay)
                 else:

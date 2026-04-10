@@ -42,21 +42,24 @@ class TLDRGenerator:
                 lines = []
                 for i, topic in enumerate(selected, 1):
                     headline = topic.headline or topic.entity.name
-                    articles_text = " | ".join(
-                        a.title for a in topic.articles[:3]
+                    articles_text = " | ".join(a.title for a in topic.articles[:3])
+                    lines.append(
+                        f"{i}. [{topic.dimension}] {headline}: {articles_text}"
                     )
-                    lines.append(f"{i}. [{topic.dimension}] {headline}: {articles_text}")
 
                 prompt_text = "\n".join(lines)
-                lang_name = {"zh": "中文", "en": "English", "ja": "日本語", "ko": "한국어"}.get(
-                    target_lang, "English"
-                )
+                lang_name = {
+                    "zh": "中文",
+                    "en": "English",
+                    "ja": "日本語",
+                    "ko": "한국어",
+                }.get(target_lang, "English")
                 result = await chain.ainvoke(
                     {"topics": prompt_text, "target_lang": lang_name}
                 )
                 parsed = result if isinstance(result, list) else []
                 return [str(item) for item in parsed]
-            except Exception as e:
+            except Exception:
                 if attempt < len(delays) - 1:
                     await asyncio.sleep(delay)
                 else:

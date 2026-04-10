@@ -2,17 +2,32 @@
 
 import asyncio
 from collections import defaultdict
-from typing import Any
 
 from .models import ArticleEnriched, EntityTag, EntityTopic
-
 
 _DIMENSION_KEYWORDS = {
     "release": ["发布", "推出", "上线", "release", "launch", "debut", "unveil"],
     "funding": ["融资", "投资", "Funding", "Series", "investment", "raised", "round"],
     "research": ["研究", "论文", "发现", "research", "paper", "study", "discovery"],
-    "ecosystem": ["生态", "合作", "集成", "partner", "ecosystem", "integration", "collab"],
-    "policy": ["监管", "政策", "禁止", "regulation", "policy", "ban", "law", "EU AI Act"],
+    "ecosystem": [
+        "生态",
+        "合作",
+        "集成",
+        "partner",
+        "ecosystem",
+        "integration",
+        "collab",
+    ],
+    "policy": [
+        "监管",
+        "政策",
+        "禁止",
+        "regulation",
+        "policy",
+        "ban",
+        "law",
+        "EU AI Act",
+    ],
 }
 
 
@@ -59,7 +74,7 @@ async def _generate_entity_topic(
                 headline=headline,
                 signals=signals,
             )
-        except Exception as e:
+        except Exception:
             if attempt < len(delays) - 1:
                 await asyncio.sleep(delay)
             else:
@@ -109,17 +124,17 @@ class EntityClusterer:
         texts = " ".join(a.title + " " + (a.summary or "") for a in articles[:5])
         return _classify_dimension(texts)
 
-    async def cluster(
-        self, articles: list[ArticleEnriched]
-    ) -> list[EntityTopic]:
+    async def cluster(self, articles: list[ArticleEnriched]) -> list[EntityTopic]:
         """Cluster enriched articles by entity, generate topics."""
         groups = self._group_by_entity(articles)
         topics: list[EntityTopic] = []
 
         for entity_id, arts in groups.items():
             dimension = self._classify_dimension(arts)
-            entity_tag = arts[0].entities[0] if arts and arts[0].entities else EntityTag(
-                name=entity_id, normalized_id=entity_id, type="UNKNOWN"
+            entity_tag = (
+                arts[0].entities[0]
+                if arts and arts[0].entities
+                else EntityTag(name=entity_id, normalized_id=entity_id, type="UNKNOWN")
             )
 
             # Large event split: if > threshold, split by dimension

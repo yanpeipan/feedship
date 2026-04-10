@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 
 @dataclass
@@ -24,7 +23,7 @@ class ArticleEnriched:
     summary: str
     quality_score: float
     feed_weight: float
-    published_at: Optional[datetime]
+    published_at: datetime | None
     feed_id: str
     entities: list[EntityTag] = field(default_factory=list)
     layer: str = "AI应用"  # AI five-layer cake category
