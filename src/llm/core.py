@@ -21,7 +21,7 @@ from typing import Any
 import tiktoken
 
 # LiteLLM — unified LLM client
-from litellm import acompletion
+from litellm import Router
 
 from src.application.config import _get_settings
 
@@ -299,7 +299,7 @@ class LLMClient:
 
             try:
                 response = await asyncio.wait_for(
-                    acompletion(**kwargs),
+                    llm_router.acompletion(**kwargs),
                     timeout=self.config.timeout_seconds,
                 )
                 # Handle MiniMax overload returning choices: None
@@ -338,6 +338,19 @@ class LLMClient:
 # ---------------------------------------------------------------------------
 
 _llm_client: LLMClient | None = None
+
+# LiteLLM Router singleton
+_llm_settings = _get_settings()
+_llm_config = _llm_settings.llm or {}
+_model_list: list[dict] = _llm_config.get("model_list", [])
+_routing_strategy = _llm_config.get("routing_strategy", "usage-based-routing")
+
+llm_router: Router = Router(
+    model_list=_model_list,
+    routing_strategy=_routing_strategy,
+    num_retries=2,
+    timeout=45,
+)
 
 
 def get_llm_client() -> LLMClient:
