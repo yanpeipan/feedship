@@ -212,9 +212,9 @@ def add_article_embedding(
     if not _check_memory_guard():
         return
 
-    # Serialize encoding + ChromaDB operations per collection to avoid concurrency issues
+    # Serialize ChromaDB operations per collection to avoid concurrency issues
     col_lock = _col_locks.setdefault("articles", threading.Lock())
-    with _embedding_lock, col_lock:
+    with col_lock:
         collection = get_chroma_collection()
 
         # Determine embedding text
