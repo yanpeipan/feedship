@@ -31,8 +31,8 @@ console = Console()
 )
 @click.option(
     "--limit",
-    default=200,
-    help="Max articles to include in report (default: 200)",
+    default=3333,
+    help="Max articles to include in report (default: 3333)",
 )
 @click.option(
     "--auto-summarize/--no-auto-summarize",
