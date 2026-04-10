@@ -668,10 +668,10 @@ def upsert_article_summary(
         return
 
     col_lock = _col_locks.setdefault("article_summaries", threading.Lock())
-    with _embedding_lock, col_lock:
-        collection = get_llm_summary_collection()
-        embedding_fn = get_embedding_function()
 
+    # Phase 1: Serialize encoding (cross-collection lock to prevent GPU/MPS contention)
+    with _embedding_lock:
+        embedding_fn = get_embedding_function()
         try:
             emb = embedding_fn.encode(
                 [summary], convert_to_numpy=True, normalize_embeddings=True
@@ -681,12 +681,14 @@ def upsert_article_summary(
             raise
         embedding_vector = emb.tolist()
 
-        metadata = {
-            "title": title or "",
-            "url": url or "",
-            "published_at": _published_at_to_timestamp(published_at),
-        }
-
+    # Phase 2: Serialize ChromaDB write per collection
+    metadata = {
+        "title": title or "",
+        "url": url or "",
+        "published_at": _published_at_to_timestamp(published_at),
+    }
+    with col_lock:
+        collection = get_llm_summary_collection()
         try:
             collection.upsert(
                 ids=[article_id],
@@ -727,10 +729,10 @@ def upsert_article_keywords(
     keywords_text = " | ".join(keywords)
 
     col_lock = _col_locks.setdefault("article_keywords", threading.Lock())
-    with _embedding_lock, col_lock:
-        collection = get_llm_keywords_collection()
-        embedding_fn = get_embedding_function()
 
+    # Phase 1: Serialize encoding (cross-collection lock to prevent GPU/MPS contention)
+    with _embedding_lock:
+        embedding_fn = get_embedding_function()
         try:
             emb = embedding_fn.encode(
                 [keywords_text], convert_to_numpy=True, normalize_embeddings=True
@@ -740,13 +742,15 @@ def upsert_article_keywords(
             raise
         embedding_vector = emb.tolist()
 
-        metadata = {
-            "title": title or "",
-            "url": url or "",
-            "published_at": _published_at_to_timestamp(published_at),
-            "keywords": keywords_text,
-        }
-
+    # Phase 2: Serialize ChromaDB write per collection
+    metadata = {
+        "title": title or "",
+        "url": url or "",
+        "published_at": _published_at_to_timestamp(published_at),
+        "keywords": keywords_text,
+    }
+    with col_lock:
+        collection = get_llm_keywords_collection()
         try:
             collection.upsert(
                 ids=[article_id],
