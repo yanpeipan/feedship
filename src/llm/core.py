@@ -18,6 +18,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
+import httpx
 import tiktoken
 
 # LiteLLM — unified LLM client
@@ -292,6 +293,13 @@ class LLMClient:
         """Try a single provider with semaphore + timeout."""
         async with self.semaphore:
             self._daily_call_count += 1
+
+            # Use direct httpx when base_url is configured to bypass litellm URL construction
+            if self.config.base_url:
+                return await self._try_complete_direct(
+                    provider, prompt, max_tokens, temperature
+                )
+
             kwargs = self._get_litellm_kwargs(provider)
             kwargs["max_tokens"] = max_tokens
             kwargs["temperature"] = temperature
@@ -313,6 +321,40 @@ class LLMClient:
                 raise LLMError(
                     f"Provider {provider} timed out after {self.config.timeout_seconds}s"
                 ) from None
+
+    async def _try_complete_direct(
+        self,
+        provider: str,
+        prompt: str,
+        max_tokens: int,
+        temperature: float,
+    ) -> str:
+        """Direct httpx call — bypasses litellm URL/model auto-detection."""
+        model = _resolve_model(self.config, provider)
+        url = f"{self.config.base_url.rstrip('/')}/chat/completions"
+        headers: dict[str, str] = {}
+        if self.config.api_key:
+            headers["Authorization"] = f"Bearer {self.config.api_key}"
+        headers["Content-Type"] = "application/json"
+
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+        async with httpx.AsyncClient(timeout=self.config.timeout_seconds) as client:
+            response = await client.post(url, json=payload, headers=headers)
+
+        if response.status_code == 529:
+            raise LLMError(f"Provider {provider} returned 529 (overloaded)")
+        response.raise_for_status()
+        data = response.json()
+        choices = data.get("choices")
+        if not choices:
+            raise LLMError(f"Provider {provider} returned empty choices")
+        return choices[0]["message"]["content"]
 
     async def batch_complete(
         self,
