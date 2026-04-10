@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import re
 from typing import Any
@@ -12,33 +11,6 @@ from src.application.report.models import ArticleEnriched, EntityTag
 from src.llm.chains import get_ner_chain
 
 logger = logging.getLogger(__name__)
-
-
-def _extract_json(text: str) -> str | None:
-    """Extract JSON array/object from raw LLM text response.
-
-    Handles common LLM output patterns:
-    - JSON wrapped in markdown code blocks (```json ... ```)
-    - JSON with leading/trailing explanatory text
-    - JSON array or object at the start of the text
-
-    Returns the JSON string if found, else None.
-    """
-    if not text:
-        return None
-    text = text.strip()
-
-    # Pattern 1: markdown code block
-    m = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
-    if m:
-        return m.group(1).strip()
-
-    # Pattern 2: starts with [ (array) or { (object)
-    m = re.search(r"(\[[\s\S]*\]|\{[\s\S]*\})", text, re.DOTALL)
-    if m:
-        return m.group(1).strip()
-
-    return None
 
 
 def normalize_entity(name: str, _type: str | None = None) -> str:
@@ -84,9 +56,9 @@ class NERExtractor:
                 for attempt, delay in enumerate(delays):
                     try:
                         raw = await chain.ainvoke({"articles_block": articles_block})
-                        # Try to extract JSON from potentially polluted LLM output
-                        json_str = _extract_json(raw) if isinstance(raw, str) else raw
-                        parsed = json_mod.loads(json_str) if isinstance(json_str, str) else json_str
+                        parsed = raw if isinstance(raw, str) else raw
+                        if isinstance(parsed, str):
+                            parsed = json_mod.loads(parsed)
                         if isinstance(parsed, list) and len(parsed) == len(batch):
                             break  # Valid result
                         raise ValueError(
