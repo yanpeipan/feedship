@@ -60,7 +60,7 @@ async def test_fetch_all_async_is_async_generator():
 
 
 @pytest.mark.asyncio
-async def test_semaphore_default_value():
+async def test_semaphore_default_value(initialized_db):
     """Verify default concurrency is 10."""
     from src.models import Feed
 
@@ -75,10 +75,14 @@ async def test_semaphore_default_value():
     )
     with (
         patch("src.application.fetch.storage_list_feeds", return_value=[fake_feed]),
+        patch(
+            "src.application.fetch.fetch_one_async", new_callable=AsyncMock
+        ) as mock_fetch,
         patch("src.application.fetch.asyncio.Semaphore") as mock_semaphore,
     ):
         mock_semaphore.return_value.__aenter__ = AsyncMock()
         mock_semaphore.return_value.__aexit__ = AsyncMock()
+        mock_fetch.return_value = {"new_articles": 0}
         # Consume the generator
         async for _ in fetch_all_async():
             pass
@@ -86,7 +90,7 @@ async def test_semaphore_default_value():
 
 
 @pytest.mark.asyncio
-async def test_semaphore_custom_concurrency():
+async def test_semaphore_custom_concurrency(initialized_db):
     """Verify custom concurrency parameter is passed to Semaphore."""
     from src.models import Feed
 
@@ -101,10 +105,14 @@ async def test_semaphore_custom_concurrency():
     )
     with (
         patch("src.application.fetch.storage_list_feeds", return_value=[fake_feed]),
+        patch(
+            "src.application.fetch.fetch_one_async", new_callable=AsyncMock
+        ) as mock_fetch,
         patch("src.application.fetch.asyncio.Semaphore") as mock_semaphore,
     ):
         mock_semaphore.return_value.__aenter__ = AsyncMock()
         mock_semaphore.return_value.__aexit__ = AsyncMock()
+        mock_fetch.return_value = {"new_articles": 0}
         # Consume the generator
         async for _ in fetch_all_async(concurrency=5):
             pass
@@ -112,9 +120,16 @@ async def test_semaphore_custom_concurrency():
 
 
 @pytest.mark.asyncio
-async def test_fetch_one_async_returns_dict(sample_feed):
+async def test_fetch_one_async_returns_dict(initialized_db, sample_feed):
     """Verify fetch_one_async returns expected dict structure."""
-    result = await fetch_one_async(sample_feed)
+    with (
+        patch(
+            "src.storage.sqlite.impl.upsert_articles_async", new_callable=AsyncMock
+        ) as mock_upsert,
+        patch("src.application.fetch.storage_update_feed"),
+    ):
+        mock_upsert.return_value = []
+        result = await fetch_one_async(sample_feed)
     assert isinstance(result, dict)
     assert "new_articles" in result
 
