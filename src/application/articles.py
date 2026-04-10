@@ -11,7 +11,6 @@ import logging
 from dataclasses import dataclass
 
 from src.application.combine import combine_scores
-from src.application.cross_encoder import cross_encoder as _cross_encoder_func
 from src.storage import (
     get_article as storage_get_article,
 )
@@ -180,6 +179,8 @@ def search_articles_fts(
         groups=groups,
     )
     if cross_encoder:
+        from src.application.cross_encoder import cross_encoder as _cross_encoder_func
+
         try:
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 articles = executor.submit(
@@ -222,6 +223,8 @@ def search_articles_semantic(
         RuntimeError: If ML dependencies (chromadb, sentence-transformers) are not installed.
     """
     _check_ml_dependencies()
+    from src.application.cross_encoder import cross_encoder as _cross_encoder_func
+
     articles = storage_search_articles_semantic(
         query_text=query_text,
         limit=limit,
@@ -231,6 +234,8 @@ def search_articles_semantic(
         groups=groups,
     )
     if cross_encoder:
+        from src.application.cross_encoder import cross_encoder as _cross_encoder_func
+
         try:
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 articles = executor.submit(

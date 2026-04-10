@@ -21,10 +21,26 @@ from typing import TYPE_CHECKING
 
 import platformdirs
 import psutil
-from chromadb import PersistentClient
-from chromadb.config import Settings
+
+_chromadb = None
+
+
+def _get_chromadb():
+    """Lazily import chromadb, raising RuntimeError on failure."""
+    global _chromadb
+    if _chromadb is None:
+        try:
+            import chromadb as _chromadb
+        except ImportError as e:
+            raise RuntimeError(
+                "chromadb is required for semantic search. "
+                "Install with: pip install feedship[ml]"
+            ) from e
+    return _chromadb
+
 
 if TYPE_CHECKING:
+    from chromadb import PersistentClient
     from sentence_transformers import SentenceTransformer
 
     from src.application.articles import ArticleListItem
@@ -125,9 +141,9 @@ def _get_chroma_client() -> PersistentClient:
         return _chroma_client
 
     chroma_dir = platformdirs.user_data_dir(appname="feedship") + "/chroma"
-    _chroma_client = PersistentClient(
+    _chroma_client = _get_chromadb().PersistentClient(
         path=chroma_dir,
-        settings=Settings(anonymized_telemetry=False),
+        settings=_get_chromadb().config.Settings(anonymized_telemetry=False),
     )
     return _chroma_client
 
