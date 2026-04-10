@@ -160,32 +160,10 @@ class LLMClient:
 
 _llm_client: LLMClient | None = None
 
-
-def _resolve_env_var(value: str) -> str:
-    """Resolve ${VAR} environment variable references in config values."""
-    if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
-        return os.environ.get(value[2:-1], value)
-    return value
-
-
-def _resolve_model_list_env_vars(model_list: list[dict]) -> list[dict]:
-    """Resolve ${...} env var references in litellm_params."""
-    resolved = []
-    for entry in model_list:
-        params = entry.get("litellm_params", {})
-        resolved_params = {}
-        for k, v in params.items():
-            resolved_params[k] = _resolve_env_var(v) if isinstance(v, str) else v
-        resolved.append({**entry, "litellm_params": resolved_params})
-    return resolved
-
-
 # LiteLLM Router singleton — configured from settings
 _llm_settings = _get_settings()
 _llm_config = _llm_settings.llm or {}
-_model_list: list[dict] = _resolve_model_list_env_vars(
-    _llm_config.get("model_list", [])
-)
+_model_list: list[dict] = _llm_config.get("model_list", [])
 _routing_strategy = _llm_config.get("routing_strategy", "usage-based-routing")
 
 llm_router: Router = Router(
