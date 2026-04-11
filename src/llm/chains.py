@@ -209,7 +209,8 @@ NER_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a named entity recognition system. Extract entities from articles.",
+            "You are a named entity recognition system. Extract entities from articles. "
+            "Output ONLY valid JSON - no markdown code blocks, no explanation, no text before or after the JSON.",
         ),
         (
             "human",
