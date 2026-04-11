@@ -51,7 +51,6 @@ _embedding_function: SentenceTransformer | None = None
 
 # Per-collection locks for write serialization
 _col_locks: dict[str, threading.Lock] = {}
-_embedding_lock = threading.Lock()
 
 # Memory guard threshold
 MEMORY_THRESHOLD_PERCENT = 80  # Skip embeddings when memory usage exceeds 80%
@@ -342,35 +341,33 @@ def add_article_embeddings(articles: list[dict]) -> None:
     # Acquire per-collection write lock (defined before encoding so Phase 2 can use it)
     col_lock = _col_locks.setdefault("articles", threading.Lock())
 
-    # Phase 1: Serialize encoding (cross-collection lock to prevent GPU/MPS contention)
     import time
 
-    with _embedding_lock:
-        embedding_fn = get_embedding_function()
-        t0 = time.monotonic()
-        total_chars = sum(len(t) for t in embedding_texts)
-        try:
-            emb = embedding_fn.encode(
-                embedding_texts, convert_to_numpy=True, normalize_embeddings=True
-            )
-            encode_time = time.monotonic() - t0
-            logger.debug(
-                "Embedding encode: %d articles, %d chars, %.3fs (%.0f chars/s)",
-                len(embedding_texts),
-                total_chars,
-                encode_time,
-                total_chars / encode_time if encode_time > 0 else 0,
-            )
-        except Exception as e:
-            logger.error(
-                "Batch encoding failed for %d articles: error=%s",
-                len(embedding_texts),
-                e,
-            )
-            raise
-        embedding_vectors = emb.tolist()
+    embedding_fn = get_embedding_function()
+    t0 = time.monotonic()
+    total_chars = sum(len(t) for t in embedding_texts)
+    try:
+        emb = embedding_fn.encode(
+            embedding_texts, convert_to_numpy=True, normalize_embeddings=True
+        )
+        encode_time = time.monotonic() - t0
+        logger.debug(
+            "Embedding encode: %d articles, %d chars, %.3fs (%.0f chars/s)",
+            len(embedding_texts),
+            total_chars,
+            encode_time,
+            total_chars / encode_time if encode_time > 0 else 0,
+        )
+    except Exception as e:
+        logger.error(
+            "Batch encoding failed for %d articles: error=%s",
+            len(embedding_texts),
+            e,
+        )
+        raise
+    embedding_vectors = emb.tolist()
 
-    # Phase 2: Serialize ChromaDB write per collection
+    # Serialize ChromaDB write per collection
     with col_lock:
         collection = get_chroma_collection()
         t1 = time.monotonic()
@@ -685,19 +682,16 @@ def upsert_article_summary(
 
     col_lock = _col_locks.setdefault("article_summaries", threading.Lock())
 
-    # Phase 1: Serialize encoding (cross-collection lock to prevent GPU/MPS contention)
-    with _embedding_lock:
-        embedding_fn = get_embedding_function()
-        try:
-            emb = embedding_fn.encode(
-                [summary], convert_to_numpy=True, normalize_embeddings=True
-            )[0]
-        except Exception as e:
-            logger.error("Encoding failed for summary %s: %s", article_id, e)
-            raise
-        embedding_vector = emb.tolist()
+    embedding_fn = get_embedding_function()
+    try:
+        emb = embedding_fn.encode(
+            [summary], convert_to_numpy=True, normalize_embeddings=True
+        )[0]
+    except Exception as e:
+        logger.error("Encoding failed for summary %s: %s", article_id, e)
+        raise
+    embedding_vector = emb.tolist()
 
-    # Phase 2: Serialize ChromaDB write per collection
     metadata = {
         "title": title or "",
         "url": url or "",
@@ -746,19 +740,16 @@ def upsert_article_keywords(
 
     col_lock = _col_locks.setdefault("article_keywords", threading.Lock())
 
-    # Phase 1: Serialize encoding (cross-collection lock to prevent GPU/MPS contention)
-    with _embedding_lock:
-        embedding_fn = get_embedding_function()
-        try:
-            emb = embedding_fn.encode(
-                [keywords_text], convert_to_numpy=True, normalize_embeddings=True
-            )[0]
-        except Exception as e:
-            logger.error("Encoding failed for keywords %s: %s", article_id, e)
-            raise
-        embedding_vector = emb.tolist()
+    embedding_fn = get_embedding_function()
+    try:
+        emb = embedding_fn.encode(
+            [keywords_text], convert_to_numpy=True, normalize_embeddings=True
+        )[0]
+    except Exception as e:
+        logger.error("Encoding failed for keywords %s: %s", article_id, e)
+        raise
+    embedding_vector = emb.tolist()
 
-    # Phase 2: Serialize ChromaDB write per collection
     metadata = {
         "title": title or "",
         "url": url or "",
