@@ -12,6 +12,7 @@ from langchain_core.runnables import Runnable
 
 from src.llm.core import LLMClient, get_llm_client
 from src.llm.output_models import (
+    ClassifyTranslateItem,
     EntityTopicOutput,
     EvaluateScore,
     NERArticle,
@@ -23,7 +24,7 @@ DEFAULT_MAX_TOKENS = 300
 
 # Per-chain max tokens overrides
 MAX_TOKENS_PER_CHAIN: dict[str, int] = {
-    "evaluate": 200,  # JSON with 4 scores
+    "evaluate": 500,  # JSON with 4 scores — 200 was insufficient for MiniMax strict mode
     "translate": 1000,  # full section translation
 }
 
@@ -322,6 +323,55 @@ def get_tldr_chain() -> Runnable:
         | _get_llm_wrapper(
             300,
             _make_json_schema_response_format(TLDRItem.model_json_schema(), "TLDRItem"),
+        )
+        | parser
+    )
+
+
+# Classification + translation chain
+CLASSIFY_TRANSLATE_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are a professional news tagging robot with CEO and news analyst judgment.",
+        ),
+        (
+            "human",
+            'Tag and translate news titles.\n\n'
+            'Candidate tags:\n{tag_list}\n\n'
+            'Rules:\n'
+            '1. Each news item can have 0-3 tags, prefer the most specific.\n'
+            '2. If no tags apply, tags = [].\n\n'
+            'Output format:\n'
+            'Return a JSON array, each element: {{"id": int, "tags": [], "translation": "..."}}\n\n'
+            'News list:\n'
+            '{news_list}\n\n'
+            'Translate each title to {target_lang}.',
+        ),
+    ]
+)
+
+
+def get_classify_translate_chain(
+    tag_list: str,
+    news_list: str,
+    target_lang: str = "zh",
+) -> Runnable:
+    """Returns LCEL chain for batch news classification and translation.
+
+    Args:
+        tag_list: Newline-separated candidate tags
+        news_list: Newline-separated news titles (one per line)
+        target_lang: Target language code (default: zh)
+    """
+    parser = JsonOutputParser(pydantic_object=ClassifyTranslateItem)
+    return (
+        CLASSIFY_TRANSLATE_PROMPT
+        | _get_llm_wrapper(
+            500,
+            _make_json_schema_response_format(
+                ClassifyTranslateItem.model_json_schema(), "ClassifyTranslateItem"
+            ),
         )
         | parser
     )
