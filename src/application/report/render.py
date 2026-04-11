@@ -20,10 +20,6 @@ def group_by_dimension(topics: list) -> dict[str, list]:
     return result
 
 
-def _sum_articles(topics: list) -> int:
-    return sum(getattr(t, "articles_count", 0) for t in topics)
-
-
 def _topic_sort_key(t: Any) -> float:
     return getattr(t, "quality_weight", 0.0)
 
@@ -51,8 +47,6 @@ async def render_report(
         loader=FileSystemLoader([str(d) for d in template_dirs]),
         autoescape=select_autoescape(),
     )
-    env.globals["sum_articles"] = _sum_articles
-
     try:
         template = env.get_template(f"{template_name}.md")
     except Exception:
