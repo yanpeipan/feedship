@@ -224,7 +224,9 @@ async def _entity_report_async(
                 chain = get_classify_translate_chain(
                     tag_list=tag_list, news_list=news_list, target_lang=target_lang
                 )
-                result: ClassifyTranslateOutput = await chain.ainvoke({})
+                result: ClassifyTranslateOutput = await chain.ainvoke(
+                    {"news_list": news_list, "tag_list": tag_list, "target_lang": target_lang}
+                )
                 # Adjust item IDs to account for batch offset
                 for item in result.items:
                     item.id += batch_offset
