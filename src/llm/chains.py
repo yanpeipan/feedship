@@ -261,7 +261,8 @@ def get_classify_translate_chain(
         news_list: Newline-separated news titles (one per line)
         target_lang: Target language code (default: zh)
     """
-    parser = JsonOutputParser(pydantic_object=ClassifyTranslateOutput)
+    # Use StrOutputParser — JSON parsing is done manually in process_batch
+    # so we can handle cases where the LLM outputs mixed text + JSON.
     return (
         CLASSIFY_TRANSLATE_PROMPT
         | _get_llm_wrapper(
@@ -270,5 +271,5 @@ def get_classify_translate_chain(
                 ClassifyTranslateOutput.model_json_schema(), "ClassifyTranslateOutput"
             ),
         )
-        | parser
+        | StrOutputParser()
     )
