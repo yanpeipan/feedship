@@ -127,9 +127,7 @@ class AsyncLLMWrapper(Runnable):
 
 
 # Cache of wrappers per (max_tokens, response_format, thinking) to avoid per-call instantiation
-_llm_wrapper_cache: dict[
-    tuple[int, int | None, int | None], AsyncLLMWrapper
-] = {}
+_llm_wrapper_cache: dict[tuple[int, int | None, int | None], AsyncLLMWrapper] = {}
 
 
 def _get_llm_wrapper(
@@ -182,7 +180,10 @@ def get_evaluate_chain() -> Runnable:
     parser = JsonOutputParser(pydantic_object=EvaluateScore)
     return (
         EVALUATE_PROMPT
-        | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["evaluate"], {"type": "json_schema", "json_schema": EvaluateScore.model_json_schema()})
+        | _get_llm_wrapper(
+            MAX_TOKENS_PER_CHAIN["evaluate"],
+            {"type": "json_schema", "json_schema": EvaluateScore.model_json_schema()},
+        )
         | parser
     )
 
@@ -233,7 +234,11 @@ def get_ner_chain() -> Runnable:
     parser = JsonOutputParser(pydantic_object=NERArticle)
     return (
         NER_PROMPT
-        | _get_llm_wrapper(200, {"type": "json_schema", "json_schema": NERArticle.model_json_schema()}, {"type": "disabled"})
+        | _get_llm_wrapper(
+            200,
+            {"type": "json_schema", "json_schema": NERArticle.model_json_schema()},
+            {"type": "disabled"},
+        )
         | parser
     )
 
@@ -262,7 +267,13 @@ def get_entity_topic_chain() -> Runnable:
     parser = JsonOutputParser(pydantic_object=EntityTopicOutput)
     return (
         ENTITY_TOPIC_PROMPT
-        | _get_llm_wrapper(150, {"type": "json_schema", "json_schema": EntityTopicOutput.model_json_schema()})
+        | _get_llm_wrapper(
+            150,
+            {
+                "type": "json_schema",
+                "json_schema": EntityTopicOutput.model_json_schema(),
+            },
+        )
         | parser
     )
 
@@ -289,6 +300,8 @@ def get_tldr_chain() -> Runnable:
     parser = JsonOutputParser(pydantic_object=TLDRItem)
     return (
         TLDR_PROMPT
-        | _get_llm_wrapper(300, {"type": "json_schema", "json_schema": TLDRItem.model_json_schema()})
+        | _get_llm_wrapper(
+            300, {"type": "json_schema", "json_schema": TLDRItem.model_json_schema()}
+        )
         | parser
     )
