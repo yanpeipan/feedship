@@ -4,7 +4,7 @@ milestone: v1.11
 milestone_name: milestone
 status: completed
 last_updated: "2026-04-09T13:23:01.104Z"
-last_activity: "2026-04-10 — Completed quick task 260411-4p1: fix AsyncLLMWrapper response_format/thinking, reduce NER batch_size to 5"
+last_activity: "2026-04-11 — Completed quick task 260411-gb4: add pure JSON instruction to NER system prompt"
 progress:
   total_phases: 5
   completed_phases: 4
@@ -85,3 +85,4 @@ Last activity: 2026-04-10 — Completed quick task 260411-49x: 在 get_evaluate_
 | 260411-42p | 参考litellm最佳实践，使用JSON格式 | 2026-04-10 | 495fae2 | Verified | [260411-42p-litellm-json-https-docs-litellm-ai-docs-](./quick/260411-42p-litellm-json-https-docs-litellm-ai-docs-/) |
 | 260411-49x | 在 get_evaluate_chain()、get_entity_topic_chain()、get_tldr_chain() 启用 JSON mode | 2026-04-10 | b3ff523 | Verified | [260411-49x-get-evaluate-chain-get-entity-topic-chai](./quick/260411-49x-get-evaluate-chain-get-entity-topic-chai/) |
 | 260411-4p1 | 验证、并解决所有 uv run feedship report --since 2026-04-07 --until 2026-04-10 --language zh报错 | 2026-04-10 | abefa8a | Verified | [260411-4p1-uv-run-feedship-report-since-2026-04-07](./quick/260411-4p1-uv-run-feedship-report-since-2026-04-07-/) |
+| 260411-gb4 | 强制模型输出纯JSON - response_format参数应用到NER chain | 2026-04-11 | e6710dc | Verified | [260411-gb4-json-response-format-ner-chain](./quick/260411-gb4-json-response-format-ner-chain/) |
