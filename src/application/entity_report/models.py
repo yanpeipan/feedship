@@ -14,7 +14,7 @@ class EntityTag:
 
 
 @dataclass
-class ArticleEnriched:
+class ReportArticle:
     """Article enriched with extracted entities and metadata."""
 
     id: int
@@ -34,7 +34,7 @@ class EntityTopic:
     """A cluster of articles grouped by a common entity."""
 
     entity: EntityTag
-    articles: list[ArticleEnriched]
+    articles: list[ReportArticle]
     dimension: str = "release"  # release | funding | research | ecosystem | policy
     headline: str = ""
     signals: list[str] = field(default_factory=list)

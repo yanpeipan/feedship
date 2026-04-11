@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 
-from .models import ArticleEnriched, EntityTag, EntityTopic
+from .models import ReportArticle, EntityTag, EntityTopic
 
 _DIMENSION_KEYWORDS = {
     "release": ["发布", "推出", "上线", "release", "launch", "debut", "unveil"],
@@ -45,7 +45,7 @@ def _classify_dimension(text: str) -> str:
 
 def _generate_entity_topic(
     entity: EntityTag,
-    articles: list[ArticleEnriched],
+    articles: list[ReportArticle],
     dimension: str,
 ) -> EntityTopic:
     """Generate headline and signals for an entity topic (rule-based)."""
@@ -78,22 +78,22 @@ class EntityClusterer:
         self.top_n = top_n
 
     def _group_by_entity(
-        self, articles: list[ArticleEnriched]
-    ) -> dict[str, list[ArticleEnriched]]:
+        self, articles: list[ReportArticle]
+    ) -> dict[str, list[ReportArticle]]:
         """Group articles by their first entity's normalized_id."""
-        groups: dict[str, list[ArticleEnriched]] = defaultdict(list)
+        groups: dict[str, list[ReportArticle]] = defaultdict(list)
         for article in articles:
             if article.entities:
                 entity_id = article.entities[0].normalized_id
                 groups[entity_id].append(article)
         return dict(groups)
 
-    def _classify_dimension(self, articles: list[ArticleEnriched]) -> str:
+    def _classify_dimension(self, articles: list[ReportArticle]) -> str:
         """Classify a cluster of articles into a dimension."""
         texts = " ".join(a.title + " " + (a.summary or "") for a in articles[:5])
         return _classify_dimension(texts)
 
-    def cluster(self, articles: list[ArticleEnriched]) -> list[EntityTopic]:
+    def cluster(self, articles: list[ReportArticle]) -> list[EntityTopic]:
         """Cluster enriched articles by entity, generate topics."""
         groups = self._group_by_entity(articles)
         topics: list[EntityTopic] = []
@@ -108,7 +108,7 @@ class EntityClusterer:
 
             # Large event split: if > threshold, split by dimension
             if len(arts) > self.large_event_threshold:
-                sub_groups: dict[str, list[ArticleEnriched]] = defaultdict(list)
+                sub_groups: dict[str, list[ReportArticle]] = defaultdict(list)
                 for a in arts:
                     dim = _classify_dimension(a.title + " " + (a.summary or ""))
                     sub_groups[dim].append(a)

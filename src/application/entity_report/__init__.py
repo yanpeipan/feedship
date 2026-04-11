@@ -11,7 +11,7 @@ Exports:
 from .entity_cluster import EntityClusterer
 from .filter import SignalFilter
 from .models import (
-    ArticleEnriched,
+    ReportArticle,
     EntityTag,
     EntityTopic,
     ReportData,
@@ -20,7 +20,7 @@ from .ner import NERExtractor
 from .tldr import TLDRGenerator
 
 __all__ = [
-    "ArticleEnriched",
+    "ReportArticle",
     "EntityTag",
     "EntityTopic",
     "ReportData",
