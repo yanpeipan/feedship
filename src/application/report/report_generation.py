@@ -171,6 +171,7 @@ async def _entity_report_async(
         render_entity_report,
     )
     from src.application.report.tldr import TLDRGenerator
+    from langchain_core.output_parsers import JsonOutputParser
     from src.llm.chains import get_classify_translate_chain
     from src.llm.output_models import ClassifyTranslateItem, ClassifyTranslateOutput
 
@@ -224,13 +225,18 @@ async def _entity_report_async(
                 chain = get_classify_translate_chain(
                     tag_list=tag_list, news_list=news_list, target_lang=target_lang
                 )
-                result: ClassifyTranslateOutput = await chain.ainvoke(
+                # JsonOutputParser returns a dict, not a pydantic instance.
+                # We must parse manually and construct ClassifyTranslateOutput.
+                parser = JsonOutputParser(pydantic_object=ClassifyTranslateOutput)
+                raw_output = await chain.ainvoke(
                     {"news_list": news_list, "tag_list": tag_list, "target_lang": target_lang}
                 )
+                parsed_dict = parser.parse(raw_output)
+                output = ClassifyTranslateOutput(**parsed_dict)
                 # Adjust item IDs to account for batch offset
-                for item in result.items:
+                for item in output.items:
                     item.id += batch_offset
-                return result.items
+                return output.items
 
         # Create all batches with their offset values
         batches = []
