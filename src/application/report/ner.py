@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
 from typing import Any
 
-from src.application.report.models import ArticleEnriched, EntityTag
-from src.llm.chains import get_ner_chain
+from src.application.report.models import ArticleEnriched
 
 logger = logging.getLogger(__name__)
 
@@ -37,96 +35,19 @@ class NERExtractor:
     async def extract_batch(
         self, articles: list[dict[str, Any]]
     ) -> list[ArticleEnriched]:
-        """Process articles in batches. Returns enriched articles with entity tags."""
-        chain = get_ner_chain()
-        results: list[ArticleEnriched] = []
-        semaphore = asyncio.Semaphore(3)
-
-        async def process_batch(batch: list[dict[str, Any]]) -> list[ArticleEnriched]:
-            async with semaphore:
-                articles_block = "\n".join(
-                    f"Article {i + 1} (id={a['id']}): {a.get('title', '')[:200]}"
-                    for i, a in enumerate(batch)
-                )
-
-                delays = [2, 4, 8]
-                parsed = None
-                for attempt, delay in enumerate(delays):
-                    try:
-                        # Chain now returns List[NERArticle] directly (Pydantic objects)
-                        raw = await chain.ainvoke({"articles_block": articles_block})
-                        parsed = raw if isinstance(raw, list) else []
-                        if isinstance(parsed, list) and len(parsed) == len(batch):
-                            break  # Valid result
-                        raise ValueError(
-                            f"Unexpected parsed length: {len(parsed) if parsed else 0} vs {len(batch)}"
-                        )
-                    except Exception as e:
-                        if attempt < len(delays) - 1:
-                            logger.warning(
-                                f"NER batch failed (attempt {attempt + 1}/{len(delays)}): {e}, retrying in {delay}s"
-                            )
-                            await asyncio.sleep(delay)
-                        else:
-                            logger.warning(
-                                f"NER batch failed after {len(delays)} attempts, using empty entities fallback: {e}"
-                            )
-                            parsed = None
-
-                if parsed is None:
-                    return [
-                        ArticleEnriched(
-                            id=a["id"],
-                            title=a.get("title", ""),
-                            link=a.get("link", ""),
-                            summary=a.get("summary", ""),
-                            quality_score=a.get("quality_score", 0.0),
-                            feed_weight=a.get("feed_weight", 0.0),
-                            published_at=a.get("published_at", ""),
-                            feed_id=a.get("feed_id", "unknown"),
-                            entities=[],
-                            dimensions=[],
-                        )
-                        for a in batch
-                    ]
-
-            id_to_entities: dict[str, list[EntityTag]] = {}
-            for item in parsed:
-                # item is NERArticle Pydantic object with .id and .entities attributes
-                aid = item.id
-                id_to_entities[aid] = [
-                    EntityTag(
-                        name=e.name,
-                        type=e.type or "ORG",
-                        normalized=normalize_entity(e.name, e.type),
-                    )
-                    for e in item.entities
-                ]
-
-            enriched = []
-            for a in batch:
-                entities = id_to_entities.get(a["id"], [])
-                enriched.append(
-                    ArticleEnriched(
-                        id=a["id"],
-                        title=a.get("title", ""),
-                        link=a.get("link", ""),
-                        summary=a.get("summary", ""),
-                        quality_score=a.get("quality_score", 0.0),
-                        feed_weight=a.get("feed_weight", 0.0),
-                        published_at=a.get("published_at", ""),
-                        feed_id=a.get("feed_id", "unknown"),
-                        entities=entities,
-                        dimensions=[],
-                    )
-                )
-            return enriched
-
-        batches = [
-            articles[i : i + self.batch_size]
-            for i in range(0, len(articles), self.batch_size)
+        """Stub: returns articles with empty entities until NER replacement is implemented."""
+        return [
+            ArticleEnriched(
+                id=a["id"],
+                title=a.get("title", ""),
+                link=a.get("link", ""),
+                summary=a.get("summary", ""),
+                quality_score=a.get("quality_score", 0.0),
+                feed_weight=a.get("feed_weight", 0.0),
+                published_at=a.get("published_at", ""),
+                feed_id=a.get("feed_id", "unknown"),
+                entities=[],
+                dimensions=[],
+            )
+            for a in articles
         ]
-        batch_results = await asyncio.gather(*[process_batch(b) for b in batches])
-        for batch_result in batch_results:
-            results.extend(batch_result)
-        return results

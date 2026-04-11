@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from src.application.report.models import ArticleEnriched, EntityTopic
-from src.llm.chains import get_entity_topic_chain
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +32,7 @@ _LAYERS = ["AI应用", "AI模型", "AI基础设施", "芯片", "能源"]
 
 def classify_dimensions(article: ArticleEnriched) -> list[str]:
     """Classify article into one or more dimensions by keyword matching."""
-    text = (article.title + " " + article.summary).lower()
+    text = ((article.title or "") + " " + (article.summary or "")).lower()
     dims = []
     for dim, keywords in _DIMENSION_KEYWORDS.items():
         if any(kw in text for kw in keywords):
@@ -56,7 +54,7 @@ class EntityClusterer:
     async def cluster(
         self, articles: list[ArticleEnriched], target_lang: str
     ) -> list[EntityTopic]:
-        """Main entry: articles -> entity topics."""
+        """Stub: returns basic entity topics without LLM chain until replacement is implemented."""
         # Group by normalized entity
         entity_groups: dict[str, list[ArticleEnriched]] = {}
         for article in articles:
@@ -75,92 +73,34 @@ class EntityClusterer:
         )
         ranked = ranked[: self.max_entities]
 
-        # Generate topic for each entity
-        chain = get_entity_topic_chain()
-        semaphore = asyncio.Semaphore(5)
         topics: list[EntityTopic] = []
+        for entity_id, entity_articles in ranked:
+            for art in entity_articles:
+                art.dimensions = classify_dimensions(art)
 
-        async def generate_one(
-            entity_id: str, entity_articles: list[ArticleEnriched]
-        ) -> EntityTopic | None:
-            async with semaphore:
-                for art in entity_articles:
-                    art.dimensions = classify_dimensions(art)
+            by_dim: dict[str, list[ArticleEnriched]] = {}
+            for art in entity_articles:
+                for dim in art.dimensions:
+                    by_dim.setdefault(dim, []).append(art)
 
-                by_dim: dict[str, list[ArticleEnriched]] = {}
-                for art in entity_articles:
-                    for dim in art.dimensions:
-                        by_dim.setdefault(dim, []).append(art)
+            entity_name = (
+                entity_articles[0].entities[0].name
+                if entity_articles[0].entities
+                else entity_id
+            )
 
-                article_list = "\n".join(
-                    f"- [{a.title}]({a.link})" for a in entity_articles[:10]
-                )
-                entity_name = (
-                    entity_articles[0].entities[0].name
-                    if entity_articles[0].entities
-                    else entity_id
-                )
-
-                result = None
-                delays = [1, 2]
-                for attempt, delay in enumerate(delays):
-                    try:
-                        result = await chain.ainvoke(
-                            {
-                                "entity_name": entity_name,
-                                "article_count": len(entity_articles),
-                                "article_list": article_list,
-                                "target_lang": target_lang,
-                            }
-                        )
-                        break
-                    except Exception as e:
-                        if attempt < len(delays) - 1:
-                            logger.warning(
-                                f"EntityTopic failed for {entity_name} (attempt {attempt + 1}/{len(delays)}): {e}, retrying"
-                            )
-                            await asyncio.sleep(delay)
-                        else:
-                            logger.warning(
-                                f"EntityTopic failed for {entity_name} after {len(delays)} attempts, using fallback: {e}"
-                            )
-                            result = None
-
-                if result is None:
-                    return EntityTopic(
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        layer="AI应用",
-                        headline=entity_name[:30],
-                        dimensions=by_dim,
-                        articles_count=len(entity_articles),
-                        signals=[],
-                        tldr="",
-                        quality_weight=sum(
-                            (a.quality_score or 0) for a in entity_articles
-                        )
-                        * len(entity_articles),
-                    )
-
-                layer = result.get("layer", "AI应用")
-                if layer not in _LAYERS:
-                    layer = "AI应用"
-
-                return EntityTopic(
+            topics.append(
+                EntityTopic(
                     entity_id=entity_id,
                     entity_name=entity_name,
-                    layer=layer,
-                    headline=result.get("headline", entity_name[:30]),
+                    layer="AI应用",
+                    headline=entity_name[:30],
                     dimensions=by_dim,
                     articles_count=len(entity_articles),
-                    signals=result.get("signals", []),
+                    signals=[],
                     tldr="",
                     quality_weight=sum((a.quality_score or 0) for a in entity_articles)
                     * len(entity_articles),
                 )
-
-        results = await asyncio.gather(
-            *[generate_one(eid, earts) for eid, earts in ranked]
-        )
-        topics = [r for r in results if r is not None]
+            )
         return topics

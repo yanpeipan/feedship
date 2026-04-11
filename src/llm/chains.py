@@ -12,10 +12,8 @@ from langchain_core.runnables import Runnable
 
 from src.llm.core import LLMClient, get_llm_client
 from src.llm.output_models import (
-    ClassifyTranslateItem,
-    EntityTopicOutput,
+    ClassifyTranslateOutput,
     EvaluateScore,
-    NERArticle,
     TLDRItem,
 )
 
@@ -234,70 +232,6 @@ def get_translate_chain() -> Runnable:
     )
 
 
-# NER chain — batch extract named entities from articles
-NER_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            "You are a named entity recognition system. Extract entities from articles. "
-            "Output ONLY valid JSON - no markdown code blocks, no explanation, no text before or after the JSON.",
-        ),
-        (
-            "human",
-            "Articles:\n{articles_block}\n\n"
-            'Return JSON array of {{"id": "article_id", "entities": [{{"name": "...", "type": "ORG|PRODUCT|MODEL|PERSON|EVENT", "normalized": "..."}}]}} for each article.',
-        ),
-    ]
-)
-
-
-def get_ner_chain() -> Runnable:
-    """Returns LCEL chain for batch NER extraction."""
-    parser = JsonOutputParser(pydantic_object=NERArticle)
-    return (
-        NER_PROMPT
-        | _get_llm_wrapper(
-            200,
-            _make_json_schema_response_format(
-                NERArticle.model_json_schema(), "NERArticle"
-            ),
-            {"type": "disabled"},
-        )
-        | parser
-    )
-
-
-# Entity topic chain — headline + layer + signals for one entity
-ENTITY_TOPIC_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            "You are a news analyst. Output ONLY valid JSON - no markdown code blocks, no explanation, no text before or after the JSON.",
-        ),
-        (
-            "human",
-            "Entity: {entity_name}\nArticles ({article_count}):\n{article_list}\n\n"
-            'Return JSON: {{\"headline\": \"...\", \"layer\": \"...\", \"signals\": [...], \"insight\": \"...\"}}. Use example values.',
-        ),
-    ]
-)
-
-
-def get_entity_topic_chain() -> Runnable:
-    """Returns LCEL chain for entity topic headline + layer + signals."""
-    parser = JsonOutputParser(pydantic_object=EntityTopicOutput)
-    return (
-        ENTITY_TOPIC_PROMPT
-        | _get_llm_wrapper(
-            500,
-            _make_json_schema_response_format(
-                EntityTopicOutput.model_json_schema(), "EntityTopicOutput"
-            ),
-        )
-        | parser
-    )
-
-
 # TLDR chain — generate 1-sentence TLDR for multiple entities at once
 TLDR_PROMPT = ChatPromptTemplate.from_messages(
     [
@@ -337,16 +271,16 @@ CLASSIFY_TRANSLATE_PROMPT = ChatPromptTemplate.from_messages(
         ),
         (
             "human",
-            'Tag and translate news titles.\n\n'
-            'Candidate tags:\n{tag_list}\n\n'
-            'Rules:\n'
-            '1. Each news item can have 0-3 tags, prefer the most specific.\n'
-            '2. If no tags apply, tags = [].\n\n'
-            'Output format:\n'
+            "Tag and translate news titles.\n\n"
+            "Candidate tags:\n{tag_list}\n\n"
+            "Rules:\n"
+            "1. Each news item can have 0-3 tags, prefer the most specific.\n"
+            "2. If no tags apply, tags = [].\n\n"
+            "Output format:\n"
             'Return a JSON array, each element: {{"id": int, "tags": [], "translation": "..."}}\n\n'
-            'News list:\n'
-            '{news_list}\n\n'
-            'Translate each title to {target_lang}.',
+            "News list:\n"
+            "{news_list}\n\n"
+            "Translate each title to {target_lang}.",
         ),
     ]
 )
@@ -364,13 +298,13 @@ def get_classify_translate_chain(
         news_list: Newline-separated news titles (one per line)
         target_lang: Target language code (default: zh)
     """
-    parser = JsonOutputParser(pydantic_object=ClassifyTranslateItem)
+    parser = JsonOutputParser(pydantic_object=ClassifyTranslateOutput)
     return (
         CLASSIFY_TRANSLATE_PROMPT
         | _get_llm_wrapper(
             500,
             _make_json_schema_response_format(
-                ClassifyTranslateItem.model_json_schema(), "ClassifyTranslateItem"
+                ClassifyTranslateOutput.model_json_schema(), "ClassifyTranslateOutput"
             ),
         )
         | parser
