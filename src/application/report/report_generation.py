@@ -220,29 +220,39 @@ async def _entity_report_async(
             import re
 
             async with semaphore:
-                news_list = "\n".join(
-                    f"{i + 1}. {art.title or ''}"
-                    for i, art in enumerate(batch_articles)
-                )
-                chain = get_classify_translate_chain(
-                    tag_list=tag_list, news_list=news_list, target_lang=target_lang
-                )
-                # Chain returns a string (StrOutputParser). Extract JSON array from
-                # potentially mixed output (the LLM sometimes outputs text before/after JSON).
-                raw_output = await chain.ainvoke(
-                    {"news_list": news_list, "tag_list": tag_list, "target_lang": target_lang}
-                )
-                # Try to find JSON array in the output
-                json_match = re.search(r"\[.*\]", raw_output, re.DOTALL)
-                if json_match:
-                    parsed_dict = {"items": json.loads(json_match.group())}
-                else:
-                    parsed_dict = {"items": []}
-                output = ClassifyTranslateOutput(**parsed_dict)
-                # Adjust item IDs to account for batch offset
-                for item in output.items:
-                    item.id += batch_offset
-                return output.items
+                try:
+                    news_list = "\n".join(
+                        f"{i + 1}. {art.title or ''}"
+                        for i, art in enumerate(batch_articles)
+                    )
+                    chain = get_classify_translate_chain(
+                        tag_list=tag_list, news_list=news_list, target_lang=target_lang
+                    )
+                    # Chain returns a string (StrOutputParser). Extract JSON array from
+                    # potentially mixed output (the LLM sometimes outputs text before/after JSON).
+                    raw_output = await chain.ainvoke(
+                        {
+                            "news_list": news_list,
+                            "tag_list": tag_list,
+                            "target_lang": target_lang,
+                        }
+                    )
+                    # Try to find JSON array in the output
+                    json_match = re.search(r"\[.*\]", raw_output, re.DOTALL)
+                    if json_match:
+                        parsed_dict = {"items": json.loads(json_match.group())}
+                    else:
+                        parsed_dict = {"items": []}
+                    output = ClassifyTranslateOutput(**parsed_dict)
+                    # Adjust item IDs to account for batch offset
+                    for item in output.items:
+                        item.id += batch_offset
+                    return output.items
+                except Exception as e:
+                    logger.warning(
+                        "Batch %d failed: %s — returning empty list", batch_offset, e
+                    )
+                    return []
 
         # Create all batches with their offset values
         batches = []
@@ -266,60 +276,6 @@ async def _entity_report_async(
         # Convert ClassifyTranslateOutput to EntityTopic[]
         # id is 1-indexed position in news_list, map back to original article
         # Group by primary tag (tags[0]) or feed_id if no tags
-        _DIMENSION_KEYWORDS = {
-            "release": [
-                "release",
-                "launch",
-                "announce",
-                "发布",
-                "推出",
-                "launches",
-                "unveils",
-            ],
-            "funding": [
-                "funding",
-                "raise",
-                "series",
-                "vc",
-                "invest",
-                "融资",
-                "投资",
-                "raises",
-            ],
-            "research": [
-                "research",
-                "paper",
-                "study",
-                "benchmark",
-                "研究",
-                "论文",
-                "arxiv",
-            ],
-            "ecosystem": [
-                "open source",
-                "github",
-                "acquisition",
-                "merger",
-                "partnership",
-                "生态",
-                "开源",
-                "收购",
-            ],
-            "policy": ["regulation", "policy", "government", "ban", "监管", "政策"],
-        }
-
-        def _classify_dim(article: ArticleListItem | ArticleEnriched) -> list[str]:
-            text = (
-                (getattr(article, "title", "") or "")
-                + " "
-                + (getattr(article, "summary", "") or "")
-            ).lower()
-            dims = []
-            for dim, kws in _DIMENSION_KEYWORDS.items():
-                if any(kw in text for kw in kws):
-                    dims.append(dim)
-            return dims if dims else ["ecosystem"]
-
         # Group by primary tag (or feed_id as fallback)
         from collections import defaultdict
 
@@ -345,9 +301,8 @@ async def _entity_report_async(
         for tag, items in tag_groups.items():
             arts = [item[1] for item in items]
             # Build ArticleEnriched for each article
-            article_enriched_list = []
-            for art in arts:
-                ae = ArticleEnriched(
+            article_enriched_list = [
+                ArticleEnriched(
                     id=art.id or "",
                     title=art.title or "",
                     link=art.link or "",
@@ -356,16 +311,14 @@ async def _entity_report_async(
                     feed_weight=art.feed_weight or 0.0,
                     published_at=art.published_at or "",
                     feed_id=art.feed_id or "",
-                    entities=[],  # No entities available from classify_translate
-                    dimensions=_classify_dim(art),
+                    entities=[],
+                    dimensions=[tag],  # primary tag is the dimension
                 )
-                article_enriched_list.append(ae)
+                for art in arts
+            ]
 
             # Group by dimension
-            by_dim: dict[str, list[ArticleEnriched]] = {}
-            for ae in article_enriched_list:
-                for dim in ae.dimensions:
-                    by_dim.setdefault(dim, []).append(ae)
+            by_dim: dict[str, list[ArticleEnriched]] = {tag: article_enriched_list}
 
             # Find best article by quality for headline
             best_art = max(arts, key=lambda a: a.quality_score or 0.0)
@@ -505,6 +458,15 @@ def cluster_articles_for_report(
     )
 
 
+def _format_title(text: str, max_len: int = 30) -> str:
+    """Truncate title to max_len characters, adding ellipsis if truncated."""
+    if not text:
+        return ""
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 1] + "…"
+
+
 async def render_report(
     data: dict[str, Any],
     template_name: str = "v2",
@@ -527,12 +489,16 @@ async def render_report(
         logger.error("Jinja2 not installed: pip install jinja2")
         raise
 
+    from src.application.report.render import dim_zh
+
     template_path = DEFAULT_TEMPLATE_DIR / f"{template_name}.md"
     if template_path.exists():
         env = Environment(
             loader=FileSystemLoader(template_path.parent),
             autoescape=False,
         )
+        env.filters["format_title"] = _format_title
+        env.filters["dim_zh"] = dim_zh
         template = env.get_template(template_path.name)
     else:
         logger.error("v2 template not found at %s", template_path)

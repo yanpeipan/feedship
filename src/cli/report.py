@@ -31,7 +31,7 @@ async def _render_and_translate_report(data: dict, language: str) -> str:
     from src.llm.chains import get_translate_chain
 
     report_text = await render_report(
-        data, template_name="default", target_lang=language
+        data, template_name="ai-daily", target_lang=language
     )
 
     # Translate entire report in one LLM call (reduces N title calls to 1)
