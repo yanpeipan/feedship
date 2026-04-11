@@ -11,11 +11,10 @@ import asyncio
 import logging
 import time
 
-from src.application.feed import FeedNotFoundError, fetch_one, get_feed
+from src.application.feed import FeedNotFoundError, get_feed
 from src.models import Feed, FeedType
 from src.providers import match_first
-from src.storage import list_feeds as storage_list_feeds
-from src.storage import update_feed as storage_update_feed
+from src.storage import list_feeds as storage_list_feeds, update_feed as storage_update_feed
 from src.storage.sqlite.articles import _get_article_field
 from src.utils import generate_article_id
 from src.utils.scraping_utils import _circuit_lock, _provider_circuits
@@ -52,6 +51,97 @@ def _check_ml_dependencies() -> bool:
             "Install with: pip install feedship[ml]"
         ) from e
     return True
+
+
+def _parse_articles(feed: Feed, articles: list) -> list:
+    """Parse a list of raw article objects into normalized dicts.
+
+    Pure transformation — no I/O.
+
+    Args:
+        feed: Feed object the articles belong to.
+        articles: List of article objects from the provider.
+
+    Returns:
+        List of normalized article dicts.
+    """
+    parsed_articles = []
+    for article in articles:
+        article_guid = _get_article_field(article, "guid") or generate_article_id(
+            article
+        )
+        parsed_articles.append(
+            {
+                "guid": article_guid,
+                "title": _get_article_field(article, "title") or "",
+                "content": _get_article_field(article, "content") or "",
+                "description": _get_article_field(article, "description") or "",
+                "link": _get_article_field(article, "link") or "",
+                "feed_id": feed.id,
+                "published_at": _get_article_field(article, "published_at"),
+                "author": _get_article_field(article, "author"),
+                "tags": _get_article_field(article, "tags"),
+                "category": _get_article_field(article, "category"),
+            }
+        )
+    return parsed_articles
+
+
+async def _fetch_one_core(feed: Feed, articles: list) -> tuple[int, list, str | None]:
+    """Process fetched articles: parse and store. Do NOT add embeddings.
+
+    This is the async core shared by both the async fetch path
+    and any future batch processing pipeline.
+
+    Args:
+        feed: Feed object the articles belong to.
+        articles: List of article objects from the provider.
+
+    Returns:
+        Tuple of (new_articles_inserted, embedding_articles, error).
+        embedding_articles is a list of dicts suitable for add_article_embeddings.
+        error is None on success, or an error message string on failure.
+    """
+    if not articles:
+        return 0, [], None
+
+    parsed_articles = _parse_articles(feed, articles)
+    if not parsed_articles:
+        return 0, [], None
+
+    # Batch upsert all articles in one transaction
+    article_id_map: list[tuple] = []
+    try:
+        from src.storage.sqlite.impl import upsert_articles_async
+
+        article_id_map = await upsert_articles_async(
+            parsed_articles
+        )  # list of (article_id, guid)
+        new_count = len(article_id_map)
+    except Exception as e:
+        logger.warning("Failed to store articles for feed %s: %s", feed.id, e)
+        return 0, [], f"Failed to store articles: {e}"
+
+    # Build article dicts for batch embedding (without calling add_article_embeddings)
+    embedding_articles: list = []
+    if new_count > 0:
+        guid_to_article = {a["guid"]: a for a in parsed_articles}
+        for article_id, guid in article_id_map:
+            a = guid_to_article[guid]
+            embedding_articles.append(
+                {
+                    "article_id": article_id,
+                    "title": a["title"],
+                    "content": a["content"],
+                    "url": a["link"],
+                    "published_at": a["published_at"],
+                    "author": a.get("author") or "",
+                    "tags": a.get("tags") or "",
+                    "category": a.get("category") or "",
+                }
+            )
+
+    return new_count, embedding_articles, None
 
 
 async def fetch_one_async(feed: Feed) -> dict:
@@ -105,76 +195,27 @@ async def fetch_one_async(feed: Feed) -> dict:
 
     articles = result.articles
 
-    # Always update feed metadata after successful crawl (persists etag/modified_at even on 304)
-    now = time.strftime("%Y-%m-%d %H:%M:%S")
-    storage_update_feed(feed.id, now, etag=result.etag, modified_at=result.modified_at)
+    # Delegate to the async core (returns upsert results, not embeddings)
+    new_count, embedding_articles, error = await _fetch_one_core(feed, articles)
+    if error:
+        return {"new_articles": 0, "error": error}
 
-    if not articles:
-        return {"new_articles": 0}
-
-    parsed_articles = []
-    for article in articles:
-        article_guid = _get_article_field(article, "guid") or generate_article_id(
-            article
-        )
-        parsed_articles.append(
-            {
-                "guid": article_guid,
-                "title": _get_article_field(article, "title") or "",
-                "content": _get_article_field(article, "content") or "",
-                "description": _get_article_field(article, "description") or "",
-                "link": _get_article_field(article, "link") or "",
-                "feed_id": feed.id,
-                "published_at": _get_article_field(article, "published_at"),
-                "author": _get_article_field(article, "author"),
-                "tags": _get_article_field(article, "tags"),
-                "category": _get_article_field(article, "category"),
-            }
-        )
-
-    if not parsed_articles:
-        return {"new_articles": 0}
-
-    # Batch upsert all articles in one transaction
-    try:
-        from src.storage.sqlite.impl import upsert_articles_async
-
-        article_id_map = await upsert_articles_async(
-            parsed_articles
-        )  # list of (article_id, guid)
-        new_count = len(article_id_map)
-    except Exception as e:
-        logger.warning("Failed to store articles for feed %s: %s", feed.id, e)
-        return {"new_articles": 0, "error": str(e)}
-
-    # Batch add embeddings
+    # Update feed metadata after successful fetch
     if new_count > 0:
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
+        storage_update_feed(feed.id, now)
+
+    # Add embeddings (single-feed path — backward compatibility with direct CLI calls)
+    if embedding_articles:
         try:
             _check_ml_dependencies()
             from src.storage.vector import add_article_embeddings
 
-            # Build article dicts for batch embedding
-            guid_to_article = {a["guid"]: a for a in parsed_articles}
-            embedding_articles = []
-            for article_id, guid in article_id_map:
-                a = guid_to_article[guid]
-                embedding_articles.append(
-                    {
-                        "article_id": article_id,
-                        "title": a["title"],
-                        "content": a["content"],
-                        "url": a["link"],
-                        "published_at": a["published_at"],
-                        "author": a.get("author") or "",
-                        "tags": a.get("tags") or "",
-                        "category": a.get("category") or "",
-                    }
-                )
             await asyncio.to_thread(add_article_embeddings, embedding_articles)
             await asyncio.sleep(0)  # Ensure progress bar updates after blocking I/O
         except Exception as e:
             logger.warning("Failed to add embeddings for feed %s: %s", feed.id, e)
-            # Don't fail the fetch - embeddings are non-critical
+            # Don't fail the fetch — embeddings are non-critical
 
     return {"new_articles": new_count}
 
@@ -185,6 +226,9 @@ async def fetch_all_async(concurrency: int = 10):
     Uses asyncio.Semaphore to limit concurrent HTTP requests to `concurrency`
     (default 10). SQLite writes are serialized via asyncio.Lock + asyncio.to_thread()
     to prevent 'database is locked' errors.
+
+    Embeddings are added in a single batch call after all feeds are processed,
+    rather than per-feed, for efficiency.
 
     This is an async generator that yields results as each feed completes,
     enabling real-time progress tracking via asyncio.as_completed().
@@ -200,27 +244,91 @@ async def fetch_all_async(concurrency: int = 10):
         return
 
     semaphore = asyncio.Semaphore(concurrency)
+    all_embedding_articles: list = []
 
-    async def process_feed_with_semaphore(feed: Feed, index: int) -> tuple:
-        """Process a single feed within the semaphore limit."""
+    async def process_feed_with_semaphore(feed: Feed) -> tuple:
+        """Process a single feed within the semaphore limit.
+
+        Uses _fetch_one_core directly (no per-feed embeddings).
+        Returns (feed, new_count, embedding_articles, error).
+        """
         async with semaphore:
-            result = await fetch_one_async(feed)
-            return index, feed, result
+            # Parse feed_type from metadata JSON string
+            feed_type = None
+            if feed.metadata:
+                import json
+
+                try:
+                    meta = json.loads(feed.metadata)
+                    if meta.get("feed_type"):
+                        feed_type = FeedType(meta["feed_type"])
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+            # Use match_first to find provider for this feed URL
+            provider = match_first(feed.url, feed_type=feed_type)
+            if not provider:
+                return feed, 0, [], f"No provider for {feed.url}"
+
+            # Get or create circuit breaker for this provider
+            provider_name = provider.__class__.__name__
+            async with _circuit_lock:
+                if provider_name not in _provider_circuits:
+                    from src.utils.scraping_utils import CircuitBreakerState
+
+                    _provider_circuits[provider_name] = CircuitBreakerState()
+                circuit = _provider_circuits[provider_name]
+
+            # Check if circuit allows execution
+            if not await circuit.can_execute():
+                logger.warning(
+                    "Circuit open for %s, skipping %s", provider_name, feed.url
+                )
+                return feed, 0, [], f"Circuit open for {provider_name}"
+
+            # Crawl using the discovered provider's async method
+            try:
+                result = await asyncio.to_thread(provider.fetch_articles, feed)
+                await circuit.record_success()
+            except Exception as e:
+                await circuit.record_failure()
+                logger.error("Failed to fetch_articles %s: %s", feed.url, e)
+                return feed, 0, [], str(e)
+
+            # Delegate to the async core (returns upsert results, not embeddings)
+            new_count, embedding_articles, error = await _fetch_one_core(
+                feed, result.articles
+            )
+            if error:
+                return feed, 0, [], error
+
+            return feed, new_count, embedding_articles, None
 
     # Create tasks for all feeds - semaphore limits actual concurrency
-    tasks = [process_feed_with_semaphore(feed, i) for i, feed in enumerate(feeds)]
+    tasks = [process_feed_with_semaphore(feed) for feed in feeds]
 
-    # Use as_completed to yield results as they complete
+    # Use as_completed to yield results as they complete and collect embedding articles
     for coro in asyncio.as_completed(tasks):
-        index, feed, result = await coro
+        feed, new_count, embedding_articles, error = await coro
+        if embedding_articles:
+            all_embedding_articles.extend(embedding_articles)
         yield {
             "feed_id": feed.id,
             "feed_name": feed.name,
-            "new_articles": result.get("new_articles", 0),
-            "error": result.get("error")
-            if result.get("new_articles", 0) == 0
-            else None,
+            "new_articles": new_count,
+            "error": error,
         }
+
+    # Batch add embeddings after all feeds are processed
+    if all_embedding_articles:
+        try:
+            _check_ml_dependencies()
+            from src.storage.vector import add_article_embeddings
+
+            await asyncio.to_thread(add_article_embeddings, all_embedding_articles)
+        except Exception as e:
+            logger.warning("Failed to batch-add embeddings: %s", e)
+            # Don't fail the fetch — embeddings are non-critical
 
 
 async def fetch_one_async_by_id(feed_id: str) -> dict:
@@ -248,34 +356,119 @@ async def fetch_ids_async(ids: list[str], concurrency: int = 10):
     (default 10). SQLite writes are serialized via asyncio.Lock + asyncio.to_thread()
     to prevent 'database is locked' errors.
 
+    Embeddings are added in a single batch call after all feeds are processed,
+    rather than per-feed, for efficiency.
+
+    This is an async generator that yields results as each feed completes,
+    enabling real-time progress tracking via asyncio.as_completed().
+
     Args:
         ids: List of feed IDs to fetch.
         concurrency: Maximum number of concurrent fetches. Default is 10.
 
     Yields:
-        Dict with feed_id, new_articles, error (if any).
-        Skips "Feed not found" errors gracefully (does not yield them).
+        Dict with feed_id, feed_name, new_articles, error (if any).
     """
     if not ids:
         return
 
+    # Resolve feed IDs to Feed objects, skipping missing ones
+    feeds: list[Feed] = []
+    for id in ids:
+        try:
+            feed = get_feed(id)
+            if feed:
+                feeds.append(feed)
+        except Exception:
+            # Skip feeds that can't be resolved
+            continue
+
+    if not feeds:
+        return
+
     semaphore = asyncio.Semaphore(concurrency)
+    all_embedding_articles: list = []
 
-    async def fetch_one_with_semaphore(id: str):
+    async def process_feed_with_semaphore(feed: Feed) -> tuple:
+        """Process a single feed within the semaphore limit.
+
+        Uses _fetch_one_core directly (no per-feed embeddings).
+        Returns (feed, new_count, embedding_articles, error).
+        """
         async with semaphore:
+            # Parse feed_type from metadata JSON string
+            feed_type = None
+            if feed.metadata:
+                import json
+
+                try:
+                    meta = json.loads(feed.metadata)
+                    if meta.get("feed_type"):
+                        feed_type = FeedType(meta["feed_type"])
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+            # Use match_first to find provider for this feed URL
+            provider = match_first(feed.url, feed_type=feed_type)
+            if not provider:
+                return feed, 0, [], f"No provider for {feed.url}"
+
+            # Get or create circuit breaker for this provider
+            provider_name = provider.__class__.__name__
+            async with _circuit_lock:
+                if provider_name not in _provider_circuits:
+                    from src.utils.scraping_utils import CircuitBreakerState
+
+                    _provider_circuits[provider_name] = CircuitBreakerState()
+                circuit = _provider_circuits[provider_name]
+
+            # Check if circuit allows execution
+            if not await circuit.can_execute():
+                logger.warning(
+                    "Circuit open for %s, skipping %s", provider_name, feed.url
+                )
+                return feed, 0, [], f"Circuit open for {provider_name}"
+
+            # Crawl using the discovered provider's async method
             try:
-                result = await asyncio.to_thread(fetch_one, id)
-                return {"feed_id": id, **result}
-            except FeedNotFoundError:
-                # Skip "Feed not found" - feed doesn't exist in DB
-                return None
+                result = await asyncio.to_thread(provider.fetch_articles, feed)
+                await circuit.record_success()
             except Exception as e:
-                # Yield other errors but continue to next feed
-                return {"feed_id": id, "new_articles": 0, "error": str(e)}
+                await circuit.record_failure()
+                logger.error("Failed to fetch_articles %s: %s", feed.url, e)
+                return feed, 0, [], str(e)
 
-    tasks = [fetch_one_with_semaphore(id) for id in ids]
+            # Delegate to the async core (returns upsert results, not embeddings)
+            new_count, embedding_articles, error = await _fetch_one_core(
+                feed, result.articles
+            )
+            if error:
+                return feed, 0, [], error
 
+            return feed, new_count, embedding_articles, None
+
+    # Create tasks for all feeds - semaphore limits actual concurrency
+    tasks = [process_feed_with_semaphore(feed) for feed in feeds]
+
+    # Use as_completed to yield results as they complete and collect embedding articles
     for coro in asyncio.as_completed(tasks):
-        result = await coro
-        if result is not None:
-            yield result
+        feed, new_count, embedding_articles, error = await coro
+        if embedding_articles:
+            all_embedding_articles.extend(embedding_articles)
+        yield {
+            "feed_id": feed.id,
+            "feed_name": feed.name,
+            "new_articles": new_count,
+            "error": error,
+        }
+
+    # Batch add embeddings after all feeds are processed
+    if all_embedding_articles:
+        try:
+            _check_ml_dependencies()
+            from src.storage.vector import add_article_embeddings
+
+            await asyncio.to_thread(add_article_embeddings, all_embedding_articles)
+        except Exception as e:
+            logger.warning("Failed to batch-add embeddings: %s", e)
+            # Don't fail the fetch — embeddings are non-critical
