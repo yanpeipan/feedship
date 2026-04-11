@@ -271,15 +271,12 @@ ENTITY_TOPIC_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a news analyst. For the given entity and its articles, "
-            "generate: (1) a headline (max 30 chars), (2) the AI five-layer cake layer, "
-            "(3) signal tags, (4) a 1-sentence insight. "
-            "Layers: AI应用, AI模型, AI基础设施, 芯片, 能源.",
+            "You are a news analyst. Output ONLY valid JSON - no markdown code blocks, no explanation, no text before or after the JSON.",
         ),
         (
             "human",
             "Entity: {entity_name}\nArticles ({article_count}):\n{article_list}\n\n"
-            "Return JSON with: headline, layer, signals (list), insight.",
+            'Return JSON: {{"headline": "...", "layer": "...", "signals": [...], "insight": "..."}}. Use example values.',
         ),
     ]
 )
