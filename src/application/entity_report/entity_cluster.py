@@ -1,6 +1,5 @@
 """Layer 2: Entity clustering - group by normalized entity, classify dimension."""
 
-import asyncio
 from collections import defaultdict
 
 from .models import ArticleEnriched, EntityTag, EntityTopic
@@ -44,49 +43,19 @@ def _classify_dimension(text: str) -> str:
     return "release"
 
 
-async def _generate_entity_topic(
+def _generate_entity_topic(
     entity: EntityTag,
     articles: list[ArticleEnriched],
     dimension: str,
 ) -> EntityTopic:
-    """Generate headline and signals for an entity topic via LLM."""
-    delays = [2, 4, 8]
-    for attempt, delay in enumerate(delays):
-        try:
-            from src.llm.chains import get_entity_topic_chain
-
-            chain = get_entity_topic_chain()
-            titles = "\n".join(f"- {a.title}" for a in articles[:10])
-            result = await chain.ainvoke(
-                {
-                    "entity": entity.name,
-                    "titles": titles,
-                    "dimension": dimension,
-                }
-            )
-            parsed = result if isinstance(result, dict) else {}
-            headline = parsed.get("headline", entity.name)
-            signals = parsed.get("signals", [])
-            return EntityTopic(
-                entity=entity,
-                articles=articles,
-                dimension=dimension,
-                headline=headline,
-                signals=signals,
-            )
-        except Exception:
-            if attempt < len(delays) - 1:
-                await asyncio.sleep(delay)
-            else:
-                return EntityTopic(
-                    entity=entity,
-                    articles=articles,
-                    dimension=dimension,
-                    headline=entity.name,
-                    signals=[],
-                )
-    # unreachable
-    return EntityTopic(entity=entity, articles=articles, dimension=dimension)
+    """Generate headline and signals for an entity topic (rule-based)."""
+    return EntityTopic(
+        entity=entity,
+        articles=articles,
+        dimension=dimension,
+        headline=entity.name,
+        signals=[],
+    )
 
 
 class EntityClusterer:
@@ -124,7 +93,7 @@ class EntityClusterer:
         texts = " ".join(a.title + " " + (a.summary or "") for a in articles[:5])
         return _classify_dimension(texts)
 
-    async def cluster(self, articles: list[ArticleEnriched]) -> list[EntityTopic]:
+    def cluster(self, articles: list[ArticleEnriched]) -> list[EntityTopic]:
         """Cluster enriched articles by entity, generate topics."""
         groups = self._group_by_entity(articles)
         topics: list[EntityTopic] = []
@@ -144,13 +113,13 @@ class EntityClusterer:
                     dim = _classify_dimension(a.title + " " + (a.summary or ""))
                     sub_groups[dim].append(a)
                 for dim, sub_arts in sub_groups.items():
-                    topic = await _generate_entity_topic(entity_tag, sub_arts, dim)
+                    topic = _generate_entity_topic(entity_tag, sub_arts, dim)
                     topic.quality_weight = sum(
                         (a.quality_score or 0) * (a.feed_weight or 0) for a in sub_arts
                     ) / max(len(sub_arts), 1)
                     topics.append(topic)
             else:
-                topic = await _generate_entity_topic(entity_tag, arts, dimension)
+                topic = _generate_entity_topic(entity_tag, arts, dimension)
                 topic.quality_weight = sum(
                     (a.quality_score or 0) * (a.feed_weight or 0) for a in arts
                 ) / max(len(arts), 1)

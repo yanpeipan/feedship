@@ -13,7 +13,6 @@ from langchain_core.runnables import Runnable
 from src.llm.core import LLMClient, get_llm_client
 from src.llm.output_models import (
     ClassifyTranslateOutput,
-    EvaluateScore,
     TLDRItem,
 )
 
@@ -22,7 +21,6 @@ DEFAULT_MAX_TOKENS = 300
 
 # Per-chain max tokens overrides
 MAX_TOKENS_PER_CHAIN: dict[str, int] = {
-    "evaluate": 500,  # JSON with 4 scores — 200 was insufficient for MiniMax strict mode
     "translate": 1000,  # full section translation
 }
 
@@ -161,26 +159,6 @@ def _get_llm_wrapper(
     return _llm_wrapper_cache[key]
 
 
-# Report quality evaluation chain
-EVALUATE_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            "You are a professional news report editor. Evaluate report quality objectively.",
-        ),
-        (
-            "human",
-            """Evaluate this daily report and score each dimension 0.0-1.0.
-
-Report:
-{report}
-
-Return ONLY valid JSON with four scores: coherence (0.0-1.0), relevance (0.0-1.0), depth (0.0-1.0), structure (0.0-1.0). Example: {{"coherence": 0.8, "relevance": 0.7, "depth": 0.6, "structure": 0.9}}""",
-        ),
-    ]
-)
-
-
 def _make_json_schema_response_format(schema: dict, name: str) -> dict:
     """Build response_format with json_schema + strict=True for MiniMax compatibility.
 
@@ -191,21 +169,6 @@ def _make_json_schema_response_format(schema: dict, name: str) -> dict:
         "type": "json_schema",
         "json_schema": {"schema": schema, "name": name, "strict": True},
     }
-
-
-def get_evaluate_chain() -> Runnable:
-    """Returns LCEL chain for report quality evaluation."""
-    parser = JsonOutputParser(pydantic_object=EvaluateScore)
-    return (
-        EVALUATE_PROMPT
-        | _get_llm_wrapper(
-            MAX_TOKENS_PER_CHAIN["evaluate"],
-            _make_json_schema_response_format(
-                EvaluateScore.model_json_schema(), "EvaluateScore"
-            ),
-        )
-        | parser
-    )
 
 
 # Translation chain — for section summaries, preserves article titles in links

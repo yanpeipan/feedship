@@ -143,41 +143,6 @@ class TestDedupArticles:
 # LLM chain unit tests
 # =============================================================================
 
-
-class TestLLMChains:
-    """Tests for LLM chain functions: get_evaluate_chain."""
-
-    def test_llm_chain_evaluate_returns_valid_json(self):
-        """Evaluation chain uses JsonOutputParser (not StrOutputParser).
-
-        Verifies the chain ends with JsonOutputParser by inspecting chain steps.
-        Also directly tests JsonOutputParser.parse() with a sample JSON string
-        to confirm it returns a dict with the expected structure.
-        """
-        from langchain_core.output_parsers import JsonOutputParser
-
-        from src.llm.chains import get_evaluate_chain
-
-        chain = get_evaluate_chain()
-        # Verify the last step of the chain is JsonOutputParser (not StrOutputParser)
-        assert isinstance(chain.steps[-1], JsonOutputParser), (
-            "evaluate chain should end with JsonOutputParser"
-        )
-
-        # Verify the parser itself correctly parses a JSON string to dict
-        parser = chain.steps[-1]
-        result = parser.invoke(
-            '{"coherence": 0.8, "relevance": 0.9, "depth": 0.7, "structure": 0.85}'
-        )
-        assert isinstance(result, dict)
-        assert "coherence" in result
-        assert "relevance" in result
-        assert "depth" in result
-        assert "structure" in result
-        assert 0.0 <= result["coherence"] <= 1.0
-        assert 0.0 <= result["relevance"] <= 1.0
-
-
 # =============================================================================
 # AsyncLLMWrapper unit tests
 # =============================================================================

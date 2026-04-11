@@ -1,6 +1,5 @@
 """Layer 1: NER extraction via batch LLM + entity normalization."""
 
-import asyncio
 import re
 import unicodedata
 from typing import Any
@@ -67,45 +66,16 @@ class NERExtractor:
         if not articles:
             return []
 
-        # Try LLM-based extraction with retry
-        delays = [2, 4, 8]
-        for attempt, delay in enumerate(delays):
-            try:
-                from src.llm.chains import get_ner_chain
-
-                chain = get_ner_chain()
-                texts = []
-                for a in articles:
-                    title = a.get("title", "")
-                    summary = a.get("summary") or a.get("description") or ""
-                    texts.append(f"{title}: {summary[:300]}")
-
-                # Process in sub-batches to respect batch_size
-                results = []
-                for i in range(0, len(texts), self.batch_size):
-                    chunk = texts[i : i + self.batch_size]
-                    combined = "\n---\n".join(chunk)
-                    raw = await chain.ainvoke({"text": combined[:4000]})
-                    parsed = raw if isinstance(raw, list) else []
-                    results.extend(self._normalize_batch(parsed))
-
-                return results
-            except Exception:
-                if attempt < len(delays) - 1:
-                    await asyncio.sleep(delay)
-                else:
-                    # Fallback: use feed_id as a proxy entity
-                    results = []
-                    for a in articles:
-                        feed_id = a.get("feed_id", "")
-                        if feed_id:
-                            results.append(
-                                {
-                                    "name": feed_id,
-                                    "normalized_id": normalize_entity(feed_id),
-                                    "type": "SOURCE",
-                                }
-                            )
-                    return results
-
-        return []
+        # Fallback: use feed_id as proxy entity (NER chain removed)
+        results = []
+        for a in articles:
+            feed_id = a.get("feed_id", "")
+            if feed_id:
+                results.append(
+                    {
+                        "name": feed_id,
+                        "normalized_id": normalize_entity(feed_id),
+                        "type": "SOURCE",
+                    }
+                )
+        return results
