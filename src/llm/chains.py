@@ -6,10 +6,17 @@ from typing import Any
 
 from langchain_core.messages import BaseMessage
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
+from langchain_core.prompt_values import ChatPromptValue
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 
 from src.llm.core import LLMClient, get_llm_client
+from src.llm.output_models import (
+    EntityTopicOutput,
+    EvaluateScore,
+    NERArticle,
+    TLDRItem,
+)
 
 # Default max tokens for LLM calls (chains can override via config dict)
 DEFAULT_MAX_TOKENS = 300
@@ -54,24 +61,30 @@ class AsyncLLMWrapper(Runnable):
 
     async def _ainvoke_raw(self, input: Any, config: Any = None) -> str:
         """Invoke with raw string input (for use with StrOutputParser)."""
-        if isinstance(input, dict):
+        if isinstance(input, ChatPromptValue):
+            # LCEL prompt output — combine all messages into a single text prompt
+            # Our LLMClient.complete() wraps a string prompt in {"role": "user", "content": prompt}
+            parts = []
+            for msg in input.messages:
+                if hasattr(msg, "content") and msg.content:
+                    parts.append(f"{msg.type.upper()}: {msg.content}")
+            text = "\n".join(parts)
+        elif isinstance(input, dict):
             # Try to extract text from dict input (LCEL passes prompt values as dicts)
-            # When used as: prompt | model | parser, the prompt outputs a string
-            # But some chains pass dicts, so handle both cases
             text = input.get("text", input.get("prompt", str(input)))
         elif isinstance(input, BaseMessage):
             text = input.content
         else:
             text = str(input)
         max_tokens = self._resolve_max_tokens(config)
-        extra_body = {}
+        # Build extra_body from config first
+        extra_body: dict[str, Any] = {}
         if isinstance(config, dict):
-            extra_body = config.get("extra_body", {})
+            extra_body = dict(config.get("extra_body", {}))
+        # Then overlay instance-level settings (these MUST be applied)
         if self._response_format:
-            extra_body = dict(extra_body)
             extra_body["response_format"] = self._response_format
         if self._thinking:
-            extra_body = dict(extra_body)
             extra_body["thinking"] = self._thinking
         return await self.client.complete(
             text, max_tokens=max_tokens, extra_body=extra_body
@@ -121,7 +134,7 @@ class AsyncLLMWrapper(Runnable):
 
 
 # Cache of wrappers per (max_tokens, response_format, thinking) to avoid per-call instantiation
-_llm_wrapper_cache: dict[tuple[int, frozenset[tuple[str, Any]], frozenset[tuple[str, Any]]], AsyncLLMWrapper] = {}
+_llm_wrapper_cache: dict[tuple[int, int | None, int | None], AsyncLLMWrapper] = {}
 
 
 def _get_llm_wrapper(
@@ -137,12 +150,12 @@ def _get_llm_wrapper(
     """
     key = (
         max_tokens if max_tokens is not None else DEFAULT_MAX_TOKENS,
-        frozenset(response_format.items()) if response_format else frozenset(),
-        frozenset(thinking.items()) if thinking else frozenset(),
+        id(response_format) if response_format else None,
+        id(thinking) if thinking else None,
     )
     if key not in _llm_wrapper_cache:
         _llm_wrapper_cache[key] = AsyncLLMWrapper(
-            max_tokens=key[0],
+            max_tokens=max_tokens if max_tokens is not None else DEFAULT_MAX_TOKENS,
             response_format=response_format,
             thinking=thinking,
         )
@@ -169,12 +182,30 @@ Return ONLY valid JSON with four scores: coherence (0.0-1.0), relevance (0.0-1.0
 )
 
 
+def _make_json_schema_response_format(schema: dict, name: str) -> dict:
+    """Build response_format with json_schema + strict=True for MiniMax compatibility.
+
+    LiteLLM expects: {"type": "json_schema", "json_schema": {"schema": {...}, "name": "...", "strict": true}}
+    MiniMax only enforces JSON mode when strict=True is set.
+    """
+    return {
+        "type": "json_schema",
+        "json_schema": {"schema": schema, "name": name, "strict": True},
+    }
+
+
 def get_evaluate_chain() -> Runnable:
     """Returns LCEL chain for report quality evaluation."""
+    parser = JsonOutputParser(pydantic_object=EvaluateScore)
     return (
         EVALUATE_PROMPT
-        | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["evaluate"], {"type": "json_object"})
-        | JsonOutputParser()
+        | _get_llm_wrapper(
+            MAX_TOKENS_PER_CHAIN["evaluate"],
+            _make_json_schema_response_format(
+                EvaluateScore.model_json_schema(), "EvaluateScore"
+            ),
+        )
+        | parser
     )
 
 
@@ -207,7 +238,8 @@ NER_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a named entity recognition system. Extract entities from articles.",
+            "You are a named entity recognition system. Extract entities from articles. "
+            "Output ONLY valid JSON - no markdown code blocks, no explanation, no text before or after the JSON.",
         ),
         (
             "human",
@@ -220,10 +252,17 @@ NER_PROMPT = ChatPromptTemplate.from_messages(
 
 def get_ner_chain() -> Runnable:
     """Returns LCEL chain for batch NER extraction."""
+    parser = JsonOutputParser(pydantic_object=NERArticle)
     return (
         NER_PROMPT
-        | _get_llm_wrapper(200, {"type": "json_object"}, {"type": "disabled"})
-        | JsonOutputParser()
+        | _get_llm_wrapper(
+            200,
+            _make_json_schema_response_format(
+                NERArticle.model_json_schema(), "NERArticle"
+            ),
+            {"type": "disabled"},
+        )
+        | parser
     )
 
 
@@ -248,10 +287,16 @@ ENTITY_TOPIC_PROMPT = ChatPromptTemplate.from_messages(
 
 def get_entity_topic_chain() -> Runnable:
     """Returns LCEL chain for entity topic headline + layer + signals."""
+    parser = JsonOutputParser(pydantic_object=EntityTopicOutput)
     return (
         ENTITY_TOPIC_PROMPT
-        | _get_llm_wrapper(150, {"type": "json_object"})
-        | JsonOutputParser()
+        | _get_llm_wrapper(
+            150,
+            _make_json_schema_response_format(
+                EntityTopicOutput.model_json_schema(), "EntityTopicOutput"
+            ),
+        )
+        | parser
     )
 
 
@@ -274,8 +319,12 @@ TLDR_PROMPT = ChatPromptTemplate.from_messages(
 
 def get_tldr_chain() -> Runnable:
     """Returns LCEL chain for batch TLDR generation."""
+    parser = JsonOutputParser(pydantic_object=TLDRItem)
     return (
         TLDR_PROMPT
-        | _get_llm_wrapper(300, {"type": "json_object"})
-        | JsonOutputParser()
+        | _get_llm_wrapper(
+            300,
+            _make_json_schema_response_format(TLDRItem.model_json_schema(), "TLDRItem"),
+        )
+        | parser
     )

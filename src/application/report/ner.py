@@ -31,15 +31,13 @@ def normalize_entity(name: str, _type: str | None = None) -> str:
 class NERExtractor:
     """Extract named entities from articles using LLM batch processing."""
 
-    def __init__(self, batch_size: int = 10):
+    def __init__(self, batch_size: int = 5):
         self.batch_size = batch_size
 
     async def extract_batch(
         self, articles: list[dict[str, Any]]
     ) -> list[ArticleEnriched]:
         """Process articles in batches. Returns enriched articles with entity tags."""
-        import json as json_mod
-
         chain = get_ner_chain()
         results: list[ArticleEnriched] = []
         semaphore = asyncio.Semaphore(3)
@@ -55,10 +53,9 @@ class NERExtractor:
                 parsed = None
                 for attempt, delay in enumerate(delays):
                     try:
+                        # Chain now returns List[NERArticle] directly (Pydantic objects)
                         raw = await chain.ainvoke({"articles_block": articles_block})
-                        parsed = raw if isinstance(raw, str) else raw
-                        if isinstance(parsed, str):
-                            parsed = json_mod.loads(parsed)
+                        parsed = raw if isinstance(raw, list) else []
                         if isinstance(parsed, list) and len(parsed) == len(batch):
                             break  # Valid result
                         raise ValueError(
@@ -95,14 +92,15 @@ class NERExtractor:
 
             id_to_entities: dict[str, list[EntityTag]] = {}
             for item in parsed:
-                aid = item.get("id", "")
+                # item is NERArticle Pydantic object with .id and .entities attributes
+                aid = item.id
                 id_to_entities[aid] = [
                     EntityTag(
-                        name=e["name"],
-                        type=e.get("type", "ORG"),
-                        normalized=normalize_entity(e["name"], e.get("type")),
+                        name=e.name,
+                        type=e.type or "ORG",
+                        normalized=normalize_entity(e.name, e.type),
                     )
-                    for e in item.get("entities", [])
+                    for e in item.entities
                 ]
 
             enriched = []
