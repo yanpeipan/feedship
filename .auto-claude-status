@@ -1,17 +1,17 @@
 {
   "active": true,
-  "spec": "014-known-cve-prone-dependencies-without-version-pinni",
+  "spec": "015-reduce-chromadb-chroma-lock-contention-with-per-co",
   "state": "building",
   "subtasks": {
-    "completed": 8,
+    "completed": 7,
     "total": 8,
-    "in_progress": 0,
+    "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Verify all CVE controls are working",
+    "current": "Verify and test",
     "id": null,
-    "total": 2
+    "total": 3
   },
   "workers": {
     "active": 0,
@@ -19,7 +19,7 @@
   },
   "session": {
     "number": 9,
-    "started_at": "2026-04-11T01:56:08.787496"
+    "started_at": "2026-04-11T11:53:44.392961"
   },
-  "last_update": "2026-04-11T02:16:20.691984"
+  "last_update": "2026-04-11T12:11:10.476386"
 }
