@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.11
 milestone_name: milestone
 status: completed
-last_updated: "2026-04-09T13:23:01.104Z"
-last_activity: "2026-04-12 — Completed quick task 260412-33d: 增加LLM分类pipeline"
+last_updated: "2026-04-11T18:38:02.524Z"
+last_activity: "2026-04-10 — Completed quick task 260411-49x: 在 get_evaluate_chain()、get_entity_topic_chain()、get_tldr_chain() 启用 JSON mode"
 progress:
   total_phases: 5
   completed_phases: 4
