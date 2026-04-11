@@ -83,8 +83,8 @@ class EntityClusterer:
         """Group articles by their first entity's normalized_id."""
         groups: dict[str, list[ReportArticle]] = defaultdict(list)
         for article in articles:
-            if article.entities:
-                entity_id = article.entities[0].normalized_id
+            if article.tags:
+                entity_id = article.tags[0].normalized_id
                 groups[entity_id].append(article)
         return dict(groups)
 
@@ -101,8 +101,8 @@ class EntityClusterer:
         for entity_id, arts in groups.items():
             dimension = self._classify_dimension(arts)
             entity_tag = (
-                arts[0].entities[0]
-                if arts and arts[0].entities
+                arts[0].tags[0]
+                if arts and arts[0].tags
                 else EntityTag(name=entity_id, normalized_id=entity_id, type="UNKNOWN")
             )
 

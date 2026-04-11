@@ -197,7 +197,7 @@ async def _entity_report_async(
                     guid=getattr(art, "guid", "") or "",
                     published_at=art.published_at or "",
                     description=art.description or "",
-                    entities=[],
+                    tags=[],
                     dimensions=[tag],  # primary tag is the dimension
                 )
                 for art in arts
@@ -254,13 +254,13 @@ async def _entity_report_async(
                             "feed_weight": art.feed_weight,
                             "published_at": art.published_at,
                             "feed_id": art.feed_id,
-                            "entities": [
+                            "tags": [
                                 {
                                     "name": e.name,
                                     "type": e.type,
                                     "normalized": e.normalized,
                                 }
-                                for e in art.entities
+                                for e in art.tags
                             ],
                         }
                     )

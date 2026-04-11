@@ -59,12 +59,12 @@ class ReportArticle(ArticleListItem):
     """Article model for report pipeline, inheriting from ArticleListItem.
 
     Additional attributes:
-        entities: List of entity tags extracted by NER.
+        tags: List of entity tags extracted by NER.
         dimensions: List of dimension labels (e.g., release, funding, research).
         similar_articles: Related articles in the same entity cluster.
     """
 
-    entities: list[EntityTag] = field(default_factory=list)
+    tags: list[EntityTag] = field(default_factory=list)
     dimensions: list[str] = field(default_factory=list)
     similar_articles: list[ReportArticle] = field(default_factory=list)
 

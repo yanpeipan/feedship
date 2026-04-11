@@ -1,11 +1,11 @@
 import pytest
 
 from src.application.report.entity_cluster import EntityClusterer, classify_dimensions
-from src.application.report.models import ArticleEnriched, EntityTag
+from src.application.report.models import ReportArticle, EntityTag
 
 
 def test_classify_dimensions_release():
-    article = ArticleEnriched(
+    article = ReportArticle(
         id="1",
         title="Google Gemma 4 Released",
         link="",
@@ -14,7 +14,7 @@ def test_classify_dimensions_release():
         feed_weight=0.7,
         published_at="",
         feed_id="f1",
-        entities=[],
+        tags=[],
         dimensions=[],
     )
     dims = classify_dimensions(article)
@@ -22,7 +22,7 @@ def test_classify_dimensions_release():
 
 
 def test_classify_dimensions_funding():
-    article = ArticleEnriched(
+    article = ReportArticle(
         id="1",
         title="OpenAI Raises $10B",
         link="",
@@ -31,7 +31,7 @@ def test_classify_dimensions_funding():
         feed_weight=0.7,
         published_at="",
         feed_id="f1",
-        entities=[],
+        tags=[],
         dimensions=[],
     )
     dims = classify_dimensions(article)
@@ -39,7 +39,7 @@ def test_classify_dimensions_funding():
 
 
 def test_classify_dimensions_research():
-    article = ArticleEnriched(
+    article = ReportArticle(
         id="1",
         title="New Research Paper on LLM",
         link="",
@@ -48,7 +48,7 @@ def test_classify_dimensions_research():
         feed_weight=0.7,
         published_at="",
         feed_id="f1",
-        entities=[],
+        tags=[],
         dimensions=[],
     )
     dims = classify_dimensions(article)
@@ -56,7 +56,7 @@ def test_classify_dimensions_research():
 
 
 def test_classify_dimensions_ecosystem_default():
-    article = ArticleEnriched(
+    article = ReportArticle(
         id="1",
         title="Random Article",
         link="",
@@ -65,7 +65,7 @@ def test_classify_dimensions_ecosystem_default():
         feed_weight=0.7,
         published_at="",
         feed_id="f1",
-        entities=[],
+        tags=[],
         dimensions=[],
     )
     dims = classify_dimensions(article)

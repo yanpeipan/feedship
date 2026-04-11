@@ -26,7 +26,7 @@ def test_article_enriched_default_fields():
         published_at="2026-04-09",
         feed_id="f1",
     )
-    assert article.entities == []
+    assert article.tags == []
     assert article.dimensions == []
 
 

@@ -25,7 +25,7 @@ class ReportArticle:
     feed_weight: float
     published_at: datetime | None
     feed_id: str
-    entities: list[EntityTag] = field(default_factory=list)
+    tags: list[EntityTag] = field(default_factory=list)
     layer: str = "AI应用"  # AI five-layer cake category
 
 
