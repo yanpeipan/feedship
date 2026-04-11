@@ -12,7 +12,6 @@ from src.application.entity_report import (
     EntityClusterer,
     EntityTag,
     EntityTopic,
-    NERExtractor,
     ReportData,
     SignalFilter,
     TLDRGenerator,
@@ -157,7 +156,7 @@ async def _entity_report_async(
     """New entity-based report pipeline (5 layers).
 
     Layer 0: Signal Filter (rules)
-    Layer 1: NER + Entity Resolution (LLM batch)
+    Layer 1: Enrich (pass-through)
     Layer 2: Entity Clustering (LLM)
     Layer 3: TLDR Generation (1 LLM call)
     Layer 4: Render (Jinja2)
@@ -168,7 +167,6 @@ async def _entity_report_async(
 
     from src.application.report.entity_cluster import EntityClusterer
     from src.application.report.filter import SignalFilter
-    from src.application.report.ner import NERExtractor
     from src.application.report.render import (
         group_by_dimension,
         group_by_layer,
@@ -186,9 +184,8 @@ async def _entity_report_async(
         signal_filter = SignalFilter()
         filtered = signal_filter.filter(deduped)
 
-        # Layer 1: NER + Enrich
-        ner = NERExtractor(batch_size=5)
-        enriched = await ner.extract_batch(filtered)
+        # Layer 1: Enrich (pass-through until NER replacement)
+        enriched = filtered
 
         # Layer 2: Entity Clustering
         clusterer = EntityClusterer()
@@ -379,7 +376,6 @@ __all__ = [
     "EntityTopic",
     "ReportData",
     "SignalFilter",
-    "NERExtractor",
     "EntityClusterer",
     "TLDRGenerator",
 ]

@@ -2,10 +2,9 @@
 
 Modules:
 - filter: SignalFilter (Layer 0)
-- ner: NERExtractor (Layer 1)
-- entity_cluster: EntityClusterer (Layer 2)
-- tldr: TLDRGenerator (Layer 3)
-- render: render_entity_report (Layer 4)
+- entity_cluster: EntityClusterer (Layer 1)
+- tldr: TLDRGenerator (Layer 2)
+- render: render_entity_report (Layer 3)
 
 For CLI entry point functions, import from src.application.report directly
 (e.g. from src.application.report import cluster_articles_for_report).
@@ -20,7 +19,6 @@ from src.application.report.models import (
     EntityTopic,
     ReportData,
 )
-from src.application.report.ner import NERExtractor
 from src.application.report.render import (
     dim_zh,
     group_by_dimension,
@@ -39,7 +37,6 @@ from src.application.report.tldr import TLDRGenerator
 
 __all__ = [
     "SignalFilter",
-    "NERExtractor",
     "EntityClusterer",
     "TLDRGenerator",
     "render_entity_report",
