@@ -88,3 +88,5 @@ Last activity: 2026-04-10 — Completed quick task 260411-49x: 在 get_evaluate_
 | 260411-gb4 | 强制模型输出纯JSON - response_format参数应用到NER chain | 2026-04-11 | e6710dc | Verified | [260411-gb4-json-response-format-ner-chain](./quick/260411-gb4-json-response-format-ner-chain/) |
 | 260411-h9z | 为所有 LLM chain 添加 Pydantic model + JsonOutputParser 严格校验 | 2026-04-11 | 83901a1 | Verified | [260411-h9z-llm-chain-pydantic-model-jsonoutputparse](./quick/260411-h9z-llm-chain-pydantic-model-jsonoutputparse/) |
 | 260412-33d | 增加LLM分类pipeline | 2026-04-12 | 3dba87a | Verified | [260412-33d-llm-pipeline](./quick/260412-33d-llm-pipeline/) |
+| 260412-3e6 | get_classify_translate_chain替换get_ner_chain、get_entity_topic_chain | 2026-04-12 | 55c1a0f | Verified | [260412-3e6-get-classify-translate-chain-get-ner-cha](./quick/260412-3e6-get-classify-translate-chain-get-ner-cha/) |
+| 260412-3uh | 删除NERExtractor和src/application/report/ner.py | 2026-04-12 | d2e57d1 | Verified | [260412-3uh-nerextractor-src-application-report-ner-](./quick/260412-3uh-nerextractor-src-application-report-ner-/) |

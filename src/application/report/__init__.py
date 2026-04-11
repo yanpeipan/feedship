@@ -11,7 +11,6 @@ For CLI entry point functions, import from src.application.report directly
 """
 
 # Re-export CLI entry points from report_generation module.
-from src.application.report.entity_cluster import EntityClusterer
 from src.application.report.filter import SignalFilter
 from src.application.report.models import (
     ArticleEnriched,
@@ -37,7 +36,6 @@ from src.application.report.tldr import TLDRGenerator
 
 __all__ = [
     "SignalFilter",
-    "EntityClusterer",
     "TLDRGenerator",
     "render_entity_report",
     "render_entity_inline",

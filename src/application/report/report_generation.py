@@ -7,14 +7,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from src.application.entity_report import (
+from src.application.report import (
     ArticleEnriched,
-    EntityClusterer,
     EntityTag,
     EntityTopic,
     ReportData,
     SignalFilter,
-    TLDRGenerator,
 )
 from src.storage import list_articles
 
@@ -165,7 +163,6 @@ async def _entity_report_async(
 
     logger = logging.getLogger(__name__)
 
-    from src.application.report.entity_cluster import EntityClusterer
     from src.application.report.filter import SignalFilter
     from src.application.report.render import (
         group_by_dimension,
@@ -173,6 +170,7 @@ async def _entity_report_async(
         render_entity_report,
     )
     from src.application.report.tldr import TLDRGenerator
+    from src.llm.chains import get_classify_translate_chain
 
     try:
         # Level 0: Three-level dedup (before SignalFilter)
@@ -184,12 +182,165 @@ async def _entity_report_async(
         signal_filter = SignalFilter()
         filtered = signal_filter.filter(deduped)
 
-        # Layer 1: Enrich (pass-through until NER replacement)
-        enriched = filtered
+        # --- Layer 2: Classify + Translate (LLM) ---
+        # Build news_list string from article titles (preserve order for id mapping)
+        news_list = "\n".join(
+            f"{i + 1}. {art.get('title', '')}" for i, art in enumerate(filtered)
+        )
+        # Candidate tags for AI tech news classification
+        tag_list = "\n".join(
+            [
+                "AI应用",
+                "AI模型",
+                "AI基础设施",
+                "芯片",
+                "能源",
+                "LLM",
+                "开源",
+                "融资",
+                "收购",
+                "研究",
+                "产品发布",
+                "政策监管",
+                "学术",
+                "开发者工具",
+                "创业公司",
+            ]
+        )
+        chain = get_classify_translate_chain(
+            tag_list=tag_list, news_list=news_list, target_lang=target_lang
+        )
+        classify_output = await chain.ainvoke({})
+        # classify_output is ClassifyTranslateOutput with items: [{id, tags, translation}]
 
-        # Layer 2: Entity Clustering
-        clusterer = EntityClusterer()
-        entity_topics = await clusterer.cluster(enriched, target_lang)
+        # Convert ClassifyTranslateOutput to EntityTopic[]
+        # id is 1-indexed position in news_list, map back to original article
+        # Group by primary tag (tags[0]) or feed_id if no tags
+        _DIMENSION_KEYWORDS = {
+            "release": [
+                "release",
+                "launch",
+                "announce",
+                "发布",
+                "推出",
+                "launches",
+                "unveils",
+            ],
+            "funding": [
+                "funding",
+                "raise",
+                "series",
+                "vc",
+                "invest",
+                "融资",
+                "投资",
+                "raises",
+            ],
+            "research": [
+                "research",
+                "paper",
+                "study",
+                "benchmark",
+                "研究",
+                "论文",
+                "arxiv",
+            ],
+            "ecosystem": [
+                "open source",
+                "github",
+                "acquisition",
+                "merger",
+                "partnership",
+                "生态",
+                "开源",
+                "收购",
+            ],
+            "policy": ["regulation", "policy", "government", "ban", "监管", "政策"],
+        }
+
+        def _classify_dim(article: dict) -> list[str]:
+            text = (
+                (article.get("title", "") or "")
+                + " "
+                + (article.get("summary", "") or "")
+            ).lower()
+            dims = []
+            for dim, kws in _DIMENSION_KEYWORDS.items():
+                if any(kw in text for kw in kws):
+                    dims.append(dim)
+            return dims if dims else ["ecosystem"]
+
+        # Group by primary tag (or feed_id as fallback)
+        from collections import defaultdict
+
+        tag_groups: dict[str, list[tuple[int, dict]]] = defaultdict(
+            list
+        )  # tag -> [(item_id, article_dict)]
+        for item in classify_output.items:
+            if item.id <= len(filtered):
+                art = filtered[item.id - 1]
+                primary_tag = (
+                    item.tags[0] if item.tags else art.get("feed_id", "unknown")
+                )
+                tag_groups[primary_tag].append((item.id, art))
+
+        # Also store translated title per item_id
+        trans_by_id = {item.id: item.translation for item in classify_output.items}
+
+        # Build EntityTopic for each tag group
+        entity_topics: list = []
+        from src.application.report.models import (
+            ArticleEnriched,
+            EntityTopic,
+        )
+
+        for tag, items in tag_groups.items():
+            arts = [item[1] for item in items]
+            # Build ArticleEnriched for each article
+            article_enriched_list = []
+            for art in arts:
+                ae = ArticleEnriched(
+                    id=art.get("id", ""),
+                    title=art.get("title", ""),
+                    link=art.get("link", ""),
+                    summary=art.get("summary", ""),
+                    quality_score=art.get("quality_score", 0.0),
+                    feed_weight=art.get("feed_weight", 0.0),
+                    published_at=art.get("published_at", ""),
+                    feed_id=art.get("feed_id", ""),
+                    entities=[],  # No entities available from classify_translate
+                    dimensions=_classify_dim(art),
+                )
+                article_enriched_list.append(ae)
+
+            # Group by dimension
+            by_dim: dict[str, list[ArticleEnriched]] = {}
+            for ae in article_enriched_list:
+                for dim in ae.dimensions:
+                    by_dim.setdefault(dim, []).append(ae)
+
+            # Find best article by quality for headline
+            best_art = max(arts, key=lambda a: a.get("quality_score", 0.0))
+            best_idx = next(
+                i for i, a in enumerate(arts) if a.get("id") == best_art.get("id")
+            )
+            item_id = items[best_idx][0]
+            headline = trans_by_id.get(item_id, tag)[:30]
+
+            entity_topics.append(
+                EntityTopic(
+                    entity_id=tag,
+                    entity_name=tag,
+                    layer="AI应用",
+                    headline=headline,
+                    dimensions=by_dim,
+                    articles_count=len(arts),
+                    signals=[],
+                    tldr="",
+                    quality_weight=sum(a.get("quality_score", 0.0) for a in arts)
+                    * len(arts),
+                )
+            )
 
         # Layer 3: TLDR Generation (top 10)
         tldr_gen = TLDRGenerator(top_n=10)
@@ -376,6 +527,4 @@ __all__ = [
     "EntityTopic",
     "ReportData",
     "SignalFilter",
-    "EntityClusterer",
-    "TLDRGenerator",
 ]
