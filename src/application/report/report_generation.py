@@ -176,9 +176,10 @@ async def _entity_report_async(
                     published_at=art.published_at or "",
                     description=art.description or "",
                     tags=[],
-                    dimensions=[tag],  # primary tag is the dimension
+                    dimensions=[tag],
+                    translation=trans_by_id.get(item_id, ""),
                 )
-                for art in arts
+                for item_id, art in items
             ]
 
             # Find best article by quality for headline

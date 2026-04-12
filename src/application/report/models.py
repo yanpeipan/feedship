@@ -68,6 +68,7 @@ class ReportArticle(ArticleListItem):
     tags: list[EntityTag] = field(default_factory=list)
     dimensions: list[str] = field(default_factory=list)
     similar_articles: list[ReportArticle] = field(default_factory=list)
+    translation: str = ""
 
 
 @dataclass
