@@ -230,12 +230,12 @@ class BuildReportDataChain(Runnable):
         input: list[ArticleListItem],
         config=None,
     ) -> ReportData:
-        """Sync wrapper using new_event_loop pattern."""
-        loop = asyncio.new_event_loop()
+        """Sync wrapper using asyncio.run() pattern."""
         try:
+            loop = asyncio.get_running_loop()
             return loop.run_until_complete(self.ainvoke(input, config))
-        finally:
-            loop.close()
+        except RuntimeError:
+            return asyncio.run(self.ainvoke(input, config))
 
     async def abatch(
         self,
@@ -251,8 +251,8 @@ class BuildReportDataChain(Runnable):
         config=None,
     ) -> list[ReportData]:
         """Sync wrapper for abatch."""
-        loop = asyncio.new_event_loop()
         try:
+            loop = asyncio.get_running_loop()
             return loop.run_until_complete(self.abatch(inputs, config))
-        finally:
-            loop.close()
+        except RuntimeError:
+            return asyncio.run(self.abatch(inputs, config))
