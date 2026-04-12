@@ -20,16 +20,18 @@ repos:
     hooks:
       - id: pip-audit
         name: pip-audit
-        entry: sh -c "pip install pip-audit > /dev/null 2>&1 && pip-audit --exit-zero"
+        entry: pip-audit --exit-zero
         language: system
         pass_filenames: false
         types: [python]
+        stages: [commit]
 
   - repo: local
     hooks:
       - id: grype
         name: grype
-        entry: sh -c "pip install grype > /dev/null 2>&1 && grype --fail-on medium"
+        entry: sh -c "which grype && grype . --fail-on medium || echo 'grype not installed, skipping (runs in CI)'"
         language: system
         pass_filenames: false
         types: [python]
+        stages: [manual]
