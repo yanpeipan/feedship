@@ -18,7 +18,6 @@ from src.application.report import (
     ReportData,
     SignalFilter,
 )
-from src.llm.output_models import ClassifyTranslateItem
 from src.storage import list_articles
 
 logger = logging.getLogger(__name__)
@@ -53,7 +52,6 @@ async def _entity_report_async(
     logger = logging.getLogger(__name__)
 
     from src.application.report.filter import SignalFilter
-    from src.llm.output_models import ClassifyTranslateOutput
 
     try:
         # Level 0: Three-level dedup (before SignalFilter)
@@ -70,6 +68,7 @@ async def _entity_report_async(
         tag_list = "\n".join(heading_tree.titles)
 
         # Use BatchClassifyChain for batching + concurrency
+        # Note: chain.ainvoke mutates filtered in-place, adding .tags and .translation
         from src.application.report.classify import BatchClassifyChain
 
         chain = BatchClassifyChain(
@@ -78,26 +77,15 @@ async def _entity_report_async(
             batch_size=50,
             max_concurrency=5,
         )
-        classify_output_items = await chain.ainvoke(filtered)
-        classify_output = ClassifyTranslateOutput(items=classify_output_items)
+        await chain.ainvoke(filtered)
 
-        # Convert ClassifyTranslateOutput to ReportCluster[]
-        # id is 1-indexed position in news_list, map back to original article
-        # Group by primary tag (tags[0]) or feed_id if no tags
-        # Group by primary tag (or feed_id as fallback)
+        # Group enriched articles by primary tag (or feed_id as fallback)
         from collections import defaultdict
 
-        tag_groups: dict[str, list[tuple[int, ArticleListItem]]] = defaultdict(
-            list
-        )  # tag -> [(item_id, ArticleListItem)]
-        for item in classify_output.items:
-            if item.id <= len(filtered):
-                art = filtered[item.id - 1]
-                primary_tag = item.tags[0] if item.tags else art.feed_id or "unknown"
-                tag_groups[primary_tag].append((item.id, art))
-
-        # Also store translated title per item_id
-        trans_by_id = {item.id: item.translation for item in classify_output.items}
+        tag_groups: dict[str, list[ArticleListItem]] = defaultdict(list)
+        for art in filtered:
+            primary_tag = art.tags[0] if art.tags else art.feed_id or "unknown"
+            tag_groups[primary_tag].append(art)
 
         # Build ReportCluster for each tag group
         entity_topics = []
@@ -106,9 +94,8 @@ async def _entity_report_async(
             ReportCluster,
         )
 
-        for tag, items in tag_groups.items():
-            arts = [item[1] for item in items]
-            # Build ReportArticle for each article
+        for tag, arts in tag_groups.items():
+            # Build ReportArticle for each article using enriched data
             article_enriched_list = [
                 ReportArticle(
                     id=art.id or "",
@@ -119,18 +106,16 @@ async def _entity_report_async(
                     guid=getattr(art, "guid", "") or "",
                     published_at=art.published_at or "",
                     description=art.description or "",
-                    tags=[],
+                    tags=art.tags,
                     dimensions=[tag],
-                    translation=trans_by_id.get(item_id, ""),
+                    translation=art.translation or "",
                 )
-                for item_id, art in items
+                for art in arts
             ]
 
             # Find best article by quality for headline
             best_art = max(arts, key=lambda a: a.quality_score or 0.0)
-            best_idx = next(i for i, a in enumerate(arts) if a.id == best_art.id)
-            item_id = items[best_idx][0]
-            headline = trans_by_id.get(item_id, tag)[:30]
+            headline = best_art.translation[:30] if best_art.translation else tag[:30]
 
             entity_topics.append(
                 ReportCluster(
