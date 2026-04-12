@@ -43,10 +43,10 @@ async def _entity_report_async(
     from src.application.report.filter import SignalFilter
 
     try:
-        # Level 0: Three-level dedup (before SignalFilter)
-        from src.application.dedup import deduplicate_articles
+        # Level 0: Streaming dedup (before SignalFilter) - memory efficient
+        from src.application.dedup import dedup_streaming
 
-        deduped = deduplicate_articles(pre_fetched_articles)
+        deduped = dedup_streaming(pre_fetched_articles)
 
         # Layer 1: Signal Filter
         signal_filter = SignalFilter()
