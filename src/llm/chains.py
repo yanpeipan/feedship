@@ -56,16 +56,13 @@ class TldrJsonOutputParser(Runnable):
 
     def invoke(self, input: Any, config: Any = None) -> list[TLDRItem]:
         raw = input if isinstance(input, str) else str(input)
-        print(f"[TldrJsonOutputParser] raw input: {raw[:200]}")
         json_match = re.search(r"\[.*\]", raw, re.DOTALL)
-        print(f"[TldrJsonOutputParser] match: {json_match}")
         if json_match:
             try:
                 items_data = json.loads(json_match.group())
-                print(f"[TldrJsonOutputParser] parsed: {items_data}")
                 return [TLDRItem(**item) for item in items_data]
-            except Exception as e:
-                print(f"[TldrJsonOutputParser] parse error: {e}")
+            except Exception:
+                pass
         return []
 
     async def ainvoke(self, input: Any, config: Any = None) -> list[TLDRItem]:
@@ -247,21 +244,18 @@ TLDR_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a senior news analyst with dual perspectives:\n\n"
-            "1. **CEO Perspective**: Evaluate the business impact, strategic implications, "
-            "market significance, and competitive landscape for each topic.\n"
-            "2. **AI/Technology Analyst Perspective**: Assess the technological innovations, "
-            "AI/ML developments, industry trends, and technical breakthroughs.\n\n"
-            "For each entity topic:\n"
-            "- Provide a 2-3 sentence summary combining BOTH perspectives\n"
-            "- Highlight key insights that matter to business leaders AND tech professionals\n"
-            "- Focus on depth over breadth, dig into the most important aspects\n\n"
+            "You are a senior news analyst with CEO + AI/Technology analyst dual perspectives.\n"
+            "Each entity topic has multiple related articles discussing the same subject.\n"
+            "Synthesize ALL articles to write a deep, insightful 2-3 sentence summary.\n\n"
+            "Your analysis should:\n"
+            "1. CEO视角: business impact, strategic implications, market significance\n"
+            "2. AI Analyst视角: technical innovations, AI/ML trends, industry breakthroughs\n\n"
             "Write in {target_lang}.",
         ),
         (
             "human",
-            "Entity Topics (top {top_n} articles per cluster, sorted by quality):\n"
-            "{topics_block}\n\n"
+            "Entity Topics (top {top_n} articles each, multiple perspectives per topic):\n"
+            "{article_titles}\n\n"
             'Return JSON array of {{"entity_id": "...", "tldr": "..."}} for each topic.',
         ),
     ]
@@ -270,14 +264,7 @@ TLDR_PROMPT = ChatPromptTemplate.from_messages(
 
 def get_tldr_chain() -> Runnable:
     """Returns LCEL chain for batch TLDR generation."""
-    return (
-        TLDR_PROMPT
-        | _get_llm_wrapper(
-            800,
-            _make_json_schema_response_format(TLDRItem.model_json_schema(), "TLDRItem"),
-        )
-        | TldrJsonOutputParser()
-    )
+    return TLDR_PROMPT | _get_llm_wrapper(800) | TldrJsonOutputParser()
 
 
 # Classification + translation chain

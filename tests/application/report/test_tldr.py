@@ -53,12 +53,12 @@ class TestTLDRChainHelpers:
         result = chain._collect_all_clusters(clusters)
         assert len(result) == 2
 
-    def test_build_topics_block_empty(self):
+    def test_build_article_titles_empty(self):
         chain = TLDRChain()
-        result = chain._build_topics_block([])
+        result = chain._build_article_titles([])
         assert result == ""
 
-    def test_build_topics_block_single_cluster(self):
+    def test_build_article_titles_single_cluster(self):
         from src.application.articles import ArticleListItem
 
         chain = TLDRChain()
@@ -73,10 +73,11 @@ class TestTLDRChainHelpers:
             description=None,
         )
         cluster = ReportCluster(name="Tech", articles=[article])
-        result = chain._build_topics_block([cluster])
-        assert "Entity 1 (Tech): Test Article" in result
+        result = chain._build_article_titles([cluster])
+        assert "Entity 1 (Tech)" in result
+        assert "Test Article" in result
 
-    def test_build_topics_block_uses_translation(self):
+    def test_build_article_titles_uses_translation(self):
         from src.application.articles import ArticleListItem
 
         chain = TLDRChain()
@@ -92,7 +93,7 @@ class TestTLDRChainHelpers:
         )
         article.translation = "Translated Title"
         cluster = ReportCluster(name="Tech", articles=[article])
-        result = chain._build_topics_block([cluster])
+        result = chain._build_article_titles([cluster])
         assert "Translated Title" in result
 
 
