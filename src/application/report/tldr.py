@@ -19,6 +19,13 @@ class TLDRChain(Runnable):
 
     Traverses all clusters (including cluster.children), filters those with articles,
     batches calls to get_tldr_chain, and writes cluster.summary.
+
+    Args:
+        top_n: Limit number of articles per cluster for TLDR generation (default: 100).
+            Each cluster passes at most top_n articles (sorted by quality_weight) to the LLM.
+        target_lang: Target language for TLDR summaries (default: "zh").
+        batch_size: Number of clusters to process in each LLM batch call (default: 20).
+        max_concurrency: Maximum concurrent LLM calls (default: 5).
     """
 
     def __init__(
@@ -56,12 +63,19 @@ class TLDRChain(Runnable):
     def _build_topics_block(self, clusters: list[ReportCluster]) -> str:
         """Build topics_block string for get_tldr_chain prompt.
 
+        For each cluster, sorts articles by quality_weight descending and takes top_n.
         Format per cluster:
         "Entity {i+1} ({name}): {first_article_translation or title}"
         """
         lines: list[str] = []
         for i, cluster in enumerate(clusters):
-            first_article = cluster.articles[0] if cluster.articles else None
+            # Sort articles by quality_weight descending and take top_n
+            sorted_articles = sorted(
+                cluster.articles,
+                key=lambda a: getattr(a, "quality_weight", 0.0) or 0.0,
+                reverse=True,
+            )[: self.top_n]
+            first_article = sorted_articles[0] if sorted_articles else None
             content = ""
             if first_article:
                 content = first_article.translation or first_article.title or ""
@@ -73,9 +87,9 @@ class TLDRChain(Runnable):
 
         1. Collect all clusters recursively
         2. Filter clusters with articles
-        3. Sort by quality_weight descending and take top_n
-        4. Batch clusters, call get_tldr_chain for each batch
-        5. Map TLDRItem.entity_id -> cluster.name, write TLDRItem.tldr -> cluster.summary
+        3. Batch clusters, call get_tldr_chain for each batch
+           (each cluster uses only top_n articles for topics_block)
+        4. Map TLDRItem.entity_id -> cluster.name, write TLDRItem.tldr -> cluster.summary
         """
         from src.llm.chains import get_tldr_chain
 
@@ -85,23 +99,14 @@ class TLDRChain(Runnable):
         # Step 2: filter clusters with articles
         clusters_with_articles = [c for c in all_clusters if c.articles]
 
-        # Step 3: sort by quality_weight descending and take top_n
-        # quality_weight may not exist on all articles; default to 0
-        def cluster_quality(c: ReportCluster) -> float:
-            weights = [getattr(a, "quality_weight", 0.0) or 0.0 for a in c.articles]
-            return max(weights) if weights else 0.0
-
-        sorted_clusters = sorted(
-            clusters_with_articles, key=cluster_quality, reverse=True
-        )[: self.top_n]
-
-        if not sorted_clusters:
+        if not clusters_with_articles:
             return input
 
-        # Step 4: batch clusters and call get_tldr_chain
+        # Step 3: batch clusters and call get_tldr_chain
+        # (each cluster's _build_topics_block filters to top_n articles)
         batches: list[list[ReportCluster]] = [
-            sorted_clusters[i : i + self.batch_size]
-            for i in range(0, len(sorted_clusters), self.batch_size)
+            clusters_with_articles[i : i + self.batch_size]
+            for i in range(0, len(clusters_with_articles), self.batch_size)
         ]
         semaphore = asyncio.Semaphore(self.max_concurrency)
 
@@ -113,7 +118,10 @@ class TLDRChain(Runnable):
                     output = await chain.ainvoke(
                         {"topics_block": topics_block, "target_lang": self.target_lang}
                     )
-                    # Step 5: map TLDRItem back to clusters
+                    print(
+                        f"[TLDR DEBUG] output={output}, cluster_names={[c.name for c in batch]}"
+                    )
+                    # Step 4: map TLDRItem back to clusters
                     tldr_by_name = {item.entity_id: item.tldr for item in output}
                     for cluster in batch:
                         if cluster.name in tldr_by_name:
