@@ -121,7 +121,5 @@ class ReportTemplate:
         useful for understanding report schema without needing to render first.
         Body text will contain Jinja2 syntax rather than real content.
         """
-        source, _, _ = self.environment.loader.get_source(
-            self.environment, f"{self._template_name}.md"
-        )
+        source = self.get_template(self._template_name).source
         return parse_markdown_headings(source)
