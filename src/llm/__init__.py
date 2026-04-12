@@ -1,15 +1,8 @@
 """LLM module — core client and quality evaluation."""
 
 from src.llm.core import (
-    DailyCapExceeded,
-    LLMClient,
     LLMConfig,
-    LLMError,
-    ProviderUnavailable,
-    batch_summarize_articles,
-    get_llm_client,
-    llm_complete,
-    reset_llm_client,
+    _get_llm_wrapper,
 )
 from src.llm.evaluator import (
     ImprovementRecord,
@@ -22,14 +15,7 @@ from src.llm.evaluator import (
 __all__ = [
     # core
     "LLMConfig",
-    "LLMClient",
-    "LLMError",
-    "DailyCapExceeded",
-    "ProviderUnavailable",
-    "get_llm_client",
-    "reset_llm_client",
-    "llm_complete",
-    "batch_summarize_articles",
+    "_get_llm_wrapper",
     # evaluator
     "QualityScore",
     "ImprovementRecord",
