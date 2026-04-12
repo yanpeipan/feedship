@@ -1,18 +1,10 @@
 import pytest
 
 from src.application.report.models import (
-    EntityTag,
     ReportArticle,
     ReportCluster,
     ReportData,
 )
-
-
-def test_entity_tag_fields():
-    tag = EntityTag(name="Google Gemma 4", type="PRODUCT", normalized="google_gemma_4")
-    assert tag.name == "Google Gemma 4"
-    assert tag.type == "PRODUCT"
-    assert tag.normalized == "google_gemma_4"
 
 
 def test_article_enriched_default_fields():
@@ -27,7 +19,6 @@ def test_article_enriched_default_fields():
         description="",
     )
     assert article.tags == []
-    assert article.dimensions == []
 
 
 def test_entity_topic_fields():

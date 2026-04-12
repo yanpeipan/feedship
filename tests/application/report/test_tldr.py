@@ -96,7 +96,7 @@ class TestTLDRChainAinvoke:
 
         chain = TLDRChain()
         report_data = ReportData(clusters={}, date_range={})
-        result = asyncio.get_event_loop().run_until_complete(chain.ainvoke(report_data))
+        result = asyncio.run(chain.ainvoke(report_data))
         assert result is report_data
 
     def test_ainvoke_clusters_without_articles(self):
@@ -105,7 +105,7 @@ class TestTLDRChainAinvoke:
         chain = TLDRChain()
         cluster = ReportCluster(name="empty", articles=[])
         report_data = ReportData(clusters={"group": [cluster]}, date_range={})
-        result = asyncio.get_event_loop().run_until_complete(chain.ainvoke(report_data))
+        result = asyncio.run(chain.ainvoke(report_data))
         assert result is report_data
         # summary may be None or empty string depending on LLM call result
         assert result.clusters["group"][0].summary in (None, "")
@@ -131,7 +131,7 @@ class TestTLDRChainAinvoke:
         report_data = ReportData(clusters={"group": [cluster]}, date_range={})
 
         # Should not raise, even if LLM call fails
-        result = asyncio.get_event_loop().run_until_complete(chain.ainvoke(report_data))
+        result = asyncio.run(chain.ainvoke(report_data))
         assert result is report_data
 
 
@@ -149,9 +149,7 @@ class TestTLDRChainBatch:
 
         chain = TLDRChain()
         report_data = ReportData(clusters={}, date_range={})
-        result = asyncio.get_event_loop().run_until_complete(
-            chain.abatch([report_data])
-        )
+        result = asyncio.run(chain.abatch([report_data]))
         assert len(result) == 1
         assert result[0] is report_data
 
