@@ -71,6 +71,28 @@ class ReportArticle(ArticleListItem):
     similar_articles: list[ReportArticle] = field(default_factory=list)
     translation: str = ""
 
+    @classmethod
+    def from_article(cls, item: ArticleListItem, cluster_name: str) -> ReportArticle:
+        """Convert an ArticleListItem to ReportArticle.
+
+        Args:
+            item: Source article with .tags and .translation from enrichment
+            cluster_name: Primary dimension/tag for this article
+        """
+        return cls(
+            id=item.id or "",
+            feed_id=item.feed_id or "",
+            feed_name=item.feed_name or "",
+            title=item.title or "",
+            link=item.link or "",
+            guid=item.guid or "",
+            published_at=item.published_at or "",
+            description=item.description or "",
+            tags=item.tags,
+            dimensions=[cluster_name],
+            translation=item.translation or "",
+        )
+
 
 @dataclass
 class ReportCluster:
@@ -126,30 +148,14 @@ class ReportData:
         if cluster_name not in self.clusters:
             self.clusters[cluster_name] = []
 
-        clusters = self.clusters[cluster_name]
-
-        # Use existing cluster or create new one with this article as first child
-        if not clusters:
+        # Use existing cluster or create new one
+        cluster_list = self.clusters[cluster_name]
+        cluster = cluster_list[0] if cluster_list else None
+        if cluster is None:
             cluster = ReportCluster(name=cluster_name)
-            clusters.append(cluster)
-        else:
-            cluster = clusters[0]
+            cluster_list.append(cluster)
 
-        # Convert ArticleListItem to ReportArticle
-        art = ReportArticle(
-            id=item.id or "",
-            feed_id=item.feed_id or "",
-            feed_name=item.feed_name or "",
-            title=item.title or "",
-            link=item.link or "",
-            guid=item.guid or "",
-            published_at=item.published_at or "",
-            description=item.description or "",
-            tags=item.tags,
-            dimensions=[cluster_name],
-            translation=item.translation or "",
-        )
-        cluster.children.append(art)
+        cluster.children.append(ReportArticle.from_article(item, cluster_name))
 
     def get_cluster(self, cluster_name: str) -> ReportCluster | None:
         """Get the first cluster with the given name, searching recursively.
