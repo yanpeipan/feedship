@@ -209,8 +209,13 @@ async def _entity_report_async(
 
         clusters: dict[str, list[ReportCluster]] = {}
         for node in (heading_tree.children if heading_tree else []):
+            # Match: node.title starts with "A." → cluster tagged "A"
             matched = next(
-                (c for c in entity_topics if _tag_of(c) in node.title),
+                (
+                    c
+                    for c in entity_topics
+                    if node.title.startswith(_tag_of(c))
+                ),
                 ReportCluster(name=node.title, children=[], articles=[]),
             )
             clusters.setdefault(node.title, []).append(matched)
