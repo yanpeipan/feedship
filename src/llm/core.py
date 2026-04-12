@@ -151,7 +151,7 @@ class LLMClient:
                 if not content:
                     raise ProviderUnavailable("Router returned empty content")
                 return content
-            except asyncio.TimeoutError:
+            except litellm.Timeout:
                 # Retry with extended timeout on TimeoutError
                 for attempt in [2, 3]:  # 2nd and 3rd attempt with longer timeout
                     try:
@@ -164,7 +164,7 @@ class LLMClient:
                             content = message.get("content") or message.get("reasoning_content")
                             if content:
                                 return content
-                    except asyncio.TimeoutError:
+                    except litellm.Timeout:
                         pass
                 raise LLMError(
                     f"LLM call timed out after {self.config.timeout_seconds}s"
