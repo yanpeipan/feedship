@@ -3,17 +3,15 @@
 Exports:
     SignalFilter: Layer 0 - exact dedup + quality/feed_weight gate.
     NERExtractor: Layer 1 - batch LLM NER extraction + entity normalization.
-    EntityClusterer: Layer 2 - group by entity, dimension classify, headline LLM.
-    TLDRGenerator: Layer 3 - top-10 TLDR summary via single LLM call.
+    TLDRGenerator: Layer 2 - top-10 TLDR summary via single LLM call.
     ReportData: Dataclass models for the report pipeline.
 """
 
-from .entity_cluster import EntityClusterer
 from .filter import SignalFilter
 from .models import (
-    ReportArticle,
     EntityTag,
     EntityTopic,
+    ReportArticle,
     ReportData,
 )
 from .ner import NERExtractor
@@ -26,6 +24,5 @@ __all__ = [
     "ReportData",
     "SignalFilter",
     "NERExtractor",
-    "EntityClusterer",
     "TLDRGenerator",
 ]

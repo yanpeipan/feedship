@@ -2,7 +2,6 @@
 
 Modules:
 - filter: SignalFilter (Layer 0)
-- entity_cluster: EntityClusterer (Layer 1)
 - tldr: TLDRGenerator (Layer 2)
 - render: render_report (Layer 3)
 
@@ -13,9 +12,9 @@ For CLI entry point functions, import from src.application.report directly
 # Re-export CLI entry points from report_generation module.
 from src.application.report.filter import SignalFilter
 from src.application.report.models import (
-    ReportArticle,
     EntityTag,
     EntityTopic,
+    ReportArticle,
     ReportData,
 )
 from src.application.report.render import (
@@ -43,6 +42,5 @@ __all__ = [
     "EntityTopic",
     "ReportData",
     "cluster_articles_for_report",
-    "render_report",
     "LAYER_KEYS",
 ]
