@@ -4,7 +4,7 @@ milestone: v1.11
 milestone_name: milestone
 status: completed
 last_updated: "2026-04-11T18:38:02.524Z"
-last_activity: "2026-04-12 — Completed quick task 260412-hjb: 删除 src/application/entity_report/entity_cluster.py"
+last_activity: "2026-04-12 — Completed quick task 260412-hy9: template.render() 传递 ReportData 而非分散参数"
 progress:
   total_phases: 5
   completed_phases: 4
@@ -99,3 +99,5 @@ Last activity: 2026-04-11 - Completed quick task 260412-54h: 对filtered进行�
 | 260412-88j | 删除 render_entity_inline 函数 | 2026-04-12 | 9703c94 | | [260412-88j-render-entity-inline](./quick/260412-88j-render-entity-inline/) |
 | 260412-9e8 | ArticleEnriched → ReportArticle 继承 ArticleListItem | 2026-04-12 | 65d45f1 | | [260412-9e8-articleenriched-reportarticle-articlelis](./quick/260412-9e8-articleenriched-reportarticle-articlelis/) |
 | 260412-hjb | 删除 src/application/entity_report/entity_cluster.py | 2026-04-12 | 6a2f991 | | [260412-hjb-src-application-entity-report-entity-clu](./quick/260412-hjb-src-application-entity-report-entity-clu/) |
+| 260412-htm | 删除 src/application/entity_report 整个目录 | 2026-04-12 | e8d1ae9 | | [260412-htm-src-application-entity-report](./quick/260412-htm-src-application-entity-report/) |
+| 260412-hy9 | template.render() 传递 ReportData 而非分散参数 | 2026-04-12 | 0410354 | | [260412-hy9-template-render-reportdata](./quick/260412-hy9-template-render-reportdata/) |

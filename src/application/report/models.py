@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+
 from src.application.articles import ArticleListItem
 
 
@@ -70,14 +71,14 @@ class ReportArticle(ArticleListItem):
 
 
 @dataclass
-class EntityTopic:
+class ReportCluster:
     """An entity topic grouping multiple articles.
 
     Attributes:
         name: Topic name/headline
         summary: One-sentence TLDR summary
         tags: List of entity tags extracted by NER
-        children: List of child EntityTopic (sub-topics in same layer)
+        children: List of child ReportCluster (sub-topics in same layer)
         articles: Flat list of all articles in this topic
     """
 
@@ -94,16 +95,16 @@ class ReportData:
 
     Attributes:
         tldr_top10: Top 10 entity topics sorted by quality_weight
-        by_layer: Entity topics grouped by layer
-        by_dimension: Entity topics grouped by dimension
+        clusters: Entity topics grouped by layer
+        by_cluster: Entity topics grouped by dimension
         deep_dive: Large entity topics (articles_count > 50) split by dimension
         date_range: Date range for the report
         target_lang: Target language for the report
     """
 
-    tldr_top10: list[EntityTopic] = field(default_factory=list)
-    by_layer: dict[str, list[EntityTopic]] = field(default_factory=dict)
-    by_dimension: dict[str, list[EntityTopic]] = field(default_factory=dict)
-    deep_dive: list[EntityTopic] = field(default_factory=list)
+    tldr_top10: list[ReportCluster] = field(default_factory=list)
+    clusters: dict[str, list[ReportCluster]] = field(default_factory=dict)
+    by_cluster: dict[str, list[ReportCluster]] = field(default_factory=dict)
+    deep_dive: list[ReportCluster] = field(default_factory=list)
     date_range: dict[str, str] = field(default_factory=dict)
     target_lang: str = "zh"

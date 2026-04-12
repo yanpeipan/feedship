@@ -1,6 +1,6 @@
 import pytest
 
-from src.application.report.models import EntityTopic
+from src.application.report.models import ReportCluster
 from src.application.report.tldr import TLDRGenerator
 
 

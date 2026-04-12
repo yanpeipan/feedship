@@ -10,7 +10,7 @@ from typing import Any
 from src.application.articles import ArticleListItem
 from src.application.report import (
     EntityTag,
-    EntityTopic,
+    ReportCluster,
     ReportArticle,
     ReportData,
     SignalFilter,
@@ -52,8 +52,8 @@ async def _entity_report_async(
 
     from src.application.report.filter import SignalFilter
     from src.application.report.render import (
-        group_by_dimension,
-        group_by_layer,
+        group_by_cluster,
+        group_clusters,
         render_report,
     )
     from src.application.report.tldr import TLDRGenerator
@@ -159,7 +159,7 @@ async def _entity_report_async(
         # Convert to ClassifyTranslateOutput for downstream compatibility
         classify_output = ClassifyTranslateOutput(items=all_items)
 
-        # Convert ClassifyTranslateOutput to EntityTopic[]
+        # Convert ClassifyTranslateOutput to ReportCluster[]
         # id is 1-indexed position in news_list, map back to original article
         # Group by primary tag (tags[0]) or feed_id if no tags
         # Group by primary tag (or feed_id as fallback)
@@ -177,10 +177,10 @@ async def _entity_report_async(
         # Also store translated title per item_id
         trans_by_id = {item.id: item.translation for item in classify_output.items}
 
-        # Build EntityTopic for each tag group
+        # Build ReportCluster for each tag group
         entity_topics: list = []
         from src.application.report.models import (
-            EntityTopic,
+            ReportCluster,
             ReportArticle,
         )
 
@@ -210,7 +210,7 @@ async def _entity_report_async(
             headline = trans_by_id.get(item_id, tag)[:30]
 
             entity_topics.append(
-                EntityTopic(
+                ReportCluster(
                     name=headline,
                     summary="",
                     tags=[],
@@ -229,7 +229,7 @@ async def _entity_report_async(
         )
 
         # Build CLI-compatible layers structure from entity topics
-        # Each EntityTopic -> topic dict with "sources" (flattened from dimensions)
+        # Each ReportCluster -> topic dict with "sources" (flattened from dimensions)
         entity_topic_dicts: list[dict] = []
         for topic in entity_topics:
             topic_dict = {
@@ -259,18 +259,18 @@ async def _entity_report_async(
             entity_topic_dicts.append(topic_dict)
 
         # Group entity topic dicts by layer (same structure as thematic pipeline)
-        articles_by_layer: dict[str, list[dict]] = {cat: [] for cat in LAYER_KEYS}
+        articles_clusters: dict[str, list[dict]] = {cat: [] for cat in LAYER_KEYS}
         for topic_dict in entity_topic_dicts:
             layer = topic_dict.get("layer", "AI应用")
-            if layer in articles_by_layer:
-                articles_by_layer[layer].append(topic_dict)
+            if layer in articles_clusters:
+                articles_clusters[layer].append(topic_dict)
 
         layers_data: list[dict] = []
         for layer_name in LAYER_KEYS:
             layers_data.append(
                 {
                     "name": layer_name,
-                    "topics": articles_by_layer.get(layer_name, []),
+                    "topics": articles_clusters.get(layer_name, []),
                 }
             )
 
@@ -278,8 +278,8 @@ async def _entity_report_async(
             "rendered": rendered,
             "tldr_top10": tldr_top10,
             "layers": layers_data,
-            "by_layer": group_by_layer(entity_topics),
-            "by_dimension": group_by_dimension(entity_topics),
+            "clusters": group_clusters(entity_topics),
+            "by_cluster": group_by_cluster(entity_topics),
             "entity_topics": entity_topics,
             "date_range": {"since": since, "until": until},
         }
@@ -298,8 +298,8 @@ def cluster_articles_for_report(
     """Fetch and cluster articles for an entity-based report.
 
     Returns:
-        dict with keys: rendered (markdown str), tldr_top10, by_layer,
-        by_dimension, entity_topics, date_range ({since, until}).
+        dict with keys: rendered (markdown str), tldr_top10, clusters,
+        by_cluster, entity_topics, date_range ({since, until}).
     """
     articles = list_articles(
         limit=limit,
@@ -368,7 +368,7 @@ async def render_report(
 __all__ = [
     "ReportArticle",
     "EntityTag",
-    "EntityTopic",
+    "ReportCluster",
     "ReportData",
     "SignalFilter",
 ]

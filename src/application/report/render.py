@@ -7,7 +7,7 @@ from typing import Any
 from .models import ReportData
 
 
-def group_by_layer(topics: list) -> dict[str, list]:
+def group_clusters(topics: list) -> dict[str, list]:
     result: dict[str, list] = {}
     for t in topics:
         layer = getattr(t, "layer", "AI应用")
@@ -15,7 +15,7 @@ def group_by_layer(topics: list) -> dict[str, list]:
     return result
 
 
-def group_by_dimension(topics: list) -> dict[str, list]:
+def group_by_cluster(topics: list) -> dict[str, list]:
     result: dict[str, list] = {}
     for t in topics:
         tags = getattr(t, "tags", [])
@@ -56,20 +56,20 @@ async def render_report(
     except Exception:
         raise
 
-    by_layer = group_by_layer(entity_topics)
-    by_dimension = group_by_dimension(entity_topics)
+    clusters = group_clusters(entity_topics)
+    by_cluster = group_by_cluster(entity_topics)
     deep_dive = [t for t in entity_topics if len(getattr(t, "children", [])) > 50]
 
-    for layer_list in by_layer.values():
+    for layer_list in clusters.values():
         layer_list.sort(key=_topic_sort_key, reverse=True)
-    for dim_list in by_dimension.values():
+    for dim_list in by_cluster.values():
         dim_list.sort(key=_topic_sort_key, reverse=True)
     deep_dive.sort(key=_topic_sort_key, reverse=True)
 
     report_data = ReportData(
         tldr_top10=entity_topics[:10],
-        by_layer=by_layer,
-        by_dimension=by_dimension,
+        clusters=clusters,
+        by_cluster=by_cluster,
         deep_dive=deep_dive,
         date_range={"since": since, "until": until},
         target_lang=target_lang,

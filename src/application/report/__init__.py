@@ -13,13 +13,13 @@ For CLI entry point functions, import from src.application.report directly
 from src.application.report.filter import SignalFilter
 from src.application.report.models import (
     EntityTag,
-    EntityTopic,
     ReportArticle,
+    ReportCluster,
     ReportData,
 )
 from src.application.report.render import (
-    group_by_dimension,
-    group_by_layer,
+    group_by_cluster,
+    group_clusters,
     render_report,
 )
 
@@ -27,7 +27,6 @@ from src.application.report.render import (
 from src.application.report.report_generation import (
     LAYER_KEYS,
     cluster_articles_for_report,
-    render_report,
 )
 from src.application.report.tldr import TLDRGenerator
 
@@ -35,11 +34,11 @@ __all__ = [
     "SignalFilter",
     "TLDRGenerator",
     "render_report",
-    "group_by_layer",
-    "group_by_dimension",
+    "group_clusters",
+    "group_by_cluster",
     "ReportArticle",
     "EntityTag",
-    "EntityTopic",
+    "ReportCluster",
     "ReportData",
     "cluster_articles_for_report",
     "LAYER_KEYS",

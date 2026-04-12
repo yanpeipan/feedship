@@ -1,9 +1,9 @@
 import pytest
 
 from src.application.report.models import (
-    ReportArticle,
     EntityTag,
-    EntityTopic,
+    ReportCluster,
+    ReportArticle,
     ReportData,
 )
 
@@ -31,7 +31,7 @@ def test_article_enriched_default_fields():
 
 
 def test_entity_topic_fields():
-    topic = EntityTopic(
+    topic = ReportCluster(
         name="Google Gemma 4",
         summary="Gemma 4发布",
         tags=[],
@@ -44,8 +44,8 @@ def test_entity_topic_fields():
 def test_report_data_fields():
     data = ReportData(
         tldr_top10=[],
-        by_layer={},
-        by_dimension={},
+        clusters={},
+        by_cluster={},
         deep_dive=[],
         date_range={"since": "2026-04-07", "until": "2026-04-10"},
         target_lang="zh",

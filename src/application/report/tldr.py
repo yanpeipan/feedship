@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.application.report.models import EntityTopic
+from src.application.report.models import ReportCluster
 from src.llm.chains import get_tldr_chain
 
 
@@ -11,8 +11,8 @@ class TLDRGenerator:
         self.top_n = top_n
 
     async def generate_top10(
-        self, entity_topics: list[EntityTopic], target_lang: str
-    ) -> list[EntityTopic]:
+        self, entity_topics: list[ReportCluster], target_lang: str
+    ) -> list[ReportCluster]:
         """Take top N by quality_weight, generate tldr in-place. Returns top N."""
         import json as json_mod
 
