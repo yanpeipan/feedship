@@ -60,6 +60,7 @@ class EntityTag:
 class ReportArticle(ArticleListItem):
     """Article model for report pipeline, inheriting from ArticleListItem."""
     # tags, dimensions, translation inherited from ArticleListItem
+    similar_articles: list[ReportArticle] = field(default_factory=list)
 
     @classmethod
     def from_article(cls, item: ArticleListItem, cluster_name: str) -> ReportArticle:
