@@ -27,6 +27,14 @@ class HeadingNode:
     body: str = ""
     children: list["HeadingNode"] = field(default_factory=list)
 
+    @property
+    def titles(self) -> list[str]:
+        """Recursively collect all heading titles in this subtree."""
+        result = [self.title] if self.title else []
+        for child in self.children:
+            result.extend(child.titles)
+        return result
+
 
 def parse_markdown_headings(markdown: str) -> HeadingNode:
     """Parse rendered markdown into a heading tree.
