@@ -56,10 +56,16 @@ class TldrJsonOutputParser(Runnable):
 
     def invoke(self, input: Any, config: Any = None) -> list[TLDRItem]:
         raw = input if isinstance(input, str) else str(input)
+        print(f"[TldrJsonOutputParser] raw input: {raw[:200]}")
         json_match = re.search(r"\[.*\]", raw, re.DOTALL)
+        print(f"[TldrJsonOutputParser] match: {json_match}")
         if json_match:
-            items_data = json.loads(json_match.group())
-            return [TLDRItem(**item) for item in items_data]
+            try:
+                items_data = json.loads(json_match.group())
+                print(f"[TldrJsonOutputParser] parsed: {items_data}")
+                return [TLDRItem(**item) for item in items_data]
+            except Exception as e:
+                print(f"[TldrJsonOutputParser] parse error: {e}")
         return []
 
     async def ainvoke(self, input: Any, config: Any = None) -> list[TLDRItem]:
@@ -236,17 +242,26 @@ def get_translate_chain() -> Runnable:
     )
 
 
-# TLDR chain — generate 1-sentence TLDR for multiple entities at once
+# TLDR chain — generate detailed TLDR for multiple entities at once
 TLDR_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a news editor. Generate a 1-sentence TLDR for each entity topic. "
-            "Focus on: what happened, why it matters. Write in {target_lang}.",
+            "You are a senior news analyst with dual perspectives:\n\n"
+            "1. **CEO Perspective**: Evaluate the business impact, strategic implications, "
+            "market significance, and competitive landscape for each topic.\n"
+            "2. **AI/Technology Analyst Perspective**: Assess the technological innovations, "
+            "AI/ML developments, industry trends, and technical breakthroughs.\n\n"
+            "For each entity topic:\n"
+            "- Provide a 2-3 sentence summary combining BOTH perspectives\n"
+            "- Highlight key insights that matter to business leaders AND tech professionals\n"
+            "- Focus on depth over breadth, dig into the most important aspects\n\n"
+            "Write in {target_lang}.",
         ),
         (
             "human",
-            "Entity Topics:\n{topics_block}\n\n"
+            "Entity Topics (top {top_n} articles per cluster, sorted by quality):\n"
+            "{topics_block}\n\n"
             'Return JSON array of {{"entity_id": "...", "tldr": "..."}} for each topic.',
         ),
     ]
@@ -258,7 +273,7 @@ def get_tldr_chain() -> Runnable:
     return (
         TLDR_PROMPT
         | _get_llm_wrapper(
-            300,
+            800,
             _make_json_schema_response_format(TLDRItem.model_json_schema(), "TLDRItem"),
         )
         | TldrJsonOutputParser()
