@@ -107,7 +107,7 @@ class ReportTemplate:
 
     def get_template(self, template_name: str) -> Template:
         """Get template by name from the environment."""
-        return self.environment.get_template(f"{template_name}.md")
+        return self.environment.get_template(f"{template_name}.md.j2")
 
     async def render(self, report_data: ReportData) -> str:
         """Render report using the bound template name."""
@@ -121,5 +121,7 @@ class ReportTemplate:
         useful for understanding report schema without needing to render first.
         Body text will contain Jinja2 syntax rather than real content.
         """
-        source = self.get_template(self._template_name).source
+        source, _, _ = self.environment.loader.get_source(
+            self.environment, f"{self._template_name}.md.j2"
+        )
         return parse_markdown_headings(source)
