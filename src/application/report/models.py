@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 
 from src.application.articles import ArticleListItem
@@ -59,12 +60,15 @@ class EntityTag:
 @dataclass
 class ReportArticle(ArticleListItem):
     """Article model for report pipeline, inheriting from ArticleListItem."""
+
     # tags, dimensions, translation inherited from ArticleListItem
     similar_articles: list[ReportArticle] = field(default_factory=list)
 
     @classmethod
     def from_article(
-        cls, item: ArticleListItem, similar_articles: list[ReportArticle] = field(default_factory=list)
+        cls,
+        item: ArticleListItem,
+        similar_articles: list[ReportArticle] = field(default_factory=list),
     ) -> ReportArticle:
         """Convert an ArticleListItem to ReportArticle."""
         kwargs = asdict(item)
@@ -131,6 +135,34 @@ class ReportData:
             self.clusters[cluster_name].append(cluster)
 
         cluster.children.append(ReportArticle.from_article(item))
+
+    def add_articles(
+        self, items: list[ArticleListItem], get_tag: Callable[[ArticleListItem], str]
+    ) -> None:
+        """Add multiple articles to clusters, calling add_article for each.
+
+        Args:
+            items: List of ArticleListItem to add
+            get_tag: Function to extract cluster name from each item
+        """
+        for item in items:
+            self.add_article(get_tag(item), item)
+
+    def build(self, heading_tree: HeadingNode | None) -> None:
+        """Match clusters to heading_tree nodes by title.
+
+        Args:
+            heading_tree: Optional heading tree to match clusters against
+        """
+        if heading_tree is None:
+            return
+        clusters: dict[str, list[ReportCluster]] = {}
+        for node in heading_tree.children:
+            matched = self.get_cluster(node.title)
+            if matched is None:
+                matched = ReportCluster(name=node.title, children=[], articles=[])
+            clusters.setdefault(node.title, []).append(matched)
+        self.clusters = clusters
 
     def get_cluster(self, cluster_name: str) -> ReportCluster | None:
         """Get the first cluster with the given name, searching recursively.
