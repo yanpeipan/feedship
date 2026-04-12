@@ -4,7 +4,7 @@ milestone: v1.11
 milestone_name: milestone
 status: completed
 last_updated: "2026-04-12T13:31:32.168Z"
-last_activity: "2026-04-12 — Completed quick task 260412-x4s: BatchClassifyChain & BuildReportDataChain & TLDRChain LCEL pipe composition"
+last_activity: "2026-04-13 — Completed quick task 260413-02d: BuildReportDataChain 直接接受 HeadingNode，移除 ReportDataAdapter"
 progress:
   total_phases: 5
   completed_phases: 4
@@ -134,4 +134,5 @@ Last activity: 2026-04-11 - Completed quick task 260412-54h: 对filtered进行�
 | 260412-trg | ReportData增加add_articles和build方法，generator.py使用这两个方法 | 2026-04-12 | 52d85ac, 1417768 | | [260412-trg-add-articles-build-reportdata](./quick/260412-trg-add-articles-build-reportdata/) |
 | 260412-w8x | BuildReportDataChain + TLDRChain pipeline refactor | 2026-04-12 | b4f71f7 | Verified | [260412-w8x-buildreportdatachain-tldrchain-pipeline-](./quick/260412-w8x-buildreportdatachain-tldrchain-pipeline-/) |
 | 260412-x4s | BatchClassifyChain & BuildReportDataChain & TLDRChain LCEL pipe composition | 2026-04-12 | def3ec6 | | [260412-x4s-batchclassifychain-buildreportdatachain-](./quick/260412-x4s-batchclassifychain-buildreportdatachain-/) |
+| 260413-02d | BuildReportDataChain 直接接受 HeadingNode，移除 ReportDataAdapter | 2026-04-13 | 77510b4 | | [260413-02d-buildreportdatachain-headingnode-reportd](./quick/260413-02d-buildreportdatachain-headingnode-reportd/) |
 | 260412-u7q | Fix P0 crash (report_data initialization order) + remove EntityTag | 2026-04-12 | — | Blocked (pre-commit: B008 in models.py:59) | [260412-u7q-p0-bug-entitytag](./quick/260412-u7q-p0-bug-entitytag/) |

@@ -20,9 +20,9 @@ from src.application.report.models import (
     ReportArticle,
     ReportCluster,
     ReportData,
-    TLDRChain,
 )
 from src.application.report.template import ReportTemplate
+from src.application.report.tldr import TLDRChain
 
 __all__ = [
     "SignalFilter",
