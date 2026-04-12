@@ -221,7 +221,9 @@ async def _entity_report_async(
             date_range={"since": since, "until": until},
             target_lang=target_lang,
         )
-        await render_report(report_data, template_name="entity")
+        from src.application.report.template import ReportTemplate
+
+        await ReportTemplate(template_name="entity").render(report_data)
 
         return report_data
     except Exception as e:

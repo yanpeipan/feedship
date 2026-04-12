@@ -280,8 +280,8 @@ def run_improvement_loop(
 
     from src.application.report.report_generation import (
         cluster_articles_for_report,
-        render_report,
     )
+    from src.application.report.template import ReportTemplate
 
     results = []
     for i in range(1, iterations + 1):
@@ -289,7 +289,7 @@ def run_improvement_loop(
         data = cluster_articles_for_report(
             since=since, until=until, limit=100, auto_summarize=auto_summarize
         )
-        report_text = asyncio.run(render_report(data))
+        report_text = asyncio.run(ReportTemplate().render(data))
 
         # Evaluate quality (enhanced - includes completeness and Chinese correctness)
         enhanced = asyncio.run(evaluate_report_enhanced(report_text))
