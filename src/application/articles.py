@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from src.application.combine import combine_scores
 from src.storage import (
@@ -86,7 +86,7 @@ class ArticleListItem:
     feed_url: str | None = None
     content_hash: str | None = None
     minhash_signature: bytes | None = None
-    tags: list[str] = []
+    tags: list[str] = field(default_factory=list)
     translation: str | None = None
 
     def to_dict(self) -> dict:
