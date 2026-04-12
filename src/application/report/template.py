@@ -78,7 +78,6 @@ class ReportTemplate:
         """Initialize with optional custom template directories and template name."""
         self._custom_dirs = template_dirs
         self._template_name = template_name
-        self._rendered: str | None = None
 
     @property
     def _template_dirs(self) -> list[Path]:
@@ -103,17 +102,18 @@ class ReportTemplate:
         return self.environment.get_template(f"{template_name}.md")
 
     async def render(self, report_data: ReportData) -> str:
-        """Render report using the bound template name. Caches result for parse()."""
+        """Render report using the bound template name."""
         template = self.get_template(self._template_name)
-        self._rendered = template.render(report_data=report_data)
-        return self._rendered
+        return template.render(report_data=report_data)
 
     def parse(self) -> HeadingNode:
-        """Parse the last rendered output into a heading tree.
+        """Parse the bound template source into a heading tree (meta-analysis).
 
-        Raises:
-            RuntimeError: If render() has not been called yet.
+        Extracts the static heading structure from the template file itself —
+        useful for understanding report schema without needing to render first.
+        Body text will contain Jinja2 syntax rather than real content.
         """
-        if self._rendered is None:
-            raise RuntimeError("Call render() before parse()")
-        return parse_markdown_headings(self._rendered)
+        source, _, _ = self.environment.loader.get_source(
+            self.environment, f"{self._template_name}.md"
+        )
+        return parse_markdown_headings(source)
