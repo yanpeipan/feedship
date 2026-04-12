@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from .models import ReportData
+
+
 def group_by_layer(topics: list) -> dict[str, list]:
     result: dict[str, list] = {}
     for t in topics:
@@ -63,7 +66,7 @@ async def render_report(
         dim_list.sort(key=_topic_sort_key, reverse=True)
     deep_dive.sort(key=_topic_sort_key, reverse=True)
 
-    return template.render(
+    report_data = ReportData(
         tldr_top10=entity_topics[:10],
         by_layer=by_layer,
         by_dimension=by_dimension,
@@ -71,3 +74,5 @@ async def render_report(
         date_range={"since": since, "until": until},
         target_lang=target_lang,
     )
+
+    return template.render(report_data=report_data)

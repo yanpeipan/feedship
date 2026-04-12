@@ -1,10 +1,10 @@
-AI 日报 — {{ date_range.until }}
+AI 日报 — {{ report_data.date_range.until }}
 
 {% if director_note %}💡 主编导读：{{ director_note }}
 
 {% endif %}
 ## A. AI应用
-{%- for topic in by_layer.get("AI应用", []) %}
+{%- for topic in report_data.by_layer.get("AI应用", []) %}
   {%- for article in topic.children %}
 [{{ article.title }}]({{ article.link }})
   {%- endfor %}
@@ -13,7 +13,7 @@ AI 日报 — {{ date_range.until }}
 {% endfor %}
 
 ## B. AI模型
-{%- for topic in by_layer.get("AI模型", []) %}
+{%- for topic in report_data.by_layer.get("AI模型", []) %}
   {%- for article in topic.children %}
 [{{ article.title }}]({{ article.link }})
   {%- endfor %}
@@ -22,7 +22,7 @@ AI 日报 — {{ date_range.until }}
 {% endfor %}
 
 ## C. AI基础设施
-{%- for topic in by_layer.get("AI基础设施", []) %}
+{%- for topic in report_data.by_layer.get("AI基础设施", []) %}
   {%- for article in topic.children %}
 [{{ article.title }}]({{ article.link }})
   {%- endfor %}
@@ -31,7 +31,7 @@ AI 日报 — {{ date_range.until }}
 {% endfor %}
 
 ## D. AI芯片
-{%- for topic in by_layer.get("AI芯片", []) %}
+{%- for topic in report_data.by_layer.get("AI芯片", []) %}
   {%- for article in topic.children %}
 [{{ article.title }}]({{ article.link }})
   {%- endfor %}
@@ -40,7 +40,7 @@ AI 日报 — {{ date_range.until }}
 {% endfor %}
 
 ## E. AI能源
-{%- for topic in by_layer.get("AI能源", []) %}
+{%- for topic in report_data.by_layer.get("AI能源", []) %}
   {%- for article in topic.children %}
 [{{ article.title }}]({{ article.link }})
   {%- endfor %}
