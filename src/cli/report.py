@@ -71,6 +71,10 @@ def report(
         feedship report --since 2026-04-01 --until 2026-04-07 --json
     """
     try:
+        # Init template first to parse heading structure
+        report_template = ReportTemplate(template_name=template_name)
+        heading_tree = report_template.parse()
+
         # Cluster articles
         with console.status("[cyan]Fetching and clustering articles..."):
             data = cluster_articles_for_report(
@@ -79,6 +83,7 @@ def report(
                 limit=limit,
                 auto_summarize=auto_summarize,
                 target_lang=language,
+                heading_tree=heading_tree,
             )
             total_articles = data.total_articles
 
@@ -103,7 +108,6 @@ def report(
 
         # Render report
         try:
-            report_template = ReportTemplate(template_name=template_name)
             report_text = asyncio.run(report_template.render(data))
         except Exception as e:
             if json_output:

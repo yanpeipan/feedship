@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .template import HeadingNode
 
 from src.application.articles import ArticleListItem
 from src.application.report import (
@@ -34,6 +37,7 @@ async def _entity_report_async(
     until: str,
     auto_summarize: bool,
     target_lang: str,
+    heading_tree: "HeadingNode | None" = None,
 ) -> ReportData:
     """New entity-based report pipeline (5 layers).
 
@@ -220,10 +224,8 @@ async def _entity_report_async(
             clusters=clusters,
             date_range={"since": since, "until": until},
             target_lang=target_lang,
+            heading_tree=heading_tree,
         )
-        from src.application.report.template import ReportTemplate
-
-        await ReportTemplate(template_name="entity").render(report_data)
 
         return report_data
     except Exception as e:
@@ -237,11 +239,12 @@ def cluster_articles_for_report(
     limit: int = 200,
     auto_summarize: bool = True,
     target_lang: str = "zh",
+    heading_tree: "HeadingNode | None" = None,
 ) -> ReportData:
     """Fetch and cluster articles for an entity-based report.
 
     Returns:
-        ReportData with clusters, date_range, target_lang.
+        ReportData with clusters, date_range, target_lang, heading_tree.
     """
     articles = list_articles(
         limit=limit,
@@ -249,7 +252,9 @@ def cluster_articles_for_report(
         until=until,
     )
     return asyncio.run(
-        _entity_report_async(articles, since, until, auto_summarize, target_lang)
+        _entity_report_async(
+            articles, since, until, auto_summarize, target_lang, heading_tree
+        )
     )
 
 

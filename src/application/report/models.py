@@ -102,6 +102,7 @@ class ReportData:
     clusters: dict[str, list[ReportCluster]] = field(default_factory=dict)
     date_range: dict[str, str] = field(default_factory=dict)
     target_lang: str = "zh"
+    heading_tree: "HeadingNode | None" = field(default=None)
 
     @property
     def total_articles(self) -> int:
