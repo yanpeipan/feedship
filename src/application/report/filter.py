@@ -50,7 +50,7 @@ class SignalFilter:
     def __init__(
         self,
         quality_threshold: float = 0,  # 0 disables quality gate; None quality_score handled by "or 0.0"
-        feed_weight_threshold: float = 0.5,
+        feed_weight_threshold: float = 0.0,  # 0 disables feed-weight gate (all articles have weight >= 0.3)
         event_signal_boost: bool = True,
     ):
         self.quality_threshold = quality_threshold
