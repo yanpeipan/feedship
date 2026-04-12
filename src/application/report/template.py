@@ -30,10 +30,10 @@ class HeadingNode:
     @property
     def titles(self) -> list[str]:
         """Recursively collect all non-empty heading titles in this subtree."""
-        result = [self.title] if self.title and self.title.lower() != "non" else []
+        result = [self.title] if self.title else []
         for child in self.children:
             result.extend(child.titles)
-        return result
+        return [t for t in result if t]
 
 
 def parse_markdown_headings(markdown: str) -> HeadingNode:
