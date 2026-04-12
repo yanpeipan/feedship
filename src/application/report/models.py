@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 from src.application.articles import ArticleListItem
 from src.application.report.template import HeadingNode
@@ -79,19 +79,11 @@ class ReportArticle(ArticleListItem):
             item: Source article with .tags and .translation from enrichment
             cluster_name: Primary dimension/tag for this article
         """
-        return cls(
-            id=item.id or "",
-            feed_id=item.feed_id or "",
-            feed_name=item.feed_name or "",
-            title=item.title or "",
-            link=item.link or "",
-            guid=item.guid or "",
-            published_at=item.published_at or "",
-            description=item.description or "",
-            tags=item.tags,
-            dimensions=[cluster_name],
-            translation=item.translation or "",
-        )
+        kwargs = asdict(item)
+        kwargs["tags"] = item.tags
+        kwargs["dimensions"] = [cluster_name]
+        kwargs["translation"] = item.translation or ""
+        return cls(**kwargs)
 
 
 @dataclass
