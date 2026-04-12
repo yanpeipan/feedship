@@ -7,12 +7,7 @@ control and daily call capping.
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
-import os
-from dataclasses import dataclass
-from typing import Any
 
 import litellm
 from langchain_core.runnables import Runnable
@@ -26,45 +21,9 @@ logger = logging.getLogger(__name__)
 # Exceptions
 # ---------------------------------------------------------------------------
 
-
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class LLMConfig:
-    """LLM configuration loaded from app settings."""
-
-    model: str = "gpt-4o-mini"
-    api_key: str | None = None
-    max_concurrency: int = 1
-    timeout_seconds: int = 60
-    daily_cap: int = 1000
-
-    @classmethod
-    def from_settings(cls) -> LLMConfig:
-        """Load LLM config from app settings."""
-        settings = _get_settings()
-        llm_data = getattr(settings, "llm", {}) or {}
-        api_key = llm_data.get("api_key", "")
-        if (
-            isinstance(api_key, str)
-            and api_key.startswith("${")
-            and api_key.endswith("}")
-        ):
-            env_var = api_key[2:-1]
-            api_key = os.environ.get(env_var)
-        return cls(
-            model=llm_data.get("model", "gpt-4o-mini"),
-            api_key=api_key,
-            max_concurrency=llm_data.get("max_concurrency", 5),
-            timeout_seconds=llm_data.get("timeout_seconds", 60),
-            daily_cap=llm_data.get("daily_cap", 1000),
-        )
-
-
-
 
 # ---------------------------------------------------------------------------
 # LiteLLM Router singleton — configured from settings
@@ -86,11 +45,9 @@ llm_router: Router = Router(
     timeout=_timeout_seconds,
 )
 
-
 # ---------------------------------------------------------------------------
 # LLM wrapper for LCEL chains
 # ---------------------------------------------------------------------------
-
 
 def _get_llm_wrapper(
     max_tokens: int | None = None,
@@ -109,7 +66,6 @@ def _get_llm_wrapper(
 
     wrapper = ChatLiteLLMRouter(
         router=llm_router,
-        model_name=model_name,
         max_tokens=max_tokens if max_tokens is not None else DEFAULT_MAX_TOKENS,
     )
     if response_format:
@@ -117,7 +73,6 @@ def _get_llm_wrapper(
     if thinking:
         wrapper = wrapper.bind(thinking=thinking)
     return wrapper
-
 
 # Default max tokens for LLM calls
 DEFAULT_MAX_TOKENS = 300

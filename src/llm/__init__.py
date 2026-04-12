@@ -1,7 +1,6 @@
 """LLM module — core client and quality evaluation."""
 
 from src.llm.core import (
-    LLMConfig,
     _get_llm_wrapper,
 )
 from src.llm.evaluator import (
@@ -14,7 +13,6 @@ from src.llm.evaluator import (
 
 __all__ = [
     # core
-    "LLMConfig",
     "_get_llm_wrapper",
     # evaluator
     "QualityScore",
