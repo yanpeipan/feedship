@@ -26,6 +26,7 @@ from src.application.report.render import (
 from src.application.report.report_generation import (
     cluster_articles_for_report,
 )
+from src.application.report.template import ReportTemplate
 from src.application.report.tldr import TLDRGenerator
 
 __all__ = [
@@ -37,5 +38,6 @@ __all__ = [
     "EntityTag",
     "ReportCluster",
     "ReportData",
+    "ReportTemplate",
     "cluster_articles_for_report",
 ]
