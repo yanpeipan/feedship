@@ -56,15 +56,18 @@ async def _entity_report_async(
         # Candidate tags derived from template heading structure
         tag_list = "\n".join(heading_tree.titles)
 
-        from src.application.report.classify import BatchClassifyChain, ReportDataAdapter
+        from src.application.report.classify import BatchClassifyChain
         from src.application.report.models import BuildReportDataChain
         from src.application.report.tldr import TLDRChain
 
-        adapter = ReportDataAdapter(heading_tree)
         chain = (
-            BatchClassifyChain(tag_list=tag_list, target_lang=target_lang, batch_size=50, max_concurrency=5)
-            | adapter
-            | BuildReportDataChain(target_lang=target_lang)
+            BatchClassifyChain(
+                tag_list=tag_list,
+                target_lang=target_lang,
+                batch_size=50,
+                max_concurrency=5,
+            )
+            | BuildReportDataChain(heading_tree=heading_tree, target_lang=target_lang)
             | TLDRChain(top_n=100, target_lang=target_lang)
         )
 
