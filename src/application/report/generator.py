@@ -68,15 +68,18 @@ async def _entity_report_async(
         )
         await chain.ainvoke(filtered)
 
-        # Layer 3: Build clusters incrementally via add_articles
-        report_data = ReportData(
-            clusters={},
-            date_range={"since": since, "until": until},
-            target_lang=target_lang,
-            heading_tree=heading_tree,
-        )
-        report_data.add_articles(filtered, lambda a: a.tags[0] if a.tags else "unknown")
-        report_data.build(heading_tree)
+        # Layer 3: BuildReportDataChain
+        from src.application.report.models import BuildReportDataChain
+
+        build_chain = BuildReportDataChain(target_lang=target_lang)
+        report_data = await build_chain.ainvoke((filtered, heading_tree))
+        report_data.date_range = {"since": since, "until": until}
+
+        # Layer 4: TLDRChain
+        from src.application.report.models import TLDRChain
+
+        tldr_chain = TLDRChain(top_n=100, target_lang=target_lang)
+        await tldr_chain.ainvoke(report_data)
 
         return report_data
     except Exception as e:

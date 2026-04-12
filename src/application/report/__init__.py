@@ -2,7 +2,6 @@
 
 Modules:
 - filter: SignalFilter (Layer 0)
-- tldr: TLDRGenerator (Layer 2)
 - template: ReportTemplate, HeadingNode
 
 For CLI entry point functions, import from src.application.report directly
@@ -17,16 +16,18 @@ from src.application.report.generator import (
     cluster_articles_for_report,
 )
 from src.application.report.models import (
+    BuildReportDataChain,
     ReportArticle,
     ReportCluster,
     ReportData,
+    TLDRChain,
 )
 from src.application.report.template import ReportTemplate
-from src.application.report.tldr import TLDRGenerator
 
 __all__ = [
     "SignalFilter",
-    "TLDRGenerator",
+    "BuildReportDataChain",
+    "TLDRChain",
     "ReportArticle",
     "ReportCluster",
     "ReportData",
