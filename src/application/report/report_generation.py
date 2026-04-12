@@ -32,41 +32,6 @@ DEFAULT_TEMPLATE_DIR = Path("~/.config/feedship/templates").expanduser()
 DEFAULT_TEMPLATE_NAME = "default"
 
 
-def _build_news_list(batch_articles: list[ArticleListItem]) -> str:
-    """Build news_list string from a batch of articles (1-indexed)."""
-    return "\n".join(
-        f"{i + 1}. {art.title or ''}" for i, art in enumerate(batch_articles)
-    )
-
-
-async def _run_classify_batch(
-    batch: dict,
-    tag_list: str,
-    target_lang: str,
-) -> list[ClassifyTranslateItem]:
-    """Run a single batch through the classify+translate chain."""
-    from src.llm.chains import get_classify_translate_chain
-
-    batch_articles: list[ArticleListItem] = batch["batch_articles"]
-    batch_offset: int = batch["batch_offset"]
-    news_list = _build_news_list(batch_articles)
-    chain = get_classify_translate_chain(
-        tag_list=tag_list,
-        news_list=news_list,
-        target_lang=target_lang,
-    )
-    output = await chain.ainvoke(
-        {
-            "tag_list": tag_list,
-            "news_list": news_list,
-            "target_lang": target_lang,
-        }
-    )
-    for item in output.items:
-        item.id += batch_offset
-    return output.items
-
-
 async def _entity_report_async(
     pre_fetched_articles: list[ArticleListItem],
     since: str,
@@ -101,43 +66,20 @@ async def _entity_report_async(
         filtered = signal_filter.filter(deduped)
 
         # --- Layer 2: Classify + Translate (LLM) ---
-        # Split filtered into batches of 50, process up to 5 concurrently
-        BATCH_SIZE = 50
-        MAX_CONCURRENT = 5
-
         # Candidate tags derived from template heading structure
         tag_list = "\n".join(heading_tree.titles)
 
-        # Create all batches with their offset values
-        batches = []
-        for i in range(0, len(filtered), BATCH_SIZE):
-            batch_articles = filtered[i : i + BATCH_SIZE]
-            batches.append({"batch_articles": batch_articles, "batch_offset": i})
+        # Use BatchClassifyChain for batching + concurrency
+        from src.application.report.classify import BatchClassifyChain
 
-        # Process batches concurrently with semaphore limit
-        semaphore = asyncio.Semaphore(MAX_CONCURRENT)
-
-        async def run_with_semaphore(batch: dict) -> list[ClassifyTranslateItem]:
-            async with semaphore:
-                try:
-                    return await _run_classify_batch(batch, tag_list, target_lang)
-                except Exception as e:
-                    logger.warning(
-                        "Batch %d failed: %s — returning empty list",
-                        batch["batch_offset"],
-                        e,
-                    )
-                    return []
-
-        batch_results = await asyncio.gather(*[run_with_semaphore(b) for b in batches])
-
-        # Flatten all items into single list, preserving global ID order
-        all_items: list[ClassifyTranslateItem] = []
-        for batch_items in batch_results:
-            all_items.extend(batch_items)
-
-        # Convert to ClassifyTranslateOutput for downstream compatibility
-        classify_output = ClassifyTranslateOutput(items=all_items)
+        chain = BatchClassifyChain(
+            tag_list=tag_list,
+            target_lang=target_lang,
+            batch_size=50,
+            max_concurrency=5,
+        )
+        classify_output_items = await chain.ainvoke(filtered)
+        classify_output = ClassifyTranslateOutput(items=classify_output_items)
 
         # Convert ClassifyTranslateOutput to ReportCluster[]
         # id is 1-indexed position in news_list, map back to original article
