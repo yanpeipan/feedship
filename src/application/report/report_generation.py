@@ -196,17 +196,10 @@ async def _entity_report_async(
         def _tag_of(cluster: ReportCluster) -> str:
             return cluster.children[0].dimensions[0] if cluster.children else ""
 
-        def _normalize_tag(tag: str) -> str:
-            """Strip 'A. ' prefix: 'A. AI应用' → 'AI应用'."""
-            return tag[3:].strip() if len(tag) > 2 and tag[1:3] == ". " else tag
-
         clusters: dict[str, list[ReportCluster]] = {}
         for node in (heading_tree.children if heading_tree else []):
-            # node.title from template heading "## AI应用" → "AI应用"
-            # LLM tag "A. AI应用" → normalized to "AI应用" for matching
-            node_key = _normalize_tag(node.title)
             matched = next(
-                (c for c in entity_topics if _normalize_tag(_tag_of(c)) == node_key),
+                (c for c in entity_topics if _tag_of(c) == node.title),
                 ReportCluster(name=node.title, children=[], articles=[]),
             )
             clusters.setdefault(node.title, []).append(matched)

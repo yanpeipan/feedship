@@ -109,3 +109,17 @@ Last activity: 2026-04-11 - Completed quick task 260412-54h: 对filtered进行�
 | 2026-04-12 | fast | total_articles 改用 reportData.total_articles | ✅ |
 | 260412-xxx | 删除 LAYER_KEYS 常量及所有引用 | 2026-04-12 | d7274a0 | | — |
 | 260412-jhx | src/application/report 下新增template类，处理模板相关功能 | 2026-04-12 | a84e6a2 | | [260412-jhx-src-application-report-template](./quick/260412-jhx-src-application-report-template/) |
+| 2026-04-12 | fast | 在 template.py 实现 HeadingNode + parse_markdown_headings + ReportTemplate.parse() | ✅ |
+| 260412-jvp | ReportTemplate 初始化绑定 template_name，render/parse 不再传参 | 2026-04-12 | 89f1f45 | | [260412-jvp-reporttemplate-template-name-render-pars](./quick/260412-jvp-reporttemplate-template-name-render-pars/) |
+| 2026-04-12 | fast | parse() 改用 template source 做元分析，去掉 _rendered 缓存 | ✅ |
+| 2026-04-12 | fast | cli.report 新增 --template 参数，ReportTemplate(template_name).render(data)，移除 _render_and_translate_report | ✅ |
+| 2026-04-12 | fast | 移除 report.render_report | ✅ |
+| 260412-ki9 | cluster_articles_for_report 新增 heading_tree 参数 | 2026-04-12 | 1f37571 | | [260412-ki9-cluster-articles-for-report-report-templ](./quick/260412-ki9-cluster-articles-for-report-report-templ/) |
+| 2026-04-12 | fast | HeadingNode.titles 递归获取所有标题 | ✅ |
+| 2026-04-12 | fast | HeadingNode.titles 过滤空和 non | ✅ |
+| 260412-kuy | heading_tree 直接构建 clusters，移除 group_clusters | 2026-04-12 | 3cdddd9 | | [260412-kuy-heading-tree-reportcluster](./quick/260412-kuy-heading-tree-reportcluster/) |
+| 2026-04-12 | fast | HeadingNode.titles 在返回前统一过滤空值 | ✅ |
+| 2026-04-12 | fast | ReportArticle 增加 translation 属性 | ✅ |
+| 2026-04-12 | fast | 修复 template default ai-daily → ai_daily_report | ✅ |
+| 2026-04-12 | fast | 修复 template 加载: .md.j2 后缀, loader.get_source | ✅ |
+| 260412-ozx | 把JSON提取逻辑移到LCEL管道里，用CustomOutputParser替换process_batch中的regex | 2026-04-12 | 44775f2 | | [260412-ozx-json-lcel-customoutputparser-process-bat](./quick/260412-ozx-json-lcel-customoutputparser-process-bat/) |
