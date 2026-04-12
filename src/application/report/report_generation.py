@@ -100,7 +100,7 @@ async def _entity_report_async(
         trans_by_id = {item.id: item.translation for item in classify_output.items}
 
         # Build ReportCluster for each tag group
-        entity_topics: list = []
+        entity_topics = []
         from src.application.report.models import (
             ReportArticle,
             ReportCluster,
