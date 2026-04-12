@@ -16,8 +16,6 @@ from nanoid import generate
 from src.storage.sqlite.utils import (
     _date_to_str,
     _date_to_str_end,
-    _date_to_timestamp,
-    _date_to_timestamp_end,
     _normalize_published_at,
 )
 
@@ -95,53 +93,42 @@ def store_article(
     with get_db() as conn:
         cursor = conn.cursor()
 
-        # Check if article exists
-        cursor.execute("SELECT id FROM articles WHERE guid = ?", (guid,))
-        existing = cursor.fetchone()
-
-        if existing:
-            # UPDATE existing article
-            article_id = existing["id"]
-            modified_at = time.strftime("%Y-%m-%d %H:%M:%S")
-            cursor.execute(
-                """UPDATE articles SET title = ?, content = ?, link = ?, published_at = ?, modified_at = ?, description = ?, author = ?, tags = ?, category = ?
-                   WHERE guid = ?""",
-                (
-                    title,
-                    content,
-                    link,
-                    normalized_published_at,
-                    modified_at,
-                    description,
-                    author,
-                    tags,
-                    category,
-                    guid,
-                ),
-            )
-        else:
-            # INSERT new article
-            article_id = generate()
-            modified_at = time.strftime("%Y-%m-%d %H:%M:%S")
-            cursor.execute(
-                """INSERT INTO articles (id, feed_id, title, link, guid, published_at, content, description, created_at, modified_at, author, tags, category)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    article_id,
-                    feed_id or "",
-                    title,
-                    link,
-                    guid,
-                    normalized_published_at,
-                    content,
-                    description,
-                    now,
-                    modified_at,
-                    author,
-                    tags,
-                    category,
-                ),
-            )
+        # Single UPSERT - insert or update on conflict
+        article_id = generate()
+        modified_at = time.strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute(
+            """INSERT INTO articles (id, feed_id, title, link, guid, published_at, content, description, created_at, modified_at, author, tags, category)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(feed_id, guid) DO UPDATE SET
+                   title = excluded.title,
+                   content = excluded.content,
+                   link = excluded.link,
+                   published_at = excluded.published_at,
+                   modified_at = excluded.modified_at,
+                   description = excluded.description,
+                   author = excluded.author,
+                   tags = excluded.tags,
+                   category = excluded.category
+               RETURNING id""",
+            (
+                article_id,
+                feed_id or "",
+                title,
+                link,
+                guid,
+                normalized_published_at,
+                content,
+                description,
+                now,
+                modified_at,
+                author,
+                tags,
+                category,
+            ),
+        )
+        result = cursor.fetchone()
+        if result:
+            article_id = result[0]
 
         # Sync to FTS5
         cursor.execute(
