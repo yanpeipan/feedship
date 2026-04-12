@@ -70,9 +70,15 @@ def parse_markdown_headings(markdown: str) -> HeadingNode:
 class ReportTemplate:
     """Encapsulates Jinja2 template environment for report rendering."""
 
-    def __init__(self, template_dirs: list[Path] | None = None):
-        """Initialize with optional custom template directories."""
+    def __init__(
+        self,
+        template_dirs: list[Path] | None = None,
+        template_name: str = "entity",
+    ):
+        """Initialize with optional custom template directories and template name."""
         self._custom_dirs = template_dirs
+        self._template_name = template_name
+        self._rendered: str | None = None
 
     @property
     def _template_dirs(self) -> list[Path]:
@@ -96,13 +102,18 @@ class ReportTemplate:
         """Get template by name from the environment."""
         return self.environment.get_template(f"{template_name}.md")
 
-    async def render(
-        self, report_data: ReportData, template_name: str = "entity"
-    ) -> str:
-        """Render report using specified template. Async for consistency."""
-        template = self.get_template(template_name)
-        return template.render(report_data=report_data)
+    async def render(self, report_data: ReportData) -> str:
+        """Render report using the bound template name. Caches result for parse()."""
+        template = self.get_template(self._template_name)
+        self._rendered = template.render(report_data=report_data)
+        return self._rendered
 
-    def parse(self, rendered: str) -> HeadingNode:
-        """Parse a rendered markdown string into a heading tree."""
-        return parse_markdown_headings(rendered)
+    def parse(self) -> HeadingNode:
+        """Parse the last rendered output into a heading tree.
+
+        Raises:
+            RuntimeError: If render() has not been called yet.
+        """
+        if self._rendered is None:
+            raise RuntimeError("Call render() before parse()")
+        return parse_markdown_headings(self._rendered)

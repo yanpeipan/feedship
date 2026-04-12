@@ -19,5 +19,5 @@ async def render_report(
     template_name: str = "entity",
 ) -> str:
     """Backward-compatible wrapper using default ReportTemplate."""
-    template = ReportTemplate()
-    return await template.render(report_data, template_name)
+    template = ReportTemplate(template_name=template_name)
+    return await template.render(report_data)
