@@ -52,11 +52,16 @@ TRANSLATE_PROMPT = ChatPromptTemplate.from_messages(
 
 def get_translate_chain() -> Runnable:
     """Returns LCEL chain for report section translation."""
+    from litellm import APIConnectionError, RateLimitError
+
     return (
         TRANSLATE_PROMPT
         | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["translate"])
         | StrOutputParser()
-    ).with_retry(stop_after_attempt=2, retry_on=["RateLimitError", "APITimeoutError"])
+    ).with_retry(
+        stop_after_attempt=2,
+        retry_if_exception_type=(RateLimitError, APIConnectionError),
+    )
 
 
 # TLDR chain — generate detailed TLDR for multiple entities at once
@@ -88,11 +93,16 @@ def get_tldr_chain() -> Runnable:
     Uses .with_structured_output() for automatic Pydantic parsing instead of
     regex-based output parsing.
     """
+    from litellm import APIConnectionError, RateLimitError
+
     llm = _get_llm_wrapper(800)
     structured_llm = llm.with_structured_output(TLDRItems)
     return (
         TLDR_PROMPT | structured_llm
-    ).with_retry(stop_after_attempt=2, retry_on=["RateLimitError", "APITimeoutError"])
+    ).with_retry(
+        stop_after_attempt=2,
+        retry_if_exception_type=(RateLimitError, APIConnectionError),
+    )
 
 
 # Classification + translation chain
@@ -133,11 +143,16 @@ def get_classify_translate_chain(
         news_list: Newline-separated news titles (one per line)
         target_lang: Target language code (default: zh)
     """
+    from litellm import APIConnectionError, RateLimitError
+
     llm = _get_llm_wrapper(16384)
     structured_llm = llm.with_structured_output(ClassifyTranslateOutput)
     return (
         CLASSIFY_TRANSLATE_PROMPT | structured_llm
-    ).with_retry(stop_after_attempt=2, retry_on=["RateLimitError", "APITimeoutError"])
+    ).with_retry(
+        stop_after_attempt=2,
+        retry_if_exception_type=(RateLimitError, APIConnectionError),
+    )
 
 
 # ---------------------------------------------------------------------------
