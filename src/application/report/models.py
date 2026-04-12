@@ -58,31 +58,14 @@ class EntityTag:
 
 @dataclass
 class ReportArticle(ArticleListItem):
-    """Article model for report pipeline, inheriting from ArticleListItem.
-
-    Additional attributes:
-        tags: List of entity tags extracted by NER.
-        dimensions: List of dimension labels (e.g., release, funding, research).
-        similar_articles: Related articles in the same entity cluster.
-    """
-
-    tags: list[EntityTag] = field(default_factory=list)
-    dimensions: list[str] = field(default_factory=list)
-    similar_articles: list[ReportArticle] = field(default_factory=list)
-    translation: str = ""
+    """Article model for report pipeline, inheriting from ArticleListItem."""
+    # tags, dimensions, translation inherited from ArticleListItem
 
     @classmethod
     def from_article(cls, item: ArticleListItem, cluster_name: str) -> ReportArticle:
-        """Convert an ArticleListItem to ReportArticle.
-
-        Args:
-            item: Source article with .tags and .translation from enrichment
-            cluster_name: Primary dimension/tag for this article
-        """
+        """Convert an ArticleListItem to ReportArticle."""
         kwargs = asdict(item)
-        kwargs["tags"] = item.tags
         kwargs["dimensions"] = [cluster_name]
-        kwargs["translation"] = item.translation or ""
         return cls(**kwargs)
 
 
