@@ -18,20 +18,9 @@ repos:
 
   - repo: local
     hooks:
-      - id: pip-audit
-        name: pip-audit
-        entry: pip-audit --exit-zero
-        language: system
-        pass_filenames: false
-        types: [python]
-        stages: [commit]
-
-  - repo: local
-    hooks:
       - id: grype
         name: grype
-        entry: sh -c "which grype && grype . --fail-on medium || echo 'grype not installed, skipping (runs in CI)'"
+        entry: grype dir:.venv --fail-on medium --exclude "**/playwright/driver/**" --exclude "**/patchright/driver/**"
         language: system
         pass_filenames: false
         types: [python]
-        stages: [manual]

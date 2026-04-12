@@ -30,12 +30,14 @@ dependencies = [
     "questionary>=2.1.0,<3.0.0",  # Interactive CLI prompts (multi-select, confirm, etc.)
     "psutil>=5.9.0,<6.2",  # CVE-2024-52301 (privilege escalation in < 6.1.0); conservative minor cap
     "pydantic-settings>=2.0.0,<3",  # Pydantic BaseSettings for config; major cap is belt-and-suspenders
-    "curl-cffi>=0.14.0,<0.17",  # SSRF / header-injection surface; conservative minor cap
+    "curl-cffi>=0.15.0,<0.16",  # SSRF / header-injection surface; CVE-2026-33752 fixed in 0.15.0
+    "cryptography>=46.0.7,<47",  # CVE-2026-39892 fix; transitive dep, pin directly
     "playwright>=1.58.0,<1.62",  # Browser automation; CVE history (arbitrary URL loading); conservative minor cap
     "browserforge>=1.2.4,<2",  # Browser toolkit; major cap is belt-and-suspenders
     "patchright>=1.58.2,<1.62",  # Playwright fork; CVE history (arbitrary URL loading); conservative minor cap
-    "langchain-core>=0.3.0,<0.4",  # LangChain deserialization CVEs in <0.3.x; conservative minor cap
+    "langchain-core>=1.2.22,<2",  # LangChain deserialization CVEs fixed in 1.2.22
     "datasketch>=1.6.4,<2",  # Probabilistic data structures; major cap is belt-and-suspenders
+    "transformers>=5.0.0,<5.1",  # GHSA-69w3-r845-3855 fixed in 5.0.0
 ]
 
 [project.optional-dependencies]
@@ -52,16 +54,16 @@ test = [
 ]
 ml = [
     "chromadb>=0.4.0,<1.0",
-    "sentence-transformers>=3.0.0,<4.0",  # Model loading from untrusted sources (CVE risk)
+    "sentence-transformers>=5.0.0,<5.5",  # Model loading from untrusted sources (CVE risk); 5.x supports transformers 5.x
     "torch>=2.0.0; python_version < '3.13'",
     "safetensors>=0.4.3,<0.5",  # CVE-2023-1582 (RCE via malicious model files in <0.16.0); major cap is belt-and-suspenders
-    "transformers>=4.40.0,<5.0",
+    "transformers>=5.0.0,<5.1",  # GHSA-69w3-r845-3855 fixed in 5.0.0
 ]
 cloudflare = [
     "scrapling>=0.4.0,<1",
     "patchright>=1.0.0,<1.62",  # Required by scrapling StealthyFetcher; CVE history (arbitrary URL loading)
     "playwright>=1.49.0,<1.62",  # Browser automation; CVE history (arbitrary URL loading)
-    "curl-cffi>=0.14.0,<0.17",  # SSRF / header-injection surface
+    "curl-cffi>=0.15.0,<0.16",  # SSRF / header-injection surface; CVE-2026-33752 fixed in 0.15.0
     "socksio>=1.0.0,<2",  # SOCKS protocol impl; major cap is belt-and-suspenders
     "browserforge>=1.2.0,<2",  # Browser toolkit; major cap is belt-and-suspenders
 ]
