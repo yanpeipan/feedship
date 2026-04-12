@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 from typing import Any
 
 from langchain_core.messages import BaseMessage
@@ -23,10 +25,6 @@ DEFAULT_MAX_TOKENS = 300
 MAX_TOKENS_PER_CHAIN: dict[str, int] = {
     "translate": 1000,  # full section translation
 }
-
-
-import json
-import re
 
 
 class JsonRegexOutputParser(Runnable):
