@@ -60,7 +60,9 @@ class ReportArticle(ArticleListItem):
     ) -> ReportArticle:
         """Convert an ArticleListItem to ReportArticle."""
         kwargs = asdict(item)
-        kwargs["similar_articles"] = similar_articles if similar_articles is not None else []
+        kwargs["similar_articles"] = (
+            similar_articles if similar_articles is not None else []
+        )
         return cls(**kwargs)
 
 
@@ -102,7 +104,7 @@ class ReportData:
     def total_articles(self) -> int:
         """Total number of articles across all clusters."""
         return sum(
-            len(cluster.children)
+            len(cluster.articles)
             for cluster_list in self.clusters.values()
             for cluster in cluster_list
         )
@@ -122,7 +124,7 @@ class ReportData:
             cluster = ReportCluster(name=cluster_name)
             self.clusters[cluster_name].append(cluster)
 
-        cluster.children.append(ReportArticle.from_article(item))
+        cluster.articles.append(ReportArticle.from_article(item))
 
     def add_articles(
         self, items: list[ArticleListItem], get_tag: Callable[[ArticleListItem], str]
@@ -139,8 +141,8 @@ class ReportData:
     def build(self, heading_tree: HeadingNode | None) -> None:
         """Match clusters to heading_tree nodes by title.
 
-        Args:
-            heading_tree: Optional heading tree to match clusters against
+        Each heading title is matched against existing clusters by name.
+        If a heading has no matching cluster, create an empty one.
         """
         if heading_tree is None:
             return
