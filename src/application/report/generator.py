@@ -61,12 +61,7 @@ async def _entity_report_async(
         from src.application.report.tldr import TLDRChain
 
         chain = (
-            BatchClassifyChain(
-                tag_list=tag_list,
-                target_lang=target_lang,
-                batch_size=50,
-                max_concurrency=5,
-            )
+            BatchClassifyChain(tag_list=tag_list, target_lang=target_lang)
             | BuildReportDataChain(heading_tree=heading_tree, target_lang=target_lang)
             | TLDRChain(top_n=100, target_lang=target_lang)
         )

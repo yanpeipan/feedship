@@ -11,14 +11,12 @@ class TestTLDRChainInit:
         chain = TLDRChain()
         assert chain.top_n == 100
         assert chain.target_lang == "zh"
-        assert chain.batch_size == 20
         assert chain.max_concurrency == 5
 
     def test_tldr_chain_custom_init(self):
-        chain = TLDRChain(top_n=50, target_lang="en", batch_size=10, max_concurrency=3)
+        chain = TLDRChain(top_n=50, target_lang="en", max_concurrency=3)
         assert chain.top_n == 50
         assert chain.target_lang == "en"
-        assert chain.batch_size == 10
         assert chain.max_concurrency == 3
 
 
@@ -53,11 +51,6 @@ class TestTLDRChainHelpers:
         result = chain._collect_all_clusters(clusters)
         assert len(result) == 2
 
-    def test_build_article_titles_empty(self):
-        chain = TLDRChain()
-        result = chain._build_article_titles([])
-        assert result == ""
-
     def test_build_article_titles_single_cluster(self):
         from src.application.articles import ArticleListItem
 
@@ -73,7 +66,7 @@ class TestTLDRChainHelpers:
             description=None,
         )
         cluster = ReportCluster(name="Tech", articles=[article])
-        result = chain._build_article_titles([cluster])
+        result = chain._build_article_titles(cluster)
         assert "Entity 1 (Tech)" in result
         assert "Test Article" in result
 
@@ -93,7 +86,7 @@ class TestTLDRChainHelpers:
         )
         article.translation = "Translated Title"
         cluster = ReportCluster(name="Tech", articles=[article])
-        result = chain._build_article_titles([cluster])
+        result = chain._build_article_titles(cluster)
         assert "Translated Title" in result
 
 

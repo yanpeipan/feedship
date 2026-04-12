@@ -265,8 +265,10 @@ def add_article_embedding(
         metadata = {
             "title": title,
             "url": url,
-            "published_at": _published_at_to_timestamp(published_at),
         }
+        ts = _published_at_to_timestamp(published_at)
+        if ts is not None:
+            metadata["published_at"] = ts
         try:
             collection.add(
                 ids=[article_id],
@@ -327,13 +329,14 @@ def add_article_embeddings(articles: list[dict]) -> None:
 
         embedding_texts.append(embedding_text)
         ids.append(article_id)
-        metadatas.append(
-            {
-                "title": title,
-                "url": url,
-                "published_at": _published_at_to_timestamp(published_at),
-            }
-        )
+        meta = {
+            "title": title,
+            "url": url,
+        }
+        ts = _published_at_to_timestamp(published_at)
+        if ts is not None:
+            meta["published_at"] = ts
+        metadatas.append(meta)
 
     if not embedding_texts:
         return
@@ -694,8 +697,10 @@ def upsert_article_summary(
     metadata = {
         "title": title or "",
         "url": url or "",
-        "published_at": _published_at_to_timestamp(published_at),
     }
+    ts = _published_at_to_timestamp(published_at)
+    if ts is not None:
+        metadata["published_at"] = ts
     with col_lock:
         collection = get_llm_summary_collection()
         try:
@@ -752,9 +757,11 @@ def upsert_article_keywords(
     metadata = {
         "title": title or "",
         "url": url or "",
-        "published_at": _published_at_to_timestamp(published_at),
         "keywords": keywords_text,
     }
+    ts = _published_at_to_timestamp(published_at)
+    if ts is not None:
+        metadata["published_at"] = ts
     with col_lock:
         collection = get_llm_keywords_collection()
         try:
