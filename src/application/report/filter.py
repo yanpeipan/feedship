@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 
 from src.application.articles import ArticleListItem
@@ -60,10 +59,9 @@ class SignalFilter:
     def filter(self, articles: list[ArticleListItem]) -> list[ArticleListItem]:
         """Apply all filter rules. Returns filtered articles."""
         logger.debug("SignalFilter input: %d articles", len(articles))
-        seen_hashes: set[str] = set()
         result = []
         for article in articles:
-            if self._passes_all_rules(article, seen_hashes):
+            if self._passes_all_rules(article):
                 result.append(article)
         removed = len(articles) - len(result)
         if removed > 0:
@@ -75,20 +73,8 @@ class SignalFilter:
             )
         return result
 
-    def _passes_all_rules(
-        self, article: ArticleListItem, seen_hashes: set[str]
-    ) -> bool:
-        # Rule 1: SHA256 exact dedup (title + content[:500])
-        content = article.content or article.description or ""
-        content_preview = content[:500]
-        h = hashlib.sha256(
-            f"{article.title or ''}{content_preview}".encode()
-        ).hexdigest()
-        if h in seen_hashes:
-            return False
-        seen_hashes.add(h)
-
-        # Rule 2: Quality gate (with optional event boost)
+    def _passes_all_rules(self, article: ArticleListItem) -> bool:
+        # Rule 1: Quality gate (with optional event boost)
         # Use "or 0.0" to handle None values
         quality = article.quality_score or 0.0
         title = article.title or ""
@@ -99,7 +85,7 @@ class SignalFilter:
         if effective_quality < self.quality_threshold:
             return False
 
-        # Rule 3: Feed weight gate
+        # Rule 2: Feed weight gate
         feed_weight = article.feed_weight or 0.0
         return feed_weight >= self.feed_weight_threshold
 
