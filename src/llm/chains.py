@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from typing import Any
@@ -159,10 +160,20 @@ class AsyncLLMWrapper(Runnable):
         self,
         inputs: list[Any],
         config: Any = None,
+        max_concurrency: int | None = None,
         **kwargs: Any,
     ) -> list[str]:
-        """Async batch invoke."""
-        return [await self._ainvoke_raw(i, config) for i in inputs]
+        """Async batch invoke with optional concurrency control."""
+        if max_concurrency:
+            semaphore = asyncio.Semaphore(max_concurrency)
+
+            async def bounded_invoke(i: Any) -> str:
+                async with semaphore:
+                    return await self._ainvoke_raw(i, config)
+
+            return await asyncio.gather(*[bounded_invoke(i) for i in inputs])
+
+        return await asyncio.gather(*[self._ainvoke_raw(i, config) for i in inputs])
 
     def batch(
         self,
