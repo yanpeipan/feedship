@@ -1,6 +1,6 @@
 {
   "active": true,
-  "spec": "017-batch-upsert-with-executemany-instead-of-per-row-l",
+  "spec": "018-eliminate-duplicate-date-utility-functions-across-",
   "state": "planning",
   "subtasks": {
     "completed": 0,
@@ -9,9 +9,9 @@
     "failed": 0
   },
   "phase": {
-    "current": "Replace per-row loop with executemany()",
+    "current": "Refactor search.py to import from utils.py",
     "id": null,
-    "total": 1
+    "total": 2
   },
   "workers": {
     "active": 0,
@@ -19,7 +19,7 @@
   },
   "session": {
     "number": 2,
-    "started_at": "2026-04-14T00:25:46.583441"
+    "started_at": "2026-04-14T00:56:09.457968"
   },
-  "last_update": "2026-04-14T00:27:57.911821"
+  "last_update": "2026-04-14T00:59:20.608950"
 }
