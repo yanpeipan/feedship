@@ -4,7 +4,7 @@ milestone: v1.11
 milestone_name: milestone
 status: completed
 last_updated: "2026-04-13T06:55:00.000Z"
-last_activity: "2026-04-13 — Completed quick task 260413-nco: LangChain LCEL optimization research + BatchClassifyChain factory refactor"
+last_activity: "2026-04-13 — Completed quick task 260413-nco: LangChain LCEL optimization research + BatchClassifyChain factory refactor + deprecated BatchClassifyChain class removed"
 progress:
   total_phases: 5
   completed_phases: 4

@@ -18,7 +18,7 @@ from src.application.articles import ArticleListItem
 logger = logging.getLogger(__name__)
 
 
-def get_classify_runnable(
+def BatchClassifyChain(
     tag_list: str,
     target_lang: str,
     batch_size: int = 50,
