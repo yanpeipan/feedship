@@ -10,6 +10,7 @@ import logging
 import math
 
 from src.storage.sqlite.conn import get_db
+from src.storage.sqlite.utils import _date_to_timestamp, _date_to_timestamp_end
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,6 @@ def _build_fts_where_clause(
         where_parts.append("a.feed_id = ?")
         params.append(feed_id)
 
-    # Date filtering (using timestamp comparison)
     if since:
         where_parts.append("a.published_at >= ?")
         params.append(_date_to_timestamp(since, tz))
@@ -69,24 +69,6 @@ def _build_fts_where_clause(
 
     where_sql = " AND ".join(where_parts)
     return where_sql, params
-
-
-def _date_to_timestamp(date_str: str, tz) -> int:
-    """Convert YYYY-MM-DD to Unix timestamp at start of day in timezone."""
-    from datetime import datetime
-
-    dt = datetime.strptime(date_str, "%Y-%m-%d")
-    dt = dt.replace(tzinfo=tz)
-    return int(dt.timestamp())
-
-
-def _date_to_timestamp_end(date_str: str, tz) -> int:
-    """Convert YYYY-MM-DD to Unix timestamp at end of day (23:59:59) in timezone."""
-    from datetime import datetime
-
-    dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=tz)
-    dt = dt.replace(hour=23, minute=59, second=59)
-    return int(dt.timestamp())
 
 
 # ---------------------------------------------------------------------------
@@ -124,114 +106,26 @@ def search_articles_fts(
         return []
 
     tz = get_timezone()
-
-    # Build WHERE clause for date filtering (using timestamp comparison)
-    date_conditions = []
-    date_params = []
-    if since:
-        date_conditions.append("a.published_at >= ?")
-        date_params.append(_date_to_timestamp(since, tz))
-    if until:
-        date_conditions.append("a.published_at <= ?")
-        date_params.append(_date_to_timestamp_end(until, tz))
-    if on:
-        on_timestamps = [_date_to_timestamp(d, tz) for d in on]
-        placeholders = ",".join("?" * len(on_timestamps))
-        date_conditions.append(f"a.published_at IN ({placeholders})")
-        date_params.extend(on_timestamps)
-    date_clause = " AND ".join(date_conditions) if date_conditions else None
+    where_sql, params = _build_fts_where_clause(
+        query, feed_id=feed_id, since=since, until=until, on=on, groups=groups, tz=tz
+    )
 
     with get_db() as conn:
         cursor = conn.cursor()
-        if feed_id:
-            where_parts = ["articles_fts MATCH ?", "a.feed_id = ?"]
-            params = [query, feed_id]
-            if date_clause:
-                where_parts.append(date_clause)
-                params.extend(date_params)
-            if groups:
-                placeholders = ",".join("?" * len(groups))
-                where_parts.append(f'f."group" IN ({placeholders})')
-                params.extend(groups)
-            where_sql = " AND ".join(where_parts)
-            cursor.execute(  # nosec B608
-                f"""
-                SELECT a.id, a.feed_id, f.name as feed_name,
-                       a.title, a.link, a.guid, a.published_at, a.description,
-                       bm25(articles_fts, 2.0, 1.0, 0.5) as bm25_score
-                FROM articles_fts
-                JOIN articles a ON articles_fts.rowid = a.rowid
-                JOIN feeds f ON a.feed_id = f.id
-                WHERE {where_sql}
-                ORDER BY bm25(articles_fts, 2.0, 1.0, 0.5)
-                LIMIT ?
-                """,
-                [*params, limit],
-            )
-        else:
-            if groups:
-                placeholders = ",".join("?" * len(groups))
-                groups_clause = f'f."group" IN ({placeholders})'
-                if date_clause:
-                    cursor.execute(  # nosec B608
-                        f"""
-                        SELECT a.id, a.feed_id, f.name as feed_name,
-                               a.title, a.link, a.guid, a.published_at, a.description,
-                               bm25(articles_fts, 2.0, 1.0, 0.5) as bm25_score
-                        FROM articles_fts
-                        JOIN articles a ON articles_fts.rowid = a.rowid
-                        JOIN feeds f ON a.feed_id = f.id
-                        WHERE articles_fts MATCH ? AND {date_clause} AND {groups_clause}
-                        ORDER BY bm25(articles_fts, 2.0, 1.0, 0.5)
-                        LIMIT ?
-                        """,
-                        [query, *date_params, *groups, limit],
-                    )
-                else:
-                    cursor.execute(  # nosec B608
-                        f"""
-                        SELECT a.id, a.feed_id, f.name as feed_name,
-                               a.title, a.link, a.guid, a.published_at, a.description,
-                               bm25(articles_fts, 2.0, 1.0, 0.5) as bm25_score
-                        FROM articles_fts
-                        JOIN articles a ON articles_fts.rowid = a.rowid
-                        JOIN feeds f ON a.feed_id = f.id
-                        WHERE articles_fts MATCH ? AND {groups_clause}
-                        ORDER BY bm25(articles_fts, 2.0, 1.0, 0.5)
-                        LIMIT ?
-                        """,
-                        [query, *groups, limit],
-                    )
-            elif date_clause:
-                cursor.execute(  # nosec B608
-                    f"""
-                    SELECT a.id, a.feed_id, f.name as feed_name,
-                           a.title, a.link, a.guid, a.published_at, a.description,
-                           bm25(articles_fts, 2.0, 1.0, 0.5) as bm25_score
-                    FROM articles_fts
-                    JOIN articles a ON articles_fts.rowid = a.rowid
-                    JOIN feeds f ON a.feed_id = f.id
-                    WHERE articles_fts MATCH ? AND {date_clause}
-                    ORDER BY bm25(articles_fts, 2.0, 1.0, 0.5)
-                    LIMIT ?
-                    """,
-                    [query, *date_params, limit],
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT a.id, a.feed_id, f.name as feed_name,
-                           a.title, a.link, a.guid, a.published_at, a.description,
-                           bm25(articles_fts, 2.0, 1.0, 0.5) as bm25_score
-                    FROM articles_fts
-                    JOIN articles a ON articles_fts.rowid = a.rowid
-                    JOIN feeds f ON a.feed_id = f.id
-                    WHERE articles_fts MATCH ?
-                    ORDER BY bm25(articles_fts, 2.0, 1.0, 0.5)
-                    LIMIT ?
-                    """,
-                    (query, limit),
-                )
+        cursor.execute(  # nosec B608
+            f"""
+            SELECT a.id, a.feed_id, f.name as feed_name,
+                   a.title, a.link, a.guid, a.published_at, a.description,
+                   bm25(articles_fts, 2.0, 1.0, 0.5) as bm25_score
+            FROM articles_fts
+            JOIN articles a ON articles_fts.rowid = a.rowid
+            JOIN feeds f ON a.feed_id = f.id
+            WHERE {where_sql}
+            ORDER BY bm25(articles_fts, 2.0, 1.0, 0.5)
+            LIMIT ?
+            """,
+            [*params, limit],
+        )
         factor = get_bm25_factor()
         return [
             ArticleListItem(
