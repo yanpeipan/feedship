@@ -971,3 +971,230 @@ class TestInfoCommands:
         assert "feedship v" in result.output
         assert "Config:" in result.output
         assert "Articles:" not in result.output
+
+
+class TestFeedExportCommands:
+    """Tests for CLI feed export commands: feed export --opml."""
+
+    def test_feed_export_opml_empty(self, cli_runner, initialized_db):
+        """feed export --opml with no feeds outputs 'No feeds to export.'."""
+        result = cli_runner.invoke(cli, ["feed", "export", "--opml"])
+        assert result.exit_code == 0
+        assert "No feeds to export" in result.output
+
+    def test_feed_export_opml_with_feeds(self, cli_runner, initialized_db):
+        """feed export --opml shows feeds in OPML XML output."""
+        feed = Feed(
+            id="export-cli-1",
+            name="CLI Export Feed",
+            url="https://example.com/export.xml",
+            etag=None,
+            modified_at=None,
+            fetched_at=None,
+            created_at="2024-01-01T00:00:00+00:00",
+        )
+        add_feed(feed)
+
+        result = cli_runner.invoke(cli, ["feed", "export", "--opml"])
+        assert result.exit_code == 0
+        assert "CLI Export Feed" in result.output
+        assert "https://example.com/export.xml" in result.output
+
+    def test_feed_export_opml_to_file(self, cli_runner, initialized_db, tmp_path):
+        """feed export --opml -o writes OPML to the specified file."""
+        feed = Feed(
+            id="export-file-1",
+            name="File Export Feed",
+            url="https://example.com/file.xml",
+            etag=None,
+            modified_at=None,
+            fetched_at=None,
+            created_at="2024-01-01T00:00:00+00:00",
+        )
+        add_feed(feed)
+
+        output_file = tmp_path / "export.opml"
+        result = cli_runner.invoke(
+            cli, ["feed", "export", "--opml", "-o", str(output_file)]
+        )
+        assert result.exit_code == 0
+        assert output_file.read_text(encoding="utf-8").count("File Export Feed") > 0
+
+    def test_feed_export_opml_with_groups(self, cli_runner, initialized_db):
+        """feed export --opml includes group outlines for grouped feeds."""
+        feed_ai = Feed(
+            id="export-group-ai",
+            name="AI News",
+            url="https://example.com/ai.xml",
+            etag=None,
+            modified_at=None,
+            fetched_at=None,
+            created_at="2024-01-01T00:00:00+00:00",
+            group="AI",
+        )
+        feed_tech = Feed(
+            id="export-group-tech",
+            name="Tech News",
+            url="https://example.com/tech.xml",
+            etag=None,
+            modified_at=None,
+            fetched_at=None,
+            created_at="2024-01-02T00:00:00+00:00",
+            group="Tech",
+        )
+        # upsert_feed persists the group column (add_feed does not)
+        upsert_feed(feed_ai)
+        upsert_feed(feed_tech)
+
+        result = cli_runner.invoke(cli, ["feed", "export", "--opml"])
+        assert result.exit_code == 0
+        assert 'text="AI"' in result.output
+        assert 'text="Tech"' in result.output
+        assert "AI News" in result.output
+        assert "Tech News" in result.output
+
+    def test_feed_export_no_opml_flag_shows_hint(self, cli_runner, initialized_db):
+        """feed export without --opml flag outputs hint to use --opml."""
+        feed = Feed(
+            id="export-no-opml-flag",
+            name="No Opml Flag Feed",
+            url="https://example.com/no-opml.xml",
+            etag=None,
+            modified_at=None,
+            fetched_at=None,
+            created_at="2024-01-01T00:00:00+00:00",
+        )
+        add_feed(feed)
+
+        result = cli_runner.invoke(cli, ["feed", "export"])
+        assert result.exit_code == 0
+        assert "--opml" in result.output
+
+
+class TestFeedImportCommands:
+    """Tests for CLI feed import command: feed import."""
+
+    def test_feed_import_nonexistent_file(self, cli_runner, initialized_db):
+        """feed import with non-existent file exits with error (exit code 2)."""
+        result = cli_runner.invoke(cli, ["feed", "import", "/nonexistent/file.opml"])
+        assert result.exit_code == 2
+        assert "does not exist" in result.output.lower()
+
+    def test_feed_import_empty_opml(self, cli_runner, initialized_db, tmp_path):
+        """feed import with no feeds outputs 'No feeds found'."""
+        opml_file = tmp_path / "empty.opml"
+        opml_file.write_text(
+            '<?xml version="1.0"?><opml version="2.0"><head/><body/></opml>',
+            encoding="utf-8",
+        )
+
+        result = cli_runner.invoke(
+            cli, ["feed", "import", str(opml_file)], input="n\n"
+        )
+        assert result.exit_code == 0
+        assert "No feeds found" in result.output
+
+    def test_feed_import_invalid_xml(self, cli_runner, initialized_db, tmp_path):
+        """feed import with invalid XML exits with error."""
+        opml_file = tmp_path / "bad.opml"
+        opml_file.write_text("not valid xml", encoding="utf-8")
+
+        result = cli_runner.invoke(cli, ["feed", "import", str(opml_file)])
+        assert result.exit_code == 1
+        assert "Invalid" in result.output
+
+    def test_feed_import_automatic_adds_feeds(
+        self, cli_runner, initialized_db, tmp_path
+    ):
+        """feed import --automatic on adds feeds without confirmation prompt."""
+        opml_content = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head/>
+  <body>
+    <outline text="Test Feed" xmlUrl="https://example.com/test.xml"/>
+  </body>
+</opml>
+"""
+        opml_file = tmp_path / "single.opml"
+        opml_file.write_text(opml_content, encoding="utf-8")
+
+        result = cli_runner.invoke(
+            cli, ["feed", "import", str(opml_file), "--automatic", "on"]
+        )
+        assert result.exit_code == 0
+        assert "Imported" in result.output or "Added" in result.output
+
+    def test_feed_import_skips_duplicates(self, cli_runner, initialized_db, tmp_path):
+        """feed import skips feeds that already exist in database."""
+        existing = Feed(
+            id="import-dup-1",
+            name="Existing Feed",
+            url="https://example.com/existing.xml",
+            etag=None,
+            modified_at=None,
+            fetched_at=None,
+            created_at="2024-01-01T00:00:00+00:00",
+        )
+        add_feed(existing)
+
+        opml_content = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head/>
+  <body>
+    <outline text="Existing Feed" xmlUrl="https://example.com/existing.xml"/>
+  </body>
+</opml>
+"""
+        opml_file = tmp_path / "dup.opml"
+        opml_file.write_text(opml_content, encoding="utf-8")
+
+        result = cli_runner.invoke(
+            cli, ["feed", "import", str(opml_file), "--automatic", "on"]
+        )
+        assert result.exit_code == 0
+        assert (
+            "skipped" in result.output.lower() or "duplicate" in result.output.lower()
+        )
+
+    def test_feed_import_with_group(self, cli_runner, initialized_db, tmp_path):
+        """feed import preserves group from OPML nested outline."""
+        opml_content = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head/>
+  <body>
+    <outline text="AI">
+      <outline text="AI News" xmlUrl="https://example.com/ai.xml"/>
+    </outline>
+  </body>
+</opml>
+"""
+        opml_file = tmp_path / "grouped.opml"
+        opml_file.write_text(opml_content, encoding="utf-8")
+
+        result = cli_runner.invoke(
+            cli, ["feed", "import", str(opml_file), "--automatic", "on"]
+        )
+        assert result.exit_code == 0
+
+        # Verify feed was imported with group
+        from src.storage.sqlite import list_feeds
+
+        feeds = list_feeds()
+        assert len(feeds) == 1
+        assert feeds[0].group == "AI"
+        assert feeds[0].url == "https://example.com/ai.xml"
+
+    def test_feed_import_not_opml_file(self, cli_runner, initialized_db, tmp_path):
+        """feed import with non-OPML XML exits with error about not being valid OPML."""
+        opml_file = tmp_path / "notopml.xml"
+        opml_file.write_text(
+            '<?xml version="1.0"?><rss version="2.0"><channel/></rss>',
+            encoding="utf-8",
+        )
+
+        result = cli_runner.invoke(cli, ["feed", "import", str(opml_file)])
+        assert result.exit_code == 1
+        assert "Not a valid OPML file" in result.output
