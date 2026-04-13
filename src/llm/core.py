@@ -11,7 +11,14 @@ import logging
 
 import litellm
 from langchain_core.runnables import Runnable
-from litellm import Router
+from langchain_litellm import ChatLiteLLMRouter
+from litellm import (
+    APIConnectionError,
+    JSONSchemaValidationError,
+    RateLimitError,
+    Router,
+    Timeout,
+)
 from pydantic import BaseModel
 
 from src.application.config import _get_settings
@@ -51,39 +58,54 @@ llm_router: Router = Router(
 # ---------------------------------------------------------------------------
 
 
+class _LLMWrapper:
+    """LCEL Runnable wrapper with retry and optional structured output.
+
+    Retry on RateLimitError, APIConnectionError, Timeout, and
+    JSONSchemaValidationError so all chains benefit uniformly.
+    """
+
+    _RETRY_TYPES = (
+        RateLimitError,
+        APIConnectionError,
+        Timeout,
+        JSONSchemaValidationError,
+    )
+
+    def __init__(
+        self,
+        response_format: dict | None = None,
+        thinking: dict | None = None,
+        structured_output: type[BaseModel] | None = None,
+    ):
+        self.response_format = response_format
+        self.thinking = thinking
+        self.structured_output = structured_output
+
+    def __call__(self) -> Runnable:
+        from langchain_litellm import ChatLiteLLMRouter
+
+        wrapper = ChatLiteLLMRouter(router=llm_router)
+        if self.response_format:
+            wrapper = wrapper.bind(response_format=self.response_format)
+        if self.thinking:
+            wrapper = wrapper.bind(thinking=self.thinking)
+        if self.structured_output:
+            wrapper = wrapper.with_structured_output(self.structured_output)
+        return wrapper.with_retry(
+            stop_after_attempt=2,
+            retry_if_exception_type=self._RETRY_TYPES,
+        )
+
+
 def _get_llm_wrapper(
     response_format: dict | None = None,
     thinking: dict | None = None,
     structured_output: type[BaseModel] | None = None,
 ) -> Runnable:
-    """Get a ChatLiteLLMRouter wrapper with optional configuration and retry.
-
-    Uses the module-level llm_router which handles all provider routing,
-    retries, and fallback via litellm. Retries on RateLimitError and
-    APIConnectionError at the wrapper level so all chains get retry behavior.
-    """
-    from langchain_litellm import ChatLiteLLMRouter
-    from litellm import (
-        APIConnectionError,
-        JSONSchemaValidationError,
-        RateLimitError,
-        Timeout,
-    )
-
-    wrapper = ChatLiteLLMRouter(router=llm_router)
-    if response_format:
-        wrapper = wrapper.bind(response_format=response_format)
-    if thinking:
-        wrapper = wrapper.bind(thinking=thinking)
-    if structured_output:
-        wrapper = wrapper.with_structured_output(structured_output)
-    wrapper = wrapper.with_retry(
-        stop_after_attempt=2,
-        retry_if_exception_type=(
-            RateLimitError,
-            APIConnectionError,
-            Timeout,
-            JSONSchemaValidationError,
-        ),
-    )
-    return wrapper
+    """Get a ChatLiteLLMRouter wrapper with optional configuration and retry."""
+    return _LLMWrapper(
+        response_format=response_format,
+        thinking=thinking,
+        structured_output=structured_output,
+    )()
