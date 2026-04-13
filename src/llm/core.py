@@ -58,7 +58,7 @@ llm_router: Router = Router(
 # ---------------------------------------------------------------------------
 
 
-class LLMWrapper:
+class LLMWrapper(Runnable):
     """LCEL Runnable wrapper with retry and optional structured output.
 
     Retry on RateLimitError, APIConnectionError, Timeout, and
@@ -77,35 +77,66 @@ class LLMWrapper:
         response_format: dict | None = None,
         thinking: dict | None = None,
         structured_output: type[BaseModel] | None = None,
+        _retry_config: dict | None = None,
+        **bind_kwargs,
     ):
         self.response_format = response_format
         self.thinking = thinking
         self.structured_output = structured_output
+        self._retry_config = _retry_config or {
+            "stop_after_attempt": 2,
+            "retry_if_exception_type": self._RETRY_TYPES,
+        }
+        self._bind_kwargs = bind_kwargs
 
-    def __call__(self) -> Runnable:
-        from langchain_litellm import ChatLiteLLMRouter
+    def invoke(self, input, config=None):
+        router = self._build_router()
+        return router.invoke(input, config)
 
-        wrapper = ChatLiteLLMRouter(router=llm_router)
+    def ainvoke(self, input, config=None):
+        router = self._build_router()
+        return router.ainvoke(input, config)
+
+    def _build_router(self) -> ChatLiteLLMRouter:
+        router = ChatLiteLLMRouter(router=llm_router)
         if self.response_format:
-            wrapper = wrapper.bind(response_format=self.response_format)
+            router = router.bind(response_format=self.response_format)
         if self.thinking:
-            wrapper = wrapper.bind(thinking=self.thinking)
+            router = router.bind(thinking=self.thinking)
+        for k, v in self._bind_kwargs.items():
+            router = router.bind(**{k: v})
         if self.structured_output:
-            wrapper = wrapper.with_structured_output(self.structured_output)
-        return wrapper.with_retry(
-            stop_after_attempt=2,
-            retry_if_exception_type=self._RETRY_TYPES,
+            router = router.with_structured_output(self.structured_output)
+        return router.with_retry(**self._retry_config)
+
+    def bind(self, **kwargs) -> LLMWrapper:
+        """Return new LLMWrapper with kwargs merged."""
+        new_kwargs = {**self._bind_kwargs, **kwargs}
+        return LLMWrapper(
+            response_format=self.response_format,
+            thinking=self.thinking,
+            structured_output=self.structured_output,
+            _retry_config=self._retry_config,
+            **new_kwargs,
         )
 
+    def with_structured_output(self, schema, **kwargs) -> LLMWrapper:
+        """Return new LLMWrapper with structured_output set."""
+        return LLMWrapper(
+            response_format=self.response_format,
+            thinking=self.thinking,
+            structured_output=schema,
+            _retry_config=self._retry_config,
+            **self._bind_kwargs,
+        )
 
-def get_llm_wrapper(
-    response_format: dict | None = None,
-    thinking: dict | None = None,
-    structured_output: type[BaseModel] | None = None,
-) -> Runnable:
-    """Get a ChatLiteLLMRouter wrapper with optional configuration and retry."""
-    return LLMWrapper(
-        response_format=response_format,
-        thinking=thinking,
-        structured_output=structured_output,
-    )()
+    def with_retry(self, **kwargs) -> LLMWrapper:
+        """Return new LLMWrapper with merged retry config."""
+        merged_retry = {**self._retry_config, **kwargs}
+        return LLMWrapper(
+            response_format=self.response_format,
+            thinking=self.thinking,
+            structured_output=self.structured_output,
+            _retry_config=merged_retry,
+            **self._bind_kwargs,
+        )
