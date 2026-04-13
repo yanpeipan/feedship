@@ -12,6 +12,7 @@ import logging
 import litellm
 from langchain_core.runnables import Runnable
 from litellm import Router
+from pydantic import BaseModel
 
 from src.application.config import _get_settings
 
@@ -53,6 +54,7 @@ llm_router: Router = Router(
 def _get_llm_wrapper(
     response_format: dict | None = None,
     thinking: dict | None = None,
+    structured_output: type[BaseModel] | None = None,
 ) -> Runnable:
     """Get a ChatLiteLLMRouter wrapper with optional configuration and retry.
 
@@ -63,9 +65,9 @@ def _get_llm_wrapper(
     from langchain_litellm import ChatLiteLLMRouter
     from litellm import (
         APIConnectionError,
-        APITimeoutError,
         JSONSchemaValidationError,
         RateLimitError,
+        Timeout,
     )
 
     wrapper = ChatLiteLLMRouter(router=llm_router)
@@ -73,12 +75,15 @@ def _get_llm_wrapper(
         wrapper = wrapper.bind(response_format=response_format)
     if thinking:
         wrapper = wrapper.bind(thinking=thinking)
-    return wrapper.with_retry(
+    if structured_output:
+        wrapper = wrapper.with_structured_output(structured_output)
+    wrapper = wrapper.with_retry(
         stop_after_attempt=2,
         retry_if_exception_type=(
             RateLimitError,
             APIConnectionError,
-            APITimeoutError,
+            Timeout,
             JSONSchemaValidationError,
         ),
     )
+    return wrapper
