@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import datetime
 import html
-from xml.etree import ElementTree
 from dataclasses import dataclass
+from xml.etree import ElementTree
 from xml.sax.saxutils import escape as xml_escape
 
 from src.models import Feed
@@ -136,7 +136,9 @@ def parse_opml_file(file_path: str) -> list[FeedEntry]:
 
     entries: list[FeedEntry] = []
 
-    def _parse_outlines(outlines: list[ElementTree.Element], current_group: str | None) -> None:
+    def _parse_outlines(
+        outlines: list[ElementTree.Element], current_group: str | None
+    ) -> None:
         for outline in outlines:
             xml_url = outline.get("xmlUrl")
             text = outline.get("text", "")

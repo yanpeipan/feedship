@@ -626,6 +626,9 @@ def feed_import(
                 click.secho("Import cancelled.", fg="yellow")
             return
 
+    # Import providers.discover lazily to avoid circular import issues
+    from src.providers import discover as providers_discover
+
     added_count = 0
     skipped_count = 0
     for entry in entries:
@@ -634,14 +637,36 @@ def feed_import(
             if not json_output:
                 click.secho(f"  Skipped (duplicate): {entry.url}", fg="yellow")
             continue
-        feed_meta = FeedMetaData(feed_type="rss")
-        register_feed(
-            entry.url,
-            entry.title or entry.name,
-            None,  # weight: inherit from defaults
-            feed_meta,
-            entry.group,
-        )
+
+        # Use providers.discover() for auto-detection of feed type (RSS, GitHub, Nitter, etc.)
+        discovered_feeds = providers_discover(entry.url)
+        if discovered_feeds:
+            discovered = discovered_feeds[0]
+            feed_meta = FeedMetaData(
+                feed_type=discovered.feed_type.value
+                if hasattr(discovered.feed_type, "value")
+                else discovered.feed_type,
+                selectors=discovered.metadata.selectors
+                if discovered.metadata
+                else None,
+            )
+            register_feed(
+                discovered.url,  # Use discovered URL (may differ for pseudo-URLs)
+                discovered.title or entry.title or entry.name,
+                None,  # weight: inherit from defaults
+                feed_meta,
+                entry.group,
+            )
+        else:
+            # Fallback: treat as RSS feed
+            feed_meta = FeedMetaData(feed_type="rss")
+            register_feed(
+                entry.url,
+                entry.title or entry.name,
+                None,  # weight: inherit from defaults
+                feed_meta,
+                entry.group,
+            )
         added_count += 1
 
     if json_output:
