@@ -4,7 +4,7 @@ milestone: v1.11
 milestone_name: milestone
 status: completed
 last_updated: "2026-04-13T06:55:00.000Z"
-last_activity: "2026-04-13 — Completed quick task 260413-90j: LangChain LCEL optimization + report module refactor"
+last_activity: "2026-04-13 — Completed quick task 260413-nco: LangChain LCEL optimization research + BatchClassifyChain factory refactor"
 progress:
   total_phases: 5
   completed_phases: 4
@@ -60,6 +60,7 @@ Last activity: 2026-04-11 - Completed quick task 260412-54h: 对filtered进行�
 | 260413-65n | src/llm/evaluator.py 删除 | 2026-04-12 | 3f57914 | | [260413-65n-src-llm-evaluator-py](./quick/260413-65n-src-llm-evaluator-py/) |
 | 260413-8et | Optimize duplicate code and database connection handling | 2026-04-13 | d0d6384 | Verified | [260413-8et-optimize-duplicate-code-and-database-con](./quick/260413-8et-optimize-duplicate-code-and-database-con/) |
 | 260413-90j | LangChain LCEL optimization + report module refactor: event loop fix, write lock consolidation, LCEL factories, streaming dedup, retry wrapper | 2026-04-13 | 2b69802 | Verified | [260413-90j-langchain-gitnexus-report](./quick/260413-90j-langchain-gitnexus-report/) |
+| 260413-nco | 调研LangChain文档并提出重构BatchClassifyChain最佳方案：RunnableLambda工厂模式替换类，保留LLMWrapper重试逻辑 | 2026-04-13 | 2d051e5 | Verified | [260413-nco-https-www-langchain-com-cn-docs-how-to-b](./quick/260413-nco-https-www-langchain-com-cn-docs-how-to-b/) |
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 260407-tbk | 为 feedship fetch --url 添加端到端测试 | 2026-04-07 | c5a80e0 | | [260407-tbk-feedship-fetch-url](./quick/260407-tbk-feedship-fetch-url/) |
