@@ -50,11 +50,13 @@ litellm.drop_params = True
 # num_retries=0: retry logic is handled by LLMWrapper.with_retry() at the LCEL
 # chain level. Setting Router-level retries would cause double-retry (Router +
 # LLMWrapper both retry), which worsens overload cascading.
+# default_max_parallel_requests=3: limit concurrent requests to reduce 529 overload errors.
 llm_router: Router = Router(
     model_list=_model_list,
     routing_strategy=_routing_strategy,
     timeout=_timeout_seconds,
     num_retries=0,
+    default_max_parallel_requests=3,
 )
 
 # ---------------------------------------------------------------------------
