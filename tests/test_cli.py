@@ -971,3 +971,82 @@ class TestInfoCommands:
         assert "feedship v" in result.output
         assert "Config:" in result.output
         assert "Articles:" not in result.output
+
+
+class TestFeedUpdateRefreshInterval:
+    """Tests for feed update --refresh-interval CLI command."""
+
+    def test_feed_update_refresh_interval_success(self, cli_runner, initialized_db):
+        """feed update <id> --refresh-interval <n> updates interval and outputs success."""
+        # Add a feed via storage
+        feed = Feed(
+            id="update-ri-feed",
+            name="Update RI Feed",
+            url="https://example.com/update-ri.xml",
+            etag=None,
+            modified_at=None,
+            fetched_at=None,
+            created_at="2024-01-01T00:00:00+00:00",
+            refresh_interval=None,
+        )
+        add_feed(feed)
+
+        result = cli_runner.invoke(
+            cli, ["feed", "update", "update-ri-feed", "--refresh-interval", "7200"]
+        )
+        assert result.exit_code == 0
+        assert "Updated feed" in result.output
+
+    def test_feed_update_refresh_interval_json(self, cli_runner, initialized_db):
+        """feed update <id> --refresh-interval <n> --json outputs refresh_interval."""
+        # Add a feed via storage
+        feed = Feed(
+            id="update-ri-json-feed",
+            name="Update RI JSON Feed",
+            url="https://example.com/update-ri-json.xml",
+            etag=None,
+            modified_at=None,
+            fetched_at=None,
+            created_at="2024-01-01T00:00:00+00:00",
+            refresh_interval=None,
+        )
+        add_feed(feed)
+
+        result = cli_runner.invoke(
+            cli,
+            ["feed", "update", "update-ri-json-feed", "--refresh-interval", "3600", "--json"],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["item"]["refresh_interval"] == 3600
+        assert data["item"]["updated"] is True
+
+    def test_feed_update_refresh_interval_not_found(self, cli_runner, initialized_db):
+        """feed update <id> --refresh-interval <n> with non-existent ID returns exit code 1."""
+        result = cli_runner.invoke(
+            cli, ["feed", "update", "non-existent-id", "--refresh-interval", "1800"]
+        )
+        assert result.exit_code == 1
+        assert "not found" in result.output.lower()
+
+    def test_feed_update_refresh_interval_invalid_too_low(
+        self, cli_runner, initialized_db
+    ):
+        """feed update <id> --refresh-interval <60s> fails with usage error."""
+        # Add a feed via storage
+        feed = Feed(
+            id="update-ri-invalid-feed",
+            name="Update RI Invalid Feed",
+            url="https://example.com/update-ri-invalid.xml",
+            etag=None,
+            modified_at=None,
+            fetched_at=None,
+            created_at="2024-01-01T00:00:00+00:00",
+            refresh_interval=None,
+        )
+        add_feed(feed)
+
+        result = cli_runner.invoke(
+            cli, ["feed", "update", "update-ri-invalid-feed", "--refresh-interval", "30"]
+        )
+        assert result.exit_code != 0
