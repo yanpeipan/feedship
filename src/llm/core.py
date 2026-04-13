@@ -55,12 +55,14 @@ def _get_llm_wrapper(
     response_format: dict | None = None,
     thinking: dict | None = None,
 ) -> Runnable:
-    """Get a ChatLiteLLMRouter wrapper with optional configuration.
+    """Get a ChatLiteLLMRouter wrapper with optional configuration and retry.
 
     Uses the module-level llm_router which handles all provider routing,
-    retries, and fallback via litellm.
+    retries, and fallback via litellm. Retries on RateLimitError and
+    APIConnectionError at the wrapper level so all chains get retry behavior.
     """
     from langchain_litellm import ChatLiteLLMRouter
+    from litellm import APIConnectionError, RateLimitError
 
     wrapper = ChatLiteLLMRouter(
         router=llm_router,
@@ -70,7 +72,10 @@ def _get_llm_wrapper(
         wrapper = wrapper.bind(response_format=response_format)
     if thinking:
         wrapper = wrapper.bind(thinking=thinking)
-    return wrapper
+    return wrapper.with_retry(
+        stop_after_attempt=2,
+        retry_if_exception_type=(RateLimitError, APIConnectionError),
+    )
 
 
 # Default max tokens for LLM calls

@@ -52,15 +52,10 @@ TRANSLATE_PROMPT = ChatPromptTemplate.from_messages(
 
 def get_translate_chain() -> Runnable:
     """Returns LCEL chain for report section translation."""
-    from litellm import APIConnectionError, RateLimitError
-
     return (
         TRANSLATE_PROMPT
         | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["translate"])
         | StrOutputParser()
-    ).with_retry(
-        stop_after_attempt=2,
-        retry_if_exception_type=(RateLimitError, APIConnectionError),
     )
 
 
@@ -94,17 +89,12 @@ def get_tldr_chain() -> Runnable:
     instead of .with_structured_output() for better error handling.
     """
     from langchain_core.runnables import RunnableLambda
-    from litellm import APIConnectionError, RateLimitError
-
     def validate_tldr(data: dict) -> TLDRItems:
         return TLDRItems.model_validate(data)
 
     llm = _get_llm_wrapper(800)
     return (
         TLDR_PROMPT | llm | JsonOutputParser() | RunnableLambda(validate_tldr)
-    ).with_retry(
-        stop_after_attempt=2,
-        retry_if_exception_type=(RateLimitError, APIConnectionError),
     )
 
 
@@ -143,8 +133,6 @@ def get_classify_translate_chain(
     instead of .with_structured_output() for better error handling.
     """
     from langchain_core.runnables import RunnableLambda
-    from litellm import APIConnectionError, RateLimitError
-
     def validate_classify(data: dict) -> ClassifyTranslateOutput:
         return ClassifyTranslateOutput.model_validate(data)
 
@@ -154,9 +142,6 @@ def get_classify_translate_chain(
         | llm
         | JsonOutputParser()
         | RunnableLambda(validate_classify)
-    ).with_retry(
-        stop_after_attempt=2,
-        retry_if_exception_type=(RateLimitError, APIConnectionError),
     )
 
 
