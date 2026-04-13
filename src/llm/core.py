@@ -34,7 +34,6 @@ _llm_config = _llm_settings.llm or {}
 _model_list: list[dict] = _llm_config.get("model_list", [])
 _routing_strategy = _llm_config.get("routing_strategy", "usage-based-routing")
 _timeout_seconds: int = _llm_config.get("timeout_seconds", 60)
-DEFAULT_MAX_TOKENS: int = _llm_config.get("max_tokens_per_call", 16384)
 
 # Drop unsupported params per-model (e.g. thinking not supported by MiniMax-M2.7)
 litellm.drop_params = True
@@ -72,7 +71,7 @@ def _get_llm_wrapper(
 
     wrapper = ChatLiteLLMRouter(
         router=llm_router,
-        max_tokens=max_tokens if max_tokens is not None else DEFAULT_MAX_TOKENS,
+        max_tokens=max_tokens,
     )
     if response_format:
         wrapper = wrapper.bind(response_format=response_format)

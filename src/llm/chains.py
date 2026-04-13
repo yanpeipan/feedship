@@ -15,9 +15,6 @@ from src.llm.output_models import (
     TLDRItem,
 )
 
-# Default max tokens for LLM calls (chains can override via config dict)
-DEFAULT_MAX_TOKENS = 300
-
 # Per-chain max tokens overrides
 MAX_TOKENS_PER_CHAIN: dict[str, int] = {
     "translate": 1000,  # full section translation
