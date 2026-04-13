@@ -1,10 +1,10 @@
 {
   "active": true,
   "spec": "021-feed-tag-and-category-management",
-  "state": "planning",
+  "state": "building",
   "subtasks": {
-    "completed": 0,
-    "total": 0,
+    "completed": 1,
+    "total": 13,
     "in_progress": 1,
     "failed": 0
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 2,
+    "number": 3,
     "started_at": "2026-04-14T01:12:03.135237"
   },
-  "last_update": "2026-04-14T01:15:34.978959"
+  "last_update": "2026-04-14T01:17:16.975196"
 }
