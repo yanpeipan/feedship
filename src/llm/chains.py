@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
@@ -70,18 +70,8 @@ TLDR_PROMPT = ChatPromptTemplate.from_messages(
 
 
 def get_tldr_chain() -> Runnable:
-    """Returns LCEL chain for batch TLDR generation.
-
-    Uses JsonOutputParser (handles markdown stripping) + Pydantic validation
-    instead of .with_structured_output() for better error handling.
-    """
-    from langchain_core.runnables import RunnableLambda
-
-    def validate_tldr(data: dict) -> TLDRItems:
-        return TLDRItems.model_validate(data)
-
-    llm = LLMWrapper()
-    return TLDR_PROMPT | llm | JsonOutputParser() | RunnableLambda(validate_tldr)
+    """Returns LCEL chain for batch TLDR generation."""
+    return TLDR_PROMPT | LLMWrapper().with_structured_output(TLDRItems)
 
 
 # Classification + translation chain
@@ -113,20 +103,8 @@ def get_classify_translate_chain(
     news_list: str,
     target_lang: str = "zh",
 ) -> Runnable:
-    """Returns LCEL chain for batch news classification and translation.
-
-    Uses JsonOutputParser (handles markdown stripping) + Pydantic validation
-    instead of .with_structured_output() for better error handling.
-    """
-    from langchain_core.runnables import RunnableLambda
-
-    def validate_classify(data: dict) -> ClassifyTranslateOutput:
-        return ClassifyTranslateOutput.model_validate(data)
-
-    llm = LLMWrapper()
+    """Returns LCEL chain for batch news classification and translation."""
     return (
         CLASSIFY_TRANSLATE_PROMPT
-        | llm
-        | JsonOutputParser()
-        | RunnableLambda(validate_classify)
+        | LLMWrapper().with_structured_output(ClassifyTranslateOutput)
     )
