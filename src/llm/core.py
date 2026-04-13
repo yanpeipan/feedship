@@ -14,6 +14,7 @@ from langchain_core.runnables import Runnable
 from langchain_litellm import ChatLiteLLMRouter
 from litellm import (
     APIConnectionError,
+    InternalServerError,
     JSONSchemaValidationError,
     RateLimitError,
     Router,
@@ -69,6 +70,7 @@ class LLMWrapper(Runnable):
         APIConnectionError,
         Timeout,
         JSONSchemaValidationError,
+        InternalServerError,
     )
 
     def __init__(
