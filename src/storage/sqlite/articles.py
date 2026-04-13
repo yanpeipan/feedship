@@ -226,29 +226,43 @@ def _batch_upsert_articles(articles: list) -> list[tuple[str, str]]:
         _logger = logging.getLogger(__name__)
         _logger.debug(f"Batch upsert: preparing {len(articles)} articles for DB insert")
 
-        # Batch UPSERT with RETURNING clause - single transaction, no second round-trip
-        # Collect results after each execute (fetchall() only returns last query results)
+        # Batch UPSERT using executemany() - single transaction
+        # Note: executemany() does not return RETURNING results, so we query back
+        # actual IDs after the batch upsert to build the result list.
+        cursor.executemany(
+            """INSERT INTO articles (id, feed_id, title, link, guid, published_at, content, description, created_at, modified_at, author, tags, category, meta)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(feed_id, guid) DO UPDATE SET
+                   title = excluded.title,
+                   link = excluded.link,
+                   published_at = excluded.published_at,
+                   content = excluded.content,
+                   description = excluded.description,
+                   modified_at = excluded.modified_at,
+                   author = excluded.author,
+                   tags = excluded.tags,
+                   category = excluded.category,
+                   meta = excluded.meta""",
+            batch_values,
+        )
+
+        # Query back actual IDs for all feed/guid pairs
+        guids_by_feed: dict[str, list[str]] = {}
+        for _i, article in enumerate(articles):
+            feed_id = _get_article_field(article, "feed_id") or ""
+            guid = _get_article_field(article, "guid")
+            guids_by_feed.setdefault(feed_id, []).append(guid)
+
         actual_ids_map: dict[tuple[str, str], str] = {}
-        for batch_row in batch_values:
-            cursor.execute(
-                """INSERT INTO articles (id, feed_id, title, link, guid, published_at, content, description, created_at, modified_at, author, tags, category, meta)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(feed_id, guid) DO UPDATE SET
-                       title = excluded.title,
-                       link = excluded.link,
-                       published_at = excluded.published_at,
-                       content = excluded.content,
-                       description = excluded.description,
-                       modified_at = excluded.modified_at,
-                       author = excluded.author,
-                       tags = excluded.tags,
-                       category = excluded.category,
-                       meta = excluded.meta
-                   RETURNING id, feed_id, guid""",
-                batch_row,
+        for feed_id, guids in guids_by_feed.items():
+            placeholders = ",".join("?" * len(guids))
+            cursor.execute(  # nosec B608
+                f"SELECT id, guid FROM articles WHERE feed_id = ? AND guid IN ({placeholders})",
+                [feed_id, *guids],
             )
             for row in cursor.fetchall():
-                actual_ids_map[(row[1], row[2])] = row[0]
+                actual_ids_map[(feed_id, row["guid"])] = row["id"]
+
         _logger.debug(f"Batch upsert: inserted/updated {len(actual_ids_map)} articles")
 
         # Batch FTS sync - single query for all articles
