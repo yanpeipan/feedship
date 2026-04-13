@@ -243,20 +243,24 @@ def update_feed_metadata(
     weight: float | None = None,
     group: str | None = None,
     feed_meta_data: FeedMetaData | None = None,
+    refresh_interval: int | None = None,
 ) -> tuple[Feed | None, bool]:
-    """Update feed metadata (weight, group, metadata JSON).
+    """Update feed metadata (weight, group, metadata JSON, refresh_interval).
 
     Args:
         feed_id: The ID of the feed to update.
         weight: Optional new weight (0.0-1.0).
         group: Optional new group name. Use empty string to clear.
         feed_meta_data: Optional FeedMetaData object to serialize as JSON.
+        refresh_interval: Optional refresh interval in seconds.
 
     Returns:
         Tuple of (updated Feed object or None if not found, success bool).
     """
     metadata_str = feed_meta_data.to_json() if feed_meta_data else None
-    return storage_update_feed_metadata(feed_id, weight, group, metadata_str)
+    return storage_update_feed_metadata(
+        feed_id, weight, group, metadata_str, refresh_interval
+    )
 
 
 def fetch_one(feed_or_id: str | Feed) -> dict:
