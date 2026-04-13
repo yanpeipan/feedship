@@ -51,7 +51,6 @@ llm_router: Router = Router(
 
 
 def _get_llm_wrapper(
-    max_tokens: int | None = None,
     response_format: dict | None = None,
     thinking: dict | None = None,
 ) -> Runnable:
@@ -69,10 +68,7 @@ def _get_llm_wrapper(
         RateLimitError,
     )
 
-    wrapper = ChatLiteLLMRouter(
-        router=llm_router,
-        max_tokens=max_tokens,
-    )
+    wrapper = ChatLiteLLMRouter(router=llm_router)
     if response_format:
         wrapper = wrapper.bind(response_format=response_format)
     if thinking:

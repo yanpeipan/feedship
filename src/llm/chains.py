@@ -15,12 +15,6 @@ from src.llm.output_models import (
     TLDRItem,
 )
 
-# Per-chain max tokens overrides
-MAX_TOKENS_PER_CHAIN: dict[str, int] = {
-    "translate": 1000,  # full section translation
-}
-
-
 # ---------------------------------------------------------------------------
 # Wrapper schemas for list outputs (required for .with_structured_output())
 # ---------------------------------------------------------------------------
@@ -49,11 +43,7 @@ TRANSLATE_PROMPT = ChatPromptTemplate.from_messages(
 
 def get_translate_chain() -> Runnable:
     """Returns LCEL chain for report section translation."""
-    return (
-        TRANSLATE_PROMPT
-        | _get_llm_wrapper(MAX_TOKENS_PER_CHAIN["translate"])
-        | StrOutputParser()
-    )
+    return TRANSLATE_PROMPT | _get_llm_wrapper() | StrOutputParser()
 
 
 # TLDR chain — generate detailed TLDR for multiple entities at once
@@ -89,7 +79,7 @@ def get_tldr_chain() -> Runnable:
     def validate_tldr(data: dict) -> TLDRItems:
         return TLDRItems.model_validate(data)
 
-    llm = _get_llm_wrapper(800)
+    llm = _get_llm_wrapper()
     return (
         TLDR_PROMPT | llm | JsonOutputParser() | RunnableLambda(validate_tldr)
     )
@@ -133,7 +123,7 @@ def get_classify_translate_chain(
     def validate_classify(data: dict) -> ClassifyTranslateOutput:
         return ClassifyTranslateOutput.model_validate(data)
 
-    llm = _get_llm_wrapper(16384)
+    llm = _get_llm_wrapper()
     return (
         CLASSIFY_TRANSLATE_PROMPT
         | llm
