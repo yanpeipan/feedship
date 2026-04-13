@@ -89,6 +89,7 @@ class Feed(BaseModel):
     metadata: str | FeedMetaData | None = None  # Stored as JSON string for DB compat
     weight: float | None = Field(default=None, ge=0.0, le=1.0)
     group: str | None = Field(default=None, max_length=100)
+    refresh_interval: int | None = Field(default=None, ge=60)  # seconds, min 60s
 
     @field_validator("url")
     @classmethod
