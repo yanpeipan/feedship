@@ -3,7 +3,7 @@
   "spec": "020-opml-import-and-export",
   "state": "building",
   "subtasks": {
-    "completed": 2,
+    "completed": 3,
     "total": 10,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 4,
+    "number": 5,
     "started_at": "2026-04-14T01:11:59.602005"
   },
-  "last_update": "2026-04-14T01:21:30.904186"
+  "last_update": "2026-04-14T01:24:27.357011"
 }
