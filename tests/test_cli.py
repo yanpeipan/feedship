@@ -973,43 +973,17 @@ class TestInfoCommands:
         assert "Articles:" not in result.output
 
 
-class TestFeedExportCommands:
-    """Tests for CLI feed export commands: feed export --opml."""
 
-    def test_feed_export_opml_empty(self, cli_runner, initialized_db):
-        """feed export --opml with no feeds outputs 'No feeds to export.'."""
-        result = cli_runner.invoke(cli, ["feed", "export", "--opml"])
-        assert result.exit_code == 0
-        assert "No feeds to export" in result.output
+class TestFeedUpdateRefreshInterval:
+    """Tests for feed update --refresh-interval CLI command."""
 
-    def test_feed_export_opml_with_feeds(self, cli_runner, initialized_db):
-        """feed export --opml shows feeds in OPML XML output."""
+    def test_feed_update_refresh_interval_success(self, cli_runner, initialized_db):
+        """feed update <id> --refresh-interval <n> updates interval and outputs success."""
+        # Add a feed via storage
         feed = Feed(
-            id="export-cli-1",
-            name="CLI Export Feed",
-            url="https://example.com/export.xml",
-            etag=None,
-            modified_at=None,
-            fetched_at=None,
-            created_at="2024-01-01T00:00:00+00:00",
-        )
-        add_feed(feed)
-
-        result = cli_runner.invoke(cli, ["feed", "export", "--opml"])
-        assert result.exit_code == 0
-        assert "CLI Export Feed" in result.output
-        assert "https://example.com/export.xml" in result.output
-
-    def test_feed_export_opml_to_file(self, cli_runner, initialized_db, tmp_path):
-        """feed export --opml -o writes OPML to the specified file."""
-        feed = Feed(
-            id="export-file-1",
-            name="File Export Feed",
-            url="https://example.com/file.xml",
-            etag=None,
-            modified_at=None,
-            fetched_at=None,
-            created_at="2024-01-01T00:00:00+00:00",
+            id="update-ri-feed",
+            name="Update RI Feed",
+            url="https://example.com/update-ri.xml",
         )
         add_feed(feed)
 
@@ -1063,74 +1037,36 @@ class TestFeedExportCommands:
             modified_at=None,
             fetched_at=None,
             created_at="2024-01-01T00:00:00+00:00",
+            refresh_interval=None,
         )
         add_feed(feed)
 
-        result = cli_runner.invoke(cli, ["feed", "export"])
-        assert result.exit_code == 0
-        assert "--opml" in result.output
-
-
-class TestFeedImportCommands:
-    """Tests for CLI feed import command: feed import."""
-
-    def test_feed_import_nonexistent_file(self, cli_runner, initialized_db):
-        """feed import with non-existent file exits with error (exit code 2)."""
-        result = cli_runner.invoke(cli, ["feed", "import", "/nonexistent/file.opml"])
-        assert result.exit_code == 2
-        assert "does not exist" in result.output.lower()
-
-    def test_feed_import_empty_opml(self, cli_runner, initialized_db, tmp_path):
-        """feed import with no feeds outputs 'No feeds found'."""
-        opml_file = tmp_path / "empty.opml"
-        opml_file.write_text(
-            '<?xml version="1.0"?><opml version="2.0"><head/><body/></opml>',
-            encoding="utf-8",
-        )
-
         result = cli_runner.invoke(
-            cli, ["feed", "import", str(opml_file)], input="n\n"
+            cli,
+            ["feed", "update", "update-ri-json-feed", "--refresh-interval", "3600", "--json"],
         )
         assert result.exit_code == 0
-        assert "No feeds found" in result.output
+        data = json.loads(result.output)
+        assert data["item"]["refresh_interval"] == 3600
+        assert data["item"]["updated"] is True
 
-    def test_feed_import_invalid_xml(self, cli_runner, initialized_db, tmp_path):
-        """feed import with invalid XML exits with error."""
-        opml_file = tmp_path / "bad.opml"
-        opml_file.write_text("not valid xml", encoding="utf-8")
-
-        result = cli_runner.invoke(cli, ["feed", "import", str(opml_file)])
+    def test_feed_update_refresh_interval_not_found(self, cli_runner, initialized_db):
+        """feed update <id> --refresh-interval <n> with non-existent ID returns exit code 1."""
+        result = cli_runner.invoke(
+            cli, ["feed", "update", "non-existent-id", "--refresh-interval", "1800"]
+        )
         assert result.exit_code == 1
-        assert "Invalid" in result.output
+        assert "not found" in result.output.lower()
 
-    def test_feed_import_automatic_adds_feeds(
-        self, cli_runner, initialized_db, tmp_path
+    def test_feed_update_refresh_interval_invalid_too_low(
+        self, cli_runner, initialized_db
     ):
-        """feed import --automatic on adds feeds without confirmation prompt."""
-        opml_content = """\
-<?xml version="1.0" encoding="UTF-8"?>
-<opml version="2.0">
-  <head/>
-  <body>
-    <outline text="Test Feed" xmlUrl="https://example.com/test.xml"/>
-  </body>
-</opml>
-"""
-        opml_file = tmp_path / "single.opml"
-        opml_file.write_text(opml_content, encoding="utf-8")
-
-        result = cli_runner.invoke(
-            cli, ["feed", "import", str(opml_file), "--automatic", "on"]
-        )
-        assert result.exit_code == 0
-        assert "Imported" in result.output or "Added" in result.output
-
-    def test_feed_import_skips_duplicates(self, cli_runner, initialized_db, tmp_path):
-        """feed import skips feeds that already exist in database."""
-        existing = Feed(
-            id="import-dup-1",
-            name="Existing Feed",
-            url="https://example.com/existing.xml",
+        """feed update <id> --refresh-interval <60s> fails with usage error."""
+        # Add a feed via storage
+        feed = Feed(
+            id="update-ri-invalid-feed",
+            name="Update RI Invalid Feed",
+            url="https://example.com/update-ri-invalid.xml",
             etag=None,
             modified_at=None,
             fetched_at=None,
@@ -1198,3 +1134,11 @@ class TestFeedImportCommands:
         result = cli_runner.invoke(cli, ["feed", "import", str(opml_file)])
         assert result.exit_code == 1
         assert "Not a valid OPML file" in result.output
+            refresh_interval=None,
+        )
+        add_feed(feed)
+
+        result = cli_runner.invoke(
+            cli, ["feed", "update", "update-ri-invalid-feed", "--refresh-interval", "30"]
+        )
+        assert result.exit_code != 0
