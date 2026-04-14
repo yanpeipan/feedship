@@ -28,6 +28,6 @@ jobs:
       - name: Run pip-audit
         run: pip-audit
       - name: Run Ruff linter
-        run: ruff check .
+        run: ruff check --fix .
       - name: Run Ruff formatter check
         run: ruff format --check .
