@@ -5,7 +5,6 @@ import os
 import platform
 import subprocess
 import sys
-from datetime import datetime
 
 import click
 from rich.console import Console
@@ -14,7 +13,6 @@ from rich.table import Table
 
 from src.application.article_view import fetch_and_fill_article, fetch_url_content
 from src.application.articles import ArticleListItem, get_article_detail, list_articles
-from src.application.config import get_timezone
 from src.cli.ui import (
     format_article_list,
     print_json,
@@ -28,22 +26,6 @@ from src.storage import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _format_date(published_at: int | str | None) -> str:
-    """Format published_at as 'YYYY-MM-DD' or return '-'."""
-    if published_at is None:
-        return "-"
-    if isinstance(published_at, int):
-        tz = get_timezone()
-        dt = datetime.fromtimestamp(published_at, tz=tz)
-        return dt.strftime("%Y-%m-%d")
-    if isinstance(published_at, str):
-        # Handle 'YYYY-MM-DD HH:MM:SS' format
-        if len(published_at) >= 10:
-            return published_at[:10]
-        return published_at
-    return "-"
 
 
 def _print_content_view(result: dict) -> None:

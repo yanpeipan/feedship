@@ -52,16 +52,6 @@ def _get_provider_type(url: str) -> str:
     return "GitHub" if "github.com" in url.lower() else "RSS"
 
 
-def _build_feed_meta(feed) -> FeedMetaData:
-    """Build FeedMetaData from a discovered feed."""
-    return FeedMetaData(
-        feed_type=feed.feed_type.value
-        if hasattr(feed.feed_type, "value")
-        else feed.feed_type,
-        selectors=feed.metadata.selectors if feed.metadata else None,
-    )
-
-
 def _prompt_selection(feeds: list[DiscoveredFeed]) -> list[int]:
     """Prompt user to select feeds. Returns list of selected indices."""
     import questionary
@@ -198,7 +188,7 @@ def feed_add(
         updated_count = 0
         added_urls = []
         for feed in feeds:
-            feed_meta = _build_feed_meta(feed)
+            feed_meta = FeedMetaData.from_discovered_feed(feed)
             _, is_new = register_feed(feed.url, feed.title, weight, feed_meta, group)
             if is_new:
                 added_count += 1
@@ -244,7 +234,7 @@ def feed_add(
     updated_count = 0
     for idx in selected:
         feed = feeds[idx]
-        feed_meta = _build_feed_meta(feed)
+        feed_meta = FeedMetaData.from_discovered_feed(feed)
         _, is_new = register_feed(feed.url, feed.title, weight, feed_meta, group)
         if is_new:
             added_count += 1
@@ -787,7 +777,7 @@ def feed_import(
         discovered_feeds = providers_discover(entry.url)
         if discovered_feeds:
             discovered = discovered_feeds[0]
-            feed_meta = _build_feed_meta(discovered)
+            feed_meta = FeedMetaData.from_discovered_feed(discovered)
             register_feed(
                 discovered.url,  # Use discovered URL (may differ for pseudo-URLs)
                 discovered.title or entry.title or entry.name,

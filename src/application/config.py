@@ -1,6 +1,7 @@
 """Application configuration using Pydantic BaseSettings."""
 
 import os
+from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -167,6 +168,27 @@ def get_timezone() -> ZoneInfo:
         _cached_timezone = ZoneInfo(tz_name)
 
     return _cached_timezone
+
+
+def format_published_date(published_at: int | str | None) -> str:
+    """Format published_at as 'YYYY-MM-DD' or return '-'.
+
+    Args:
+        published_at: Publication date as Unix timestamp (int), ISO string, or None.
+
+    Returns:
+        Formatted date string (yyyy-mm-dd) or "-" if invalid/None.
+    """
+    if published_at is None:
+        return "-"
+    if isinstance(published_at, int):
+        dt = datetime.fromtimestamp(published_at, tz=get_timezone())
+        return dt.strftime("%Y-%m-%d")
+    if isinstance(published_at, str):
+        if len(published_at) >= 10:
+            return published_at[:10]
+        return published_at
+    return "-"
 
 
 def get_default_feed_weight() -> float:

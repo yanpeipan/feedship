@@ -47,6 +47,19 @@ class FeedMetaData(BaseModel):
         data = self.model_dump(exclude_none=True)
         return json.dumps(data) if data else None
 
+    @classmethod
+    def from_discovered_feed(cls, feed) -> FeedMetaData:
+        """Create FeedMetaData from a DiscoveredFeed or similar object.
+
+        Args:
+            feed: Object with feed_type (enum or str) and metadata (FeedMetaData or None) attributes.
+        """
+        feed_type = feed.feed_type
+        if hasattr(feed_type, "value"):
+            feed_type = feed_type.value
+        selectors = feed.metadata.selectors if feed.metadata else None
+        return cls(selectors=selectors, feed_type=feed_type)
+
 
 # Custom URL pattern that validates URL format
 # Accepts HTTP/HTTPS URLs and special feed identifiers (x:, search:, tavily:, nitter:, github:, gh:, etc.)

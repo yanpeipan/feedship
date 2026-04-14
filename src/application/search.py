@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlparse
 
+from src.application.config import format_published_date
+
 
 def format_articles(
     items: list[dict[str, Any]], verbose: bool = False
@@ -44,7 +46,7 @@ def _format_items(items: list[dict[str, Any]], verbose: bool) -> list[dict[str, 
     formatted = []
     for item in items:
         title = _truncate(item.get("title") or "No title", 60)
-        date = _format_date_for_display(item.get("published_at"))
+        date = format_published_date(item.get("published_at"))
         score_val = item.get("score")
 
         # Format score as percentage (0-1 normalized from rank_*_results)
@@ -164,25 +166,3 @@ def _truncate(text: str, max_length: int) -> str:
     if len(text) <= max_length:
         return text
     return text[:max_length] + "..."
-
-
-def _format_date_for_display(published_at: int | str | None) -> str:
-    """Convert published_at to yyyy-mm-dd format for display.
-
-    Args:
-        published_at: Publication date as Unix timestamp (int) or None.
-
-    Returns:
-        Formatted date string (yyyy-mm-dd) or "-" if invalid/None.
-    """
-    if published_at is None:
-        return "-"
-    if isinstance(published_at, int):
-        from datetime import datetime
-
-        from src.application.config import get_timezone
-
-        tz = get_timezone()
-        dt = datetime.fromtimestamp(published_at, tz=tz)
-        return dt.strftime("%Y-%m-%d")
-    return "-"
