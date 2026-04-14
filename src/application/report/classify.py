@@ -62,9 +62,9 @@ def BatchClassifyChain(
                         }
                     )
                     # Adjust IDs for batch offset
-                    for item in output.items:
+                    for item in output:
                         item.id += batch_offset
-                    return output.items
+                    return output
                 except Exception as e:
                     logger.warning("Batch %d failed: %s", batch_offset, e)
                     return []
