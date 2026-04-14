@@ -28,15 +28,24 @@ from src.storage import (
 logger = logging.getLogger(__name__)
 
 
-def _print_content_view(result: dict) -> None:
-    """Print content view result in rich format."""
-    console = Console()
-    title = result.get("title") or "No title"
-    url = result.get("url") or ""
-    extracted_at = result.get("extracted_at", "")
-    console.print(
-        Panel(result["content"], title=title, subtitle=f"{url} | {extracted_at}")
-    )
+def _format_date(published_at: int | str | None) -> str:
+    """Format published_at as 'YYYY-MM-DD' or return '-'."""
+    if published_at is None:
+        return "-"
+    if isinstance(published_at, int):
+        from datetime import datetime
+
+        from src.application.config import get_timezone
+
+        tz = get_timezone()
+        dt = datetime.fromtimestamp(published_at, tz=tz)
+        return dt.strftime("%Y-%m-%d")
+    if isinstance(published_at, str):
+        # Handle 'YYYY-MM-DD HH:MM:SS' format
+        if len(published_at) >= 10:
+            return published_at[:10]
+        return published_at
+    return "-"
 
 
 def print_articles(items: list[ArticleListItem]) -> None:
@@ -123,11 +132,6 @@ def article(ctx: click.Context) -> None:
     "--groups", default=None, help="Filter by feed groups (comma-separated, OR logic)"
 )
 @click.option(
-    "--tag",
-    default=None,
-    help="Filter by tag name (articles from feeds with this tag)",
-)
-@click.option(
     "--sort",
     default=None,
     type=click.Choice(["quality"]),
@@ -159,7 +163,6 @@ def article_list(
     until: str | None,
     on: tuple,
     groups: str | None,
-    tag: str | None,
     sort: str | None,
     min_quality: float | None,
     json_output: bool,
@@ -307,6 +310,17 @@ def article_view(
         sys.exit(1)
 
 
+def _print_content_view(result: dict) -> None:
+    """Print content view result in rich format."""
+    console = Console()
+    title = result.get("title") or "No title"
+    url = result.get("url") or ""
+    extracted_at = result.get("extracted_at", "")
+    console.print(
+        Panel(result["content"], title=title, subtitle=f"{url} | {extracted_at}")
+    )
+
+
 @article.command("open")
 @click.argument("article_id")
 @click.pass_context
@@ -347,11 +361,6 @@ def article_open(ctx: click.Context, article_id: str) -> None:
 @click.option(
     "--groups", default=None, help="Filter by feed groups (comma-separated, OR logic)"
 )
-@click.option(
-    "--tag",
-    default=None,
-    help="Filter by tag name (articles from feeds with this tag)",
-)
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 @click.pass_context
 def article_search(
@@ -365,7 +374,6 @@ def article_search(
     until: str | None,
     on: tuple,
     groups: str | None,
-    tag: str | None,
     json_output: bool,
 ) -> None:
     try:
@@ -386,7 +394,6 @@ def article_search(
                     until=until,
                     on=on_list,
                     groups=groups_list,
-                    tag=tag,
                     cross_encoder=cross_encoder,
                 )
             except RuntimeError as e:
@@ -406,7 +413,6 @@ def article_search(
                 until=until,
                 on=on_list,
                 groups=groups_list,
-                tag=tag,
                 cross_encoder=cross_encoder,
             )
 
