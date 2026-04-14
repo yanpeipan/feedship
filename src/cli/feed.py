@@ -6,20 +6,16 @@ from __future__ import annotations
 # Python 3.13's shutdown_default_executor() waits up to 300 seconds for threads
 # to finish, which causes CLI to hang after fetch completes. Reducing to 10 seconds.
 import asyncio.constants
-import cProfile
-import io
 import logging
-import pstats
 import sys
 import time
 from pathlib import Path
 
 import click
 import uvloop
+from rich.console import Console
 
 asyncio.constants.THREAD_JOIN_TIMEOUT = 10
-
-from rich.console import Console  # noqa: E402
 
 from src.application.feed import (  # noqa: E402
     get_feed,
@@ -28,12 +24,13 @@ from src.application.feed import (  # noqa: E402
     remove_feed,
     update_feed_metadata,
 )
+from src.application.opml import export_feeds_to_opml, parse_opml_file  # noqa: E402
 from src.application.tag_management import (  # noqa: E402
     add_tag_to_feed,
     list_feed_tags,
     remove_tag_from_feed,
 )
-from src.application.opml import export_feeds_to_opml, parse_opml_file  # noqa: E402
+from src.cli import cli  # noqa: E402
 from src.cli.ui import (  # noqa: E402
     FetchProgress,
     format_discover_feeds,
@@ -50,19 +47,19 @@ from src.storage import feed_exists  # noqa: E402
 logger = logging.getLogger(__name__)
 
 
-async def _fetch_with_progress(
-    async_gen, total, description: str, concurrency: int = 10
-):
-    """Run async fetch with Rich progress bar. Returns (total_new, success_count, error_count, errors, elapsed_time)."""
-    with FetchProgress(total, description, concurrency) as fp:
-        async for result in async_gen:
-            fp.update(result)
-    return fp.total_new, fp.success_count, fp.error_count, fp.errors, fp.elapsed_time
-
-
 def _get_provider_type(url: str) -> str:
     """Return "GitHub" if URL contains github.com, else "RSS"."""
     return "GitHub" if "github.com" in url.lower() else "RSS"
+
+
+def _build_feed_meta(feed) -> FeedMetaData:
+    """Build FeedMetaData from a discovered feed."""
+    return FeedMetaData(
+        feed_type=feed.feed_type.value
+        if hasattr(feed.feed_type, "value")
+        else feed.feed_type,
+        selectors=feed.metadata.selectors if feed.metadata else None,
+    )
 
 
 def _prompt_selection(feeds: list[DiscoveredFeed]) -> list[int]:
@@ -90,9 +87,6 @@ def _prompt_selection(feeds: list[DiscoveredFeed]) -> list[int]:
     # Map selected URLs back to indices
     selected_set = set(selected)
     return [i for i, feed in enumerate(feeds) if feed.url in selected_set]
-
-
-from src.cli import cli  # noqa: E402
 
 
 @cli.group()
@@ -204,12 +198,7 @@ def feed_add(
         updated_count = 0
         added_urls = []
         for feed in feeds:
-            feed_meta = FeedMetaData(
-                feed_type=feed.feed_type.value
-                if hasattr(feed.feed_type, "value")
-                else feed.feed_type,
-                selectors=feed.metadata.selectors if feed.metadata else None,
-            )
+            feed_meta = _build_feed_meta(feed)
             _, is_new = register_feed(feed.url, feed.title, weight, feed_meta, group)
             if is_new:
                 added_count += 1
@@ -255,12 +244,7 @@ def feed_add(
     updated_count = 0
     for idx in selected:
         feed = feeds[idx]
-        feed_meta = FeedMetaData(
-            feed_type=feed.feed_type.value
-            if hasattr(feed.feed_type, "value")
-            else feed.feed_type,
-            selectors=feed.metadata.selectors if feed.metadata else None,
-        )
+        feed_meta = _build_feed_meta(feed)
         _, is_new = register_feed(feed.url, feed.title, weight, feed_meta, group)
         if is_new:
             added_count += 1
@@ -652,6 +636,7 @@ def tag_list(ctx: click.Context, feed_id: str, json_output: bool) -> None:
         logger.exception("Failed to list tags")
         sys.exit(1)
 
+
 @feed.command("export")
 @click.option("--opml", "as_opml", is_flag=True, help="Export feeds as OPML 2.0 XML")
 @click.option(
@@ -802,14 +787,7 @@ def feed_import(
         discovered_feeds = providers_discover(entry.url)
         if discovered_feeds:
             discovered = discovered_feeds[0]
-            feed_meta = FeedMetaData(
-                feed_type=discovered.feed_type.value
-                if hasattr(discovered.feed_type, "value")
-                else discovered.feed_type,
-                selectors=discovered.metadata.selectors
-                if discovered.metadata
-                else None,
-            )
+            feed_meta = _build_feed_meta(discovered)
             register_feed(
                 discovered.url,  # Use discovered URL (may differ for pseudo-URLs)
                 discovered.title or entry.title or entry.name,
@@ -1162,6 +1140,10 @@ def fetch(
         )
 
     if profile:
+        import cProfile
+        import io
+        import pstats
+
         profiles_dir = Path("profiles")
         profiles_dir.mkdir(exist_ok=True)
         timestamp = time.strftime("%Y%m%d_%H%M%S")
