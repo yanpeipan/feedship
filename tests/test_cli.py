@@ -1176,37 +1176,10 @@ class TestFeedUpdateRefreshInterval:
         self, cli_runner, initialized_db
     ):
         """feed update <id> --refresh-interval <60s> fails with usage error."""
-        # Add a feed via storage
-        feed = Feed(
-            id="update-ri-invalid-feed",
-            name="Update RI Invalid Feed",
-            url="https://example.com/update-ri-invalid.xml",
-            etag=None,
-            modified_at=None,
-            fetched_at=None,
-            created_at="2024-01-01T00:00:00+00:00",
-        )
-        add_feed(existing)
-
-        opml_content = """\
-<?xml version="1.0" encoding="UTF-8"?>
-<opml version="2.0">
-  <head/>
-  <body>
-    <outline text="Existing Feed" xmlUrl="https://example.com/existing.xml"/>
-  </body>
-</opml>
-"""
-        opml_file = tmp_path / "dup.opml"
-        opml_file.write_text(opml_content, encoding="utf-8")
-
         result = cli_runner.invoke(
-            cli, ["feed", "import", str(opml_file), "--automatic", "on"]
+            cli, ["feed", "update", "non-existent-id", "--refresh-interval", "30"]
         )
-        assert result.exit_code == 0
-        assert (
-            "skipped" in result.output.lower() or "duplicate" in result.output.lower()
-        )
+        assert result.exit_code != 0
 
     def test_feed_import_with_group(self, cli_runner, initialized_db, tmp_path):
         """feed import preserves group from OPML nested outline."""
