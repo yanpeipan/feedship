@@ -90,6 +90,9 @@ class ArticleListItem:
     minhash_signature: bytes | None = None
     tags: list[str] = field(default_factory=list)
     translation: str | None = None
+    is_read: bool = False
+    read_at: str | None = None
+    is_starred: bool = False
 
     def to_dict(self) -> dict:
         """Convert to dict for boundaries that require dict (e.g., template rendering)."""
@@ -117,6 +120,9 @@ class ArticleListItem:
             "minhash_signature": self.minhash_signature,
             "tags": self.tags,
             "translation": self.translation,
+            "is_read": self.is_read,
+            "read_at": self.read_at,
+            "is_starred": self.is_starred,
         }
 
 
