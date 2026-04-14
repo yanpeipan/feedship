@@ -1,15 +1,15 @@
 {
   "active": true,
-  "spec": "019-cache-check-ml-dependencies-result-with-functools-",
+  "spec": "022-per-feed-refresh-interval-configuration",
   "state": "building",
   "subtasks": {
-    "completed": 3,
-    "total": 4,
+    "completed": 17,
+    "total": 18,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Run tests",
+    "current": "Tests",
     "id": null,
     "total": 4
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 5,
-    "started_at": "2026-04-14T00:55:57.425917"
+    "number": 17,
+    "started_at": "2026-04-14T01:27:56.778324"
   },
-  "last_update": "2026-04-14T01:03:14.105359"
+  "last_update": "2026-04-14T02:04:39.064227"
 }
