@@ -1248,9 +1248,6 @@ class TestFeedUpdateRefreshInterval:
         result = cli_runner.invoke(cli, ["feed", "import", str(opml_file)])
         assert result.exit_code == 1
         assert "Not a valid OPML file" in result.output
-            refresh_interval=None,
-        )
-        add_feed(feed)
 
         result = cli_runner.invoke(
             cli, ["feed", "update", "update-ri-invalid-feed", "--refresh-interval", "30"]
