@@ -260,7 +260,9 @@
             "command": "python -c \"from src.cli.article import print_articles; print('print_articles updated')\"",
             "expected": "print_articles updated"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Added ★ star indicator column and bold/dim title styling based on is_read status. Passes ruff checks.",
+          "updated_at": "2026-04-14T07:09:36.173328+00:00"
         }
       ]
     },
@@ -290,7 +292,9 @@
             "command": "cd . && uv run pytest tests/test_storage.py -v -k 'mark_article_read or toggle_article_star or mark_article_unread' --tb=short 2>&1 | tail -20",
             "expected": "PASSED"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "All 11 tests pass. Added TestArticleStatus class with tests for mark_article_read, mark_article_unread, and toggle_article_star. Also exported functions from src.storage.sqlite.__init__.py.",
+          "updated_at": "2026-04-14T07:16:19.501601+00:00"
         },
         {
           "id": "subtask-5-2",
@@ -308,7 +312,9 @@
             "command": "cd . && uv run pytest tests/test_cli.py -v -k 'mark or star' --tb=short 2>&1 | tail -20",
             "expected": "PASSED"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Added 10 tests for article mark and article star commands in TestArticleMarkStarCommands class.",
+          "updated_at": "2026-04-14T07:19:23.314858+00:00"
         },
         {
           "id": "subtask-5-3",
@@ -433,6 +439,6 @@
   "planStatus": "in_progress",
   "xstateState": "backlog",
   "executionPhase": "coding",
-  "updated_at": "2026-04-14T07:07:17.589Z",
-  "last_updated": "2026-04-14T07:05:57.858530+00:00"
+  "updated_at": "2026-04-14T07:20:02.896Z",
+  "last_updated": "2026-04-14T07:19:23.314873+00:00"
 }
