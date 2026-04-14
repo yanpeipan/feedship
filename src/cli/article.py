@@ -18,6 +18,7 @@ from src.cli.ui import (
     print_json,
     print_json_error,
 )
+from src.storage import mark_article_read, mark_article_unread
 
 logger = logging.getLogger(__name__)
 
@@ -423,4 +424,68 @@ def article_related(
             return
         click.secho(f"Error: Failed to find related articles: {e}", err=True, fg="red")
         logger.exception("Failed to find related articles")
+        sys.exit(1)
+
+
+@article.command("mark")
+@click.argument("article_id")
+@click.option("--read", "mark_read", is_flag=True, help="Mark article as read")
+@click.option("--unread", "mark_unread", is_flag=True, help="Mark article as unread")
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.pass_context
+def article_mark(
+    ctx: click.Context,
+    article_id: str,
+    mark_read: bool,
+    mark_unread: bool,
+    json_output: bool,
+) -> None:
+    """Mark an article as read or unread.
+
+    Examples:
+
+      feedship article mark abc12345 --read
+      feedship article mark abc12345 --unread
+    """
+    if mark_read and mark_unread:
+        if json_output:
+            print_json_error(
+                "Cannot use both --read and --unread", "mutual_exclusion", exit_code=1
+            )
+        click.secho("Error: Cannot use both --read and --unread", err=True, fg="red")
+        sys.exit(1)
+
+    if not mark_read and not mark_unread:
+        if json_output:
+            print_json_error(
+                "Must specify --read or --unread", "missing_flag", exit_code=1
+            )
+        click.secho("Error: Must specify --read or --unread", err=True, fg="red")
+        sys.exit(1)
+
+    try:
+        if mark_read:
+            result = mark_article_read(article_id)
+        else:
+            result = mark_article_unread(article_id)
+
+        if not result.get("success"):
+            if json_output:
+                print_json_error(
+                    result.get("error", "Unknown error"), "not_found", exit_code=1
+                )
+            click.secho(f"Error: {result.get('error', 'Unknown error')}", fg="red")
+            sys.exit(1)
+
+        status = "read" if mark_read else "unread"
+        if json_output:
+            print_json({"item": {"id": article_id, "status": status, "updated": True}})
+        else:
+            click.secho(f"Marked article as {status}: {article_id}", fg="green")
+    except Exception as e:
+        if json_output:
+            print_json_error(f"Failed to mark article: {e}", "mark_error")
+            return
+        click.secho(f"Error: Failed to mark article: {e}", err=True, fg="red")
+        logger.exception("Failed to mark article")
         sys.exit(1)
