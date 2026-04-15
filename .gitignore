@@ -47,6 +47,7 @@ Thumbs.db
 # Project specific
 .planning/
 .claude/
+graphify-out/
 stdout/
 .claude-flow/
 .swarm/
