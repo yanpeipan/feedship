@@ -5,16 +5,21 @@ AI 日报 — {{ report_data.date_range.until }}
 {% endif %}
 {%- for section in report_data.cluster.children %}
 ## {{ section.title }}
+
 {%- if section.children %}
-  {%- for child in section.children %}
+{%- for child in section.children %}
 > {{ child.summary or '' }}
-  {%- endfor %}
+
+{%- endfor %}
 {%- endif %}
 {%- if section.articles %}
-  {%- for article in section.articles %}
+{%- for article in section.articles %}
 - [{{ article.translation or article.title }}]({{ article.link }})
-  {%- endfor %}
+{%- endfor %}
+{%- else %}
+（暂无内容）
 {%- endif %}
+
 {% else %}
 （本期暂无相关来源）
 {% endfor %}
