@@ -8,14 +8,11 @@ AI 日报 — {{ report_data.date_range.until }}
 {%- if section.children %}
   {%- for child in section.children %}
 > {{ child.summary or '' }}
-    {%- for article in child.articles %}
-- [{{ article.translation }}]({{ article.link }})
-    {%- endfor %}
   {%- endfor %}
-{%- else %}
-> {{ section.summary or '' }}
+{%- endif %}
+{%- if section.articles %}
   {%- for article in section.articles %}
-- [{{ article.translation }}]({{ article.link }})
+- [{{ article.translation or article.title }}]({{ article.link }})
   {%- endfor %}
 {%- endif %}
 {% else %}

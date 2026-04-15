@@ -214,9 +214,16 @@ class BuildReportDataChain(Runnable):
             target_lang=self.target_lang,
             heading_tree=self.heading_tree,
         )
-        report_data.add_articles(
-            items, lambda a: a.tags[0] if a.tags else self.fallback_tag
-        )
+
+        def _get_cluster_tag(item: ArticleListItem) -> str:
+            """Route item to cluster: tags[0] > feed_name > fallback_tag."""
+            if item.tags:
+                return item.tags[0]
+            if item.feed_name:
+                return item.feed_name
+            return self.fallback_tag
+
+        report_data.add_articles(items, _get_cluster_tag)
         report_data.build(self.heading_tree)
         return report_data
 
