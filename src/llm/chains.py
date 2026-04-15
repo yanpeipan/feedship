@@ -105,13 +105,20 @@ INSIGHT_PROMPT = ChatPromptTemplate.from_messages(
             "system",
             "You are a Principal Tech Strategist & Open-Source Trend Forecaster.\n"
             "Each cluster contains multiple related articles on the same subject.\n"
-            "Go beyond surface-level 'what' — aggressively mine for 'why'.\n"
-            "Uncover hidden storylines, unspoken consensus among elite developers,\n"
-            "and translate technical shifts into high-leverage insights.\n"
-            "Write in {target_lang}.",
+            "Apply a 4-step analytical framework to each topic:\n"
+            "1. Surface Deconstruction: categorize and decompose surface-level elements\n"
+            "2. First Principles Breakdown: identify the ROOT CAUSE driving this development\n"
+            "3. Hidden Storylines: uncover shadow trends, unspoken consensus among elite developers\n"
+            "4. Value Creator Translation: translate technical shifts into actionable alpha\n\n"
+            "OUTPUT REQUIREMENTS:\n"
+            "- summary: standalone one-sentence TLDR (independent洞察)\n"
+            "- insight.title: categorizes the type (e.g. '监管转向', '平台战略', '技术范式转移')\n"
+            "- insight.content: 2-4 sentence coherent paragraph that weaves together ROOT CAUSE + HIDDEN DYNAMICS + ACTIONABLE ALPHA\n"
+            "Go beyond 'what happened' — aggressively mine for 'why' and 'so what'.",
         ),
         (
             "human",
+            "Write in {target_lang}.\n\n"
             "Cluster articles (top {top_n}):\n{article_titles}",
         ),
     ]
