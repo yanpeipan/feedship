@@ -93,8 +93,9 @@ class LLMWrapper(Runnable):
         self.thinking = thinking
         self.structured_output = structured_output
         self._retry_config = _retry_config or {
-            "stop_after_attempt": 3,
+            "stop_after_attempt": 5,
             "retry_if_exception_type": self._RETRY_TYPES,
+            "wait_exponential_jitter": True,
         }
         self._bind_kwargs = bind_kwargs
 
