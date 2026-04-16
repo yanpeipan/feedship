@@ -105,44 +105,45 @@ class InsightChain(Runnable):
         ]
 
         # Step 4a: process rich clusters (>= 2 articles) with full insight chain
+        # Phase 2: Each cluster independently generates children from its own articles
         if rich_clusters:
             chain = get_insight_chain()
-            inputs = []
-            for c in rich_clusters:
-                article_titles, _ = self._build_article_titles(c)
-                inputs.append(
-                    {
-                        "article_titles": article_titles,
-                        "target_lang": self.target_lang,
-                        "top_n": self.top_n,
-                    }
-                )
+            semaphore = asyncio.Semaphore(self.max_concurrency)
 
-            results = await chain.abatch(
-                inputs, return_exceptions=True, max_concurrency=self.max_concurrency
-            )
-
-            # Map results back to clusters
-            for cluster, result in zip(rich_clusters, results, strict=True):
-                if isinstance(result, Exception):
-                    logger.warning("InsightChain cluster failed: %s", result)
-                elif result and hasattr(result, "topics"):
-                    # Assign topic_id and convert to ReportCluster for cluster.children
-                    cluster.children = []
-                    for i, topic in enumerate(result.topics, start=1):
-                        topic_id = f"Topic_{i:02d}"
-                        from src.application.report.models import ReportCluster
-
-                        rc = ReportCluster(
-                            title=topic_id,
-                            summary=topic.summary,
-                            children=[],
-                            articles=[],
+            async def process_rich_cluster(cluster: ReportCluster) -> None:
+                async with semaphore:
+                    article_titles, _ = self._build_article_titles(cluster)
+                    try:
+                        result = await chain.ainvoke(
+                            {
+                                "article_titles": article_titles,
+                                "target_lang": self.target_lang,
+                                "top_n": self.top_n,
+                            }
                         )
-                        cluster.children.append(rc)
-                    # cluster.summary is set below from the first topic's summary or cluster-level summary
-                    if result.topics:
-                        cluster.summary = result.topics[0].summary
+                        if result and hasattr(result, "topics"):
+                            # Assign topic_id and convert to ReportCluster for cluster.children
+                            cluster.children = []
+                            for i, topic in enumerate(result.topics, start=1):
+                                topic_id = f"Topic_{i:02d}"
+                                from src.application.report.models import ReportCluster
+
+                                rc = ReportCluster(
+                                    title=topic_id,
+                                    summary=topic.summary,
+                                    children=[],
+                                    articles=[],
+                                )
+                                cluster.children.append(rc)
+                            if result.topics:
+                                cluster.summary = result.topics[0].summary
+                    except Exception as e:
+                        logger.warning("InsightChain cluster failed: %s", e)
+
+            await asyncio.gather(
+                *[process_rich_cluster(c) for c in rich_clusters],
+                return_exceptions=True,
+            )
 
         # Step 4b: process simple clusters (< 2 articles) with simple summary only
         if simple_clusters:
