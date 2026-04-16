@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.11
 milestone_name: milestone
 status: completed
-last_updated: "2026-04-16T07:58:52.268Z"
+last_updated: "2026-04-16T09:31:16.035Z"
 last_activity: "2026-04-16 - Completed quick task 260416-k6h: InsightChain 拆分为两部分，1. 递归cluster,  2. 对每个递归的cluster 执行Insight"
 progress:
   total_phases: 5
@@ -52,6 +52,8 @@ Last activity: 2026-04-16 - Completed quick task 260416-k6h: InsightChain 拆分
 
 ## Quick Tasks Completed
 
+| 260416-oc1 | ClusterProcessChain 返回 ReportCluster；新 Topic(source_indices) 映射 articles；废弃 get_insight_chain | 2026-04-16 | 97e90be, 601d610, 5667e1d | Verified | [260416-oc1-clusterprocesschain-reportcluster-topic-](./quick/260416-oc1-clusterprocesschain-reportcluster-topic-/) |
+| 2026-04-16 | fast | _collect_all_clusters 重构为 ReportData 方法；删除已废弃的 simple_clusters 分支 | ✅ |
 | 2026-04-15 | fast | --json 模式保存 .md 并在 JSON 里返回 file_path | ✅ |
 | 260413-1wt | 修改TLDRChain: 去掉top_n过滤，所有clusters生成TLDR；batch调用时取每个cluster的top_n个article，用CEO+AI新闻分析师视角详细总结深度挖掘 | 2026-04-12 | 0456714 | Verified | [260413-1wt-tldrchain-top-n-clusters-tldr-batch-clus](./quick/260413-1wt-tldrchain-top-n-clusters-tldr-batch-clus/) |
 | 260413-2k9 | 补充report的相关文档 | 2026-04-12 | f5714c6 | Verified | [260413-2k9-report](./quick/260413-2k9-report/) |
