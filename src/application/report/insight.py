@@ -22,13 +22,13 @@ class ClusterProcessChain(Runnable):
     children[] populated from ClusterInsightOutput.topics[].source_indices.
 
     Args:
-        top_n: Number of articles per cluster for insight generation (default: 100).
+        top_n: Number of articles per cluster for insight generation (default: 3333).
         target_lang: Target language for insights (default: "zh").
     """
 
     def __init__(
         self,
-        top_n: int = 30,
+        top_n: int = 3333,
         target_lang: str = "zh",
     ) -> None:
         self.top_n = top_n
@@ -115,7 +115,7 @@ class InsightChain(Runnable):
     All clusters with articles go through the same insight processing (no size distinction).
 
     Args:
-        top_n: Number of articles per cluster for insight generation (default: 100).
+        top_n: Number of articles per cluster for insight generation (default: 3333).
             Each cluster passes at most top_n articles (sorted by quality_weight) to the LLM.
         target_lang: Target language for insights (default: "zh").
         max_concurrency: Maximum concurrent LLM calls (default: 5).
@@ -123,7 +123,7 @@ class InsightChain(Runnable):
 
     def __init__(
         self,
-        top_n: int = 30,
+        top_n: int = 3333,
         target_lang: str = "zh",
         max_concurrency: int = 1,
     ) -> None:
