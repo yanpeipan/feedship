@@ -40,15 +40,40 @@ class Insight(BaseModel):
     )
 
 
-class Topic(BaseModel):
-    """A topic within a cluster."""
+class TopicDeprecated(BaseModel):
+    """DEPRECATED: Old nested Topic structure. Use new flat Topic and ClusterInsightOutput."""
 
     title: str = Field(..., description="Topic title in target language")
     summary: str = Field(..., description="One-sentence deep insight")
     insights: list[Insight] = Field(..., description="Multiple insights for this topic")
 
 
-class TopicInsightOutput(BaseModel):
-    """Output from InsightChain — variable-length list of topics."""
+class TopicInsightOutputDeprecated(BaseModel):
+    """DEPRECATED: Old output from InsightChain. Use ClusterInsightOutput."""
 
+    topics: list[TopicDeprecated] = Field(..., description="Topics worth deep-diving")
+
+
+# ---------------------------------------------------------------------------
+# ClusterInsightOutput models — new flat structure for ClusterProcessChain
+# ---------------------------------------------------------------------------
+
+
+class Topic(BaseModel):
+    """A topic within a cluster (flat structure with source_indices)."""
+
+    title: str = Field(..., description="Topic title in target language")
+    summary: str = Field(..., description="One-sentence deep insight")
+    content: str = Field(..., description="2-4 sentence coherent paragraph")
+    source_indices: list[int] = Field(
+        ..., description="1-based article indices from the presented list"
+    )
+
+
+class ClusterInsightOutput(BaseModel):
+    """Output from ClusterProcessChain — flat structure with embedded topics."""
+
+    title: str = Field(..., description="Cluster title in target language")
+    summary: str = Field(..., description="One-sentence TLDR for the cluster")
+    content: str = Field(..., description="2-4 sentence coherent paragraph")
     topics: list[Topic] = Field(..., description="Topics worth deep-diving")

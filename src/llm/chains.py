@@ -11,7 +11,7 @@ from langchain_core.runnables import Runnable
 from src.llm.core import LLMWrapper
 from src.llm.output_models import (
     ClassifyTranslateOutput,
-    TopicInsightOutput,
+    TopicInsightOutputDeprecated,
 )
 
 # ---------------------------------------------------------------------------
@@ -127,7 +127,7 @@ INSIGHT_PROMPT = ChatPromptTemplate.from_messages(
 
 def get_insight_chain() -> Runnable:
     """Returns LCEL chain for batch topic insight generation."""
-    return INSIGHT_PROMPT | LLMWrapper(structured_output=TopicInsightOutput)
+    return INSIGHT_PROMPT | LLMWrapper(structured_output=TopicInsightOutputDeprecated)
 
 
 # Simple summary chain — one-sentence TLDR for clusters with < 2 articles
